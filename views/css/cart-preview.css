@@ -269,6 +269,10 @@
   overflow: hidden;
 }
 
+.modal-content {
+    padding: 2rem;
+}
+
 .blockcart-modal--preview .modal-header {
   position: relative;
   padding: 0;
