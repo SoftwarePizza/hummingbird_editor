@@ -1,0 +1,409 @@
+/* Hummingbird Editor — Admin styles */
+
+/* ── Wrapper ───────────────────────────────────────────────────────────────── */
+.hbe-wrap {
+  max-width: 1100px;
+}
+
+/* ── Toolbar ───────────────────────────────────────────────────────────────── */
+.hbe-toolbar {
+  margin: 16px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hbe-hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* ── Add panel ──────────────────────────────────────────────────────────────── */
+#hbe-add-panel {
+  margin-bottom: 20px;
+}
+#hbe-add-panel .panel-heading {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hbe-topbar-panel {
+  margin-bottom: 20px;
+}
+
+/* ── Hook group ─────────────────────────────────────────────────────────────── */
+.hbe-hook-group {
+  margin-bottom: 18px;
+}
+.hbe-hook-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f7f7f9;
+  border-bottom: 1px solid #ddd;
+  padding: 9px 14px;
+}
+.hbe-hook-name code {
+  font-size: 13px;
+  background: #e8e8f0;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #5c4bd4;
+}
+
+/* ── Block row ──────────────────────────────────────────────────────────────── */
+.hbe-block-row {
+  border-bottom: 1px solid #eee;
+  list-style: none;
+}
+.hbe-block-row:last-child {
+  border-bottom: none;
+}
+.hbe-row-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  transition: background 0.15s;
+}
+.hbe-row-header:hover {
+  background: #fafafa;
+}
+
+/* drag handle */
+.hbe-handle {
+  cursor: grab;
+  color: #aaa;
+  font-size: 16px;
+  padding: 0 4px;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hbe-handle:active { cursor: grabbing; }
+
+/* ── Sortable drag-and-drop ─────────────────────────────────────────────────── */
+/* Placeholder slot shown while dragging */
+.sortable-placeholder {
+  background: linear-gradient(90deg, #e8eeff 0%, #f0f4ff 100%);
+  border: 2px dashed #7b8cde;
+  border-radius: 4px;
+  list-style: none;
+  min-height: 46px;
+  margin: 2px 0;
+}
+/* The item currently being dragged */
+.sortable-dragging {
+  opacity: 0.92;
+  box-shadow: 0 6px 20px rgba(80, 90, 200, 0.22) !important;
+  background: #fff !important;
+  outline: 2px solid #7b8cde;
+  border-radius: 4px;
+  cursor: grabbing !important;
+  z-index: 9000;
+}
+.sortable-dragging .hbe-handle { cursor: grabbing; }
+
+/* type badge */
+.hbe-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.hbe-type-text  { background: #d4edda; color: #155724; }
+.hbe-type-image { background: #cce5ff; color: #004085; }
+.hbe-type-html  { background: #fff3cd; color: #856404; }
+.hbe-type-module { background: #f0e6ff; color: #5a1a8a; border: 1px solid #d4b0ff; }
+
+/* available modules panel */
+.hbe-available-modules {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-top: 1px dashed #ccc;
+}
+.hbe-available-modules-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.hbe-available-module-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #f8f8fb;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.hbe-available-module-item.inactive {
+  opacity: 0.55;
+}
+
+.hbe-block-id {
+  font-size: 11px;
+}
+.hbe-mobile-label {
+  font-size: 11px;
+}
+
+/* row actions */
+.hbe-row-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.hbe-row-actions .btn {
+  font-size: 12px;
+}
+
+/* ── Edit panel ─────────────────────────────────────────────────────────────── */
+.hbe-edit-panel {
+  padding: 16px 18px;
+  background: #fafbff;
+  border-top: 2px solid #d0d6ff;
+}
+.hbe-edit-general {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+/* ── Image section ──────────────────────────────────────────────────────────── */
+.hbe-image-section {
+  margin-bottom: 14px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+}
+.hbe-img-slot label {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 6px;
+  display: block;
+}
+.hbe-img-preview-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+.hbe-img-preview {
+  max-height: 140px;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background: #f5f5f5;
+}
+.hbe-img-slot .hbe-img-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0.85;
+}
+.hbe-img-slot input[type=file] {
+  margin-top: 6px;
+}
+
+/* ── Language tabs ──────────────────────────────────────────────────────────── */
+.hbe-lang-section {
+  margin-top: 12px;
+}
+.hbe-lang-tabs {
+  border-bottom: 2px solid #d0d6ff;
+  margin-bottom: 0;
+}
+.hbe-lang-tabs > li > a {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+}
+.hbe-tab-content {
+  border: 1px solid #d0d6ff;
+  border-top: none;
+  padding: 14px;
+  background: #fff;
+}
+
+/* ── WYSIWYG editor ─────────────────────────────────────────────────────────── */
+.hbe-content-group {
+  margin-bottom: 14px;
+}
+.hbe-device-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 5px;
+  display: block;
+}
+.hbe-wysiwyg-toolbar {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+.hbe-wysiwyg-toolbar button {
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.hbe-wysiwyg-toolbar button:hover {
+  background: #dde;
+}
+.hbe-wysiwyg {
+  min-height: 100px;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid #ccc !important;
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  background: #fff;
+  resize: vertical;
+}
+.hbe-wysiwyg:focus {
+  outline: none;
+  border-color: #7b8cde !important;
+  box-shadow: 0 0 0 2px rgba(123,140,222,0.2);
+}
+.hbe-code-editor {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-color: #444;
+  resize: vertical;
+}
+.hbe-mobile-group {
+  border-left: 3px solid #17a2b8;
+  padding-left: 10px;
+}
+
+/* ── Link row ───────────────────────────────────────────────────────────────── */
+.hbe-link-row {
+  margin-top: 8px;
+}
+
+/* ── Shops ──────────────────────────────────────────────────────────────────── */
+.hbe-shops-section {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+}
+.hbe-shops-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.hbe-shop-label {
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+/* ── Save row ───────────────────────────────────────────────────────────────── */
+.hbe-save-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hbe-save-status {
+  font-size: 13px;
+}
+
+/* ── Utility ────────────────────────────────────────────────────────────────── */
+.hbe-hidden {
+  display: none !important;
+}
+.hbe-alerts {
+  margin-top: 8px;
+}
+.hbe-alerts .alert {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Native PS translatable-field — ensure dropdown aligns with input */
+.translatable-field .input-group-btn > .dropdown-menu { right: 0; left: auto; }
+
+/* ── Main section tabs ──────────────────────────────────────────────────── */
+.hbe-main-tabs {
+  margin-top: 16px;
+  border-bottom: 2px solid #7b8cde;
+}
+.hbe-main-tabs > li > a {
+  font-weight: 600;
+  font-size: 13px;
+  color: #555;
+  border-radius: 4px 4px 0 0;
+  padding: 8px 16px;
+}
+.hbe-main-tabs > li > a:hover {
+  background: #eef0ff;
+  color: #3a4ab0;
+}
+.hbe-main-tabs > li.active > a,
+.hbe-main-tabs > li.active > a:focus,
+.hbe-main-tabs > li.active > a:hover {
+  color: #3a4ab0;
+  border-color: #7b8cde #7b8cde #fff;
+  border-bottom-color: #fff;
+  font-weight: 700;
+}
+.hbe-tab-content {
+  border: 1px solid #ddd;
+  border-top: none;
+  padding: 16px;
+  background: #fafbff;
+  margin-bottom: 20px;
+}
+
+/* ── Collapsible panels inside tabs ─────────────────────────────────────── */
+.hbe-collapse-panel {
+  margin-bottom: 8px;
+}
+.hbe-cp-head {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 10px 14px;
+  background: #f5f6fb;
+  border-radius: 3px;
+}
+.hbe-cp-head:hover {
+  background: #eef0ff;
+}
+.hbe-cp-head .panel-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.hbe-status-badge {
+  margin-right: 10px;
+  font-size: 11px;
+  vertical-align: middle;
+}
+.hbe-chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  vertical-align: middle;
+}
+.hbe-chevron-open {
+  transform: rotate(180deg);
+}

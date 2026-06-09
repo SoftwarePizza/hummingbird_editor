@@ -1,0 +1,311 @@
+/**
+ * Cart preview (Modal Figma design) — hover panel in the header and
+ * add-to-cart modal replacement.
+ *
+ * Shipped and managed by the hummingbird_editor module so the ps_shoppingcart
+ * core module stays untouched (it would be overwritten on PrestaShop updates).
+ */
+
+/* Design tokens — mirror of front.css so this file is self-contained */
+:root {
+  --hbe-black: rgba(36, 36, 36, 1);
+  --hbe-white: #fff;
+}
+
+/* ------------------------------------------------------------------ *
+ * Hover panel positioning
+ * ------------------------------------------------------------------ */
+.ps-shoppingcart {
+  position: relative;
+}
+
+.cart-preview-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1050;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  margin-top: 8px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
+  pointer-events: none;
+}
+
+/* Invisible bridge so the cursor can travel from the icon to the panel */
+.cart-preview-panel::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: 0;
+  right: 0;
+  height: 12px;
+}
+
+.ps-shoppingcart--has-preview .header-block:hover .cart-preview-panel,
+.ps-shoppingcart--has-preview .header-block:focus-within .cart-preview-panel {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition-delay: 0s;
+  pointer-events: auto;
+}
+
+/* ------------------------------------------------------------------ *
+ * Shared cart preview content
+ * ------------------------------------------------------------------ */
+
+
+.cart-preview-panel .cart-preview {
+  max-height: min(80vh, 640px);
+  overflow-y: auto;
+    box-sizing: border-box;
+  background: var(--bs-body-bg, #fff);
+  color: var(--hbe-black);
+  padding: 24px;
+  border-radius: 4px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+  text-align: left;
+}
+
+.cart-preview__title {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Free shipping ---------------------------------------------------- */
+.cart-preview__shipping {
+  margin-bottom: 24px;
+}
+
+.cart-preview__shipping-label {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.cart-preview__progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bs-secondary-bg, #ededed);
+  overflow: hidden;
+}
+
+.cart-preview__progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--hbe-black);
+  transition: width 0.3s ease;
+}
+
+/* Product list ----------------------------------------------------- */
+.cart-preview__products {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cart-preview-product {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  gap: 16px;
+  align-items: start;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--bs-border-color, #ececec);
+}
+
+.cart-preview__products .cart-preview-product:first-child {
+  padding-top: 0;
+}
+
+.cart-preview-product__image {
+  display: block;
+}
+
+.cart-preview-product__img {
+  display: block;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.cart-preview-product__info {
+  min-width: 0;
+}
+
+.cart-preview-product__name {
+  display: block;
+  margin-bottom: 14px;
+  font-family: 'Geist Sans', sans-serif;
+  font-size: 18px;
+  color: var(--hbe-black);
+  text-decoration: none;
+}
+
+.cart-preview-product__name:hover {
+  text-decoration: underline;
+}
+
+.cart-preview-product__attr {
+  font-size: 13px;
+  color: var(--bs-secondary-color, #6b6b6b);
+  margin-bottom: 8px;
+}
+
+.cart-preview-product__qty {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--bs-border-color, #e0e0e0);
+  border-radius: 2px;
+}
+
+.cart-preview-product__qty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--hbe-black);
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+}
+
+.cart-preview-product__qty-btn:hover {
+  background: var(--bs-tertiary-bg, #f5f5f5);
+}
+
+.cart-preview-product__qty-value {
+  min-width: 32px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.cart-preview-product__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 18px;
+  white-space: nowrap;
+}
+
+.cart-preview-product__price {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.cart-preview-product__remove {
+  font-size: 14px;
+  color: var(--bs-secondary-color, #6b6b6b);
+  text-decoration: underline;
+}
+
+.cart-preview-product__remove:hover {
+  color: var(--hbe-black);
+}
+
+/* Footer ----------------------------------------------------------- */
+.cart-preview__footer {
+  padding-top: 20px;
+}
+
+.cart-preview__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.cart-preview__row--total {
+  font-weight: 700;
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.cart-preview__cta {
+  display: block;
+  width: 100%;
+  padding: 18px 24px;
+  background: var(--hbe-black);
+  color: var(--hbe-white);
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: opacity 0.2s;
+}
+
+.cart-preview__cta:hover {
+  background: var(--hbe-black);
+  color: var(--hbe-white);
+  opacity: 0.9;
+}
+
+.cart-preview__empty {
+  margin: 12px 0 0;
+  color: var(--bs-secondary-color, #6b6b6b);
+}
+
+/* ------------------------------------------------------------------ *
+ * Add-to-cart modal variant
+ * ------------------------------------------------------------------ */
+.blockcart-modal--preview .modal-dialog {
+  max-width: 480px;
+}
+
+.blockcart-modal--preview .modal-content {
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.blockcart-modal--preview .modal-header {
+  position: relative;
+  padding: 0;
+  border: 0;
+  min-height: 0;
+}
+
+.blockcart-modal--preview .modal-header .btn-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+}
+
+.blockcart-modal--preview .modal-body {
+  padding: 0;
+}
+
+.blockcart-modal--preview .cart-preview {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+@media (max-width: 575.98px) {
+  .cart-preview-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .cart-preview-panel .cart-preview {
+    border-radius: 12px 12px 0 0;
+    max-height: 85vh;
+  }
+}
