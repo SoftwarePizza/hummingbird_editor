@@ -284,6 +284,14 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // Related products carousel (below FAQ on product page)
+        if (Configuration::get('HBE_RELATED_ENABLED') === false) {
+            Configuration::updateValue('HBE_RELATED_ENABLED', 1);
+        }
+        if (Configuration::get('HBE_RELATED_TITLE') === false) {
+            Configuration::updateValue('HBE_RELATED_TITLE', 'Inni kupili również');
+        }
+
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
@@ -384,6 +392,8 @@ class Hummingbird_editor extends Module
         foreach (Language::getLanguages(false) as $lang) {
             Configuration::deleteByName('HBE_FAQ_ITEMS_' . (int)$lang['id_lang']);
         }
+        Configuration::deleteByName('HBE_RELATED_ENABLED');
+        Configuration::deleteByName('HBE_RELATED_TITLE');
 
         return parent::uninstall()
             && $this->dropTables()
@@ -619,6 +629,12 @@ class Hummingbird_editor extends Module
             ['position' => 'bottom', 'priority' => 200]
         );
 
+        $this->context->controller->registerJavascript(
+            'hb-editor-related',
+            'modules/' . $this->name . '/views/js/related-carousel.js',
+            ['position' => 'bottom', 'priority' => 200]
+        );
+
         // Assign carousel section header vars for template overrides (localized)
         $this->context->smarty->assign([
             'hbe_np_title'     => $this->hbeLocConfig('HBE_NP_TITLE'),
@@ -731,7 +747,50 @@ class Hummingbird_editor extends Module
 
     public function hookDisplayProductButtons(array $params = []): string
     {
-        return $this->renderFaq();
+        return $this->renderFaq() . $this->renderRelated($params);
+    }
+
+    /**
+     * "Inni kupili również" — shell of the one-card carousel rendered below the
+     * FAQ. Items come from ps_crossselling data, fetched lazily by
+     * related-carousel.js from the module front controller (related.php).
+     */
+    private function renderRelated(array $params = []): string
+    {
+        if (!(int) Configuration::get('HBE_RELATED_ENABLED')) {
+            return '';
+        }
+        $cross = Module::getInstanceByName('ps_crossselling');
+        if (!$cross || !$cross->active) {
+            return '';
+        }
+
+        $idProduct = 0;
+        if (isset($params['product'])) {
+            $idProduct = (int) ($params['product']['id_product'] ?? $params['product']['id'] ?? 0);
+        }
+        if (!$idProduct) {
+            $idProduct = (int) Tools::getValue('id_product');
+        }
+        if (!$idProduct) {
+            return '';
+        }
+
+        $title = trim((string) $this->hbeLocConfig('HBE_RELATED_TITLE'));
+        if ($title === '') {
+            $title = 'Inni kupili również';
+        }
+
+        $this->context->smarty->assign([
+            'hbe_related_title'    => $title,
+            'hbe_related_ajax_url' => $this->context->link->getModuleLink(
+                $this->name,
+                'related',
+                ['id_product' => $idProduct]
+            ),
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/related.tpl');
     }
 
     private function renderFaq(): string

@@ -1570,3 +1570,129 @@ img.product-miniature__image {
 .hbe-faq__answer-inner p { margin: 0 0 0.75rem; font-family: "Geist", "Geist Sans", sans-serif; font-size: 0.875rem; line-height: 1.6; }
 .hbe-faq__answer-inner a { text-decoration: underline; }
 .hbe-faq__answer-inner > :last-child { margin-bottom: 1rem; }
+
+/* ── Related products carousel ("Inni kupili również") ─────────────────────── */
+.hbe-related {
+    margin: 2rem 0 1rem;
+}
+.hbe-related__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+.hbe-related__title {
+    margin: 0;
+    font-family: "Lora", Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--hbe-black);
+}
+.hbe-related__nav {
+    display: flex;
+    gap: 0.5rem;
+}
+.hbe-related__arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: var(--hbe-black);
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid rgba(36, 36, 36, 0.25);
+    border-radius: 50%;
+    transition: border-color 0.2s, opacity 0.2s;
+}
+.hbe-related__arrow:hover:not(:disabled),
+.hbe-related__arrow:focus-visible:not(:disabled) {
+    border-color: var(--hbe-black);
+}
+.hbe-related__arrow:disabled {
+    cursor: default;
+    opacity: 0.3;
+}
+.hbe-related__viewport {
+    overflow: hidden;
+}
+.hbe-related__track {
+    display: flex;
+    transition: transform 0.3s ease;
+}
+.hbe-related__card {
+    display: flex;
+    flex: 0 0 100%;
+    gap: 1rem;
+    align-items: center;
+    min-width: 100%;
+    padding: 0.75rem;
+    background: #f5f5f5;
+}
+.hbe-related__card--skeleton {
+    min-height: 136px;
+}
+.hbe-related__media {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 104px;
+    height: 104px;
+    background: var(--hbe-white);
+}
+.hbe-related__media img {
+    max-width: 88%;
+    max-height: 88%;
+    object-fit: contain;
+}
+.hbe-related__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+.hbe-related__name {
+    font-family: "Geist", "Geist Sans", sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--hbe-black);
+    text-decoration: none;
+}
+.hbe-related__name:hover {
+    color: var(--hbe-black);
+    text-decoration: underline;
+}
+.hbe-related__price {
+    font-family: "Geist", "Geist Sans", sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--hbe-black);
+}
+.hbe-related__tax {
+    font-size: 0.8125rem;
+    color: rgba(90, 90, 90, 1);
+}
+.hbe-related__form {
+    margin-left: auto;
+}
+.hbe-related__cart {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    color: var(--hbe-black);
+    cursor: pointer;
+    background: var(--hbe-white);
+    border: 0;
+    transition: opacity 0.2s;
+}
+.hbe-related__cart:hover {
+    opacity: 0.75;
+}
