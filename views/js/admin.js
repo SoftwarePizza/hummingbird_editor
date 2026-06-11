@@ -375,6 +375,38 @@ $(function () {
         });
     });
 
+    /* ── Image + text section (product page): save ───────────────────── */
+    $(document).on('submit', '#hbe-imgtext-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var fd = new FormData($form[0]);
+        if (!$form.find('[name=enabled]').is(':checked')) {
+            fd.set('enabled', '0');
+        }
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveImgText&ajax=1',
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                    if (resp.img_url) {
+                        $('#hbe-imgtext-img-preview').attr('src', resp.img_url);
+                        $('#hbe-imgtext-img-wrap').show();
+                        $form.find('[name=image]').val('');
+                    }
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     /* ── 3-column text links block: save ─────────────────────────────────── */
     $(document).on('submit', '#hbe-cols3-form', function (e) {
         e.preventDefault();

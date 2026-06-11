@@ -511,6 +511,23 @@ class AdminHbEditorController extends ModuleAdminController
                 }
                 return $out;
             })(),
+            // Image + text section (product page)
+            'hbe_imgtext_enabled'  => (int) Configuration::get('HBE_IMGTEXT_ENABLED'),
+            'hbe_imgtext_bg'       => (string) (Configuration::get('HBE_IMGTEXT_BG') ?: '#f5f1ea'),
+            'hbe_imgtext_img_url'  => Configuration::get('HBE_IMGTEXT_IMAGE')
+                ? __PS_BASE_URI__ . 'img/hb_editor/' . Configuration::get('HBE_IMGTEXT_IMAGE')
+                : '',
+            'hbe_imgtext_img_mobile_url' => Configuration::get('HBE_IMGTEXT_IMAGE_MOBILE')
+                ? __PS_BASE_URI__ . 'img/hb_editor/' . Configuration::get('HBE_IMGTEXT_IMAGE_MOBILE')
+                : '',
+            'hbe_imgtext_ml_images' => (int) Configuration::get('HBE_IMGTEXT_IMAGE_ML'),
+            'hbe_imgtext_title_lang'    => $this->getConfigPerLang('HBE_IMGTEXT_TITLE',    $languages),
+            'hbe_imgtext_desc_lang'     => $this->getConfigPerLang('HBE_IMGTEXT_DESC',     $languages),
+            'hbe_imgtext_cta_text_lang' => $this->getConfigPerLang('HBE_IMGTEXT_CTA_TEXT', $languages),
+            'hbe_imgtext_cta_url_lang'  => $this->getConfigPerLang('HBE_IMGTEXT_CTA_URL',  $languages),
+            'hbe_imgtext_image_lang'      => $this->getImageFilenamesPerLang('HBE_IMGTEXT_IMAGE', $languages),
+            'hbe_imgtext_image_lang_urls' => $this->getImageUrlsPerLang('HBE_IMGTEXT_IMAGE',      $languages),
+            'hbe_imgtext_image_mobile_lang_urls' => $this->getImageUrlsPerLang('HBE_IMGTEXT_IMAGE_MOBILE', $languages),
         ]);
 
         $this->assignSliderTab($languages);
@@ -1652,6 +1669,44 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $key = Tools::getValue('variant') === 'mobile' ? 'HBE_IMGHERO2_IMAGE_MOBILE' : 'HBE_IMGHERO2_IMAGE';
+        $this->deleteLocalizedImage($key, $idLang);
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    public function ajaxProcessSaveImgText(): void
+    {
+        $enabled    = (int) Tools::getValue('enabled', 0);
+        $titleRaw   = Tools::getValue('title', '');
+        $descRaw    = Tools::getValue('desc', '');
+        $ctaTextRaw = Tools::getValue('cta_text', '');
+        $ctaUrlRaw  = Tools::getValue('cta_url', '');
+        $bg         = Tools::getValue('HBE_IMGTEXT_BG', '#f5f1ea');
+
+        $mlImages = (int) Tools::getValue('ml_images', 0);
+        Configuration::updateValue('HBE_IMGTEXT_IMAGE_ML', $mlImages);
+
+        $this->saveLocalizedImage('HBE_IMGTEXT_IMAGE', 'image', 'imgtext', (bool) $mlImages);
+        $this->handleMobileImage('HBE_IMGTEXT_IMAGE', 'image', 'imgtext_mobile', (bool) $mlImages);
+        $currentImage = (string) Configuration::get('HBE_IMGTEXT_IMAGE');
+
+        Configuration::updateValue('HBE_IMGTEXT_ENABLED', $enabled);
+        Configuration::updateValue('HBE_IMGTEXT_BG', preg_match('/^#[0-9a-fA-F]{6}$/', $bg) ? $bg : '#f5f1ea');
+        $this->saveLocalizedFromForm('HBE_IMGTEXT_TITLE',    $titleRaw);
+        $this->saveLocalizedFromForm('HBE_IMGTEXT_DESC',     $descRaw);
+        $this->saveLocalizedFromForm('HBE_IMGTEXT_CTA_TEXT', $ctaTextRaw);
+        $this->saveLocalizedFromForm('HBE_IMGTEXT_CTA_URL',  $ctaUrlRaw, true);
+
+        $this->ajaxDie(json_encode([
+            'success'  => true,
+            'img_url'  => $currentImage ? __PS_BASE_URI__ . 'img/hb_editor/' . $currentImage : '',
+            'img_name' => $currentImage,
+        ]));
+    }
+
+    public function ajaxProcessDeleteImgTextImage(): void
+    {
+        $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
+        $key = Tools::getValue('variant') === 'mobile' ? 'HBE_IMGTEXT_IMAGE_MOBILE' : 'HBE_IMGTEXT_IMAGE';
         $this->deleteLocalizedImage($key, $idLang);
         $this->ajaxDie(json_encode(['success' => true]));
     }

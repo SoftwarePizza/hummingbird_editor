@@ -87,6 +87,9 @@
       <a href="#hbe-tab-faq" data-toggle="tab" role="tab"><i class="icon-question-sign"></i> {l s='FAQ' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-imgtext" data-toggle="tab" role="tab"><i class="icon-picture"></i> {l s='Obraz + tekst' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-settings" data-toggle="tab" role="tab"><i class="icon-cogs"></i> {l s='Ustawienia' mod='hummingbird_editor'}</a>
     </li>
   </ul>
@@ -1130,6 +1133,75 @@
       </div>
 
     </div>{* /tab-settings *}
+
+    {* ══ Image + text (below the description on product page) ════════════ *}
+    <div id="hbe-tab-imgtext" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title"><i class="icon-picture"></i> {l s='Sekcja Obraz + tekst (karta produktu)' mod='hummingbird_editor'}</h3></div>
+        <div class="panel-body">
+          <p class="text-muted" style="margin-bottom:1rem">{l s='Sekcja pod opisem produktu: panel z tytułem, opisem i przyciskiem po lewej, zdjęcie po prawej.' mod='hummingbird_editor'}</p>
+          <form id="hbe-imgtext-form" method="post" action="{$hbe_ajax_url nofilter}" enctype="multipart/form-data" autocomplete="off">
+            <input type="hidden" name="token" value="{$hbe_token}">
+            <div class="row">
+              <div class="col-md-2 form-group">
+                <label class="control-label">{l s='Włącz' mod='hummingbird_editor'}</label>
+                <div class="checkbox"><label>
+                  <input type="checkbox" name="enabled" id="hbe-imgtext-enabled" value="1" {if $hbe_imgtext_enabled}checked{/if}>
+                  {l s='Yes' mod='hummingbird_editor'}
+                </label></div>
+              </div>
+              <div class="col-md-4 form-group">
+                <label class="control-label">{l s='Tytuł' mod='hummingbird_editor'}</label>
+                {include file="{$hbe_tpl_dir}_ml_input.tpl" name='title' values=$hbe_imgtext_title_lang placeholder='np. Sanssouci Elfenbein Gold'}
+              </div>
+              <div class="col-md-6 form-group">
+                <label class="control-label">{l s='Opis' mod='hummingbird_editor'}</label>
+                {include file="{$hbe_tpl_dir}_ml_input.tpl" name='desc' values=$hbe_imgtext_desc_lang placeholder='Krótki opis kolekcji'}
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-3 form-group">
+                <label class="control-label">{l s='Tekst przycisku' mod='hummingbird_editor'}</label>
+                {include file="{$hbe_tpl_dir}_ml_input.tpl" name='cta_text' values=$hbe_imgtext_cta_text_lang placeholder='np. Zobacz całą kolekcję'}
+              </div>
+              <div class="col-md-4 form-group">
+                <label class="control-label">{l s='Link przycisku' mod='hummingbird_editor'}</label>
+                {include file="{$hbe_tpl_dir}_ml_input.tpl" name='cta_url' values=$hbe_imgtext_cta_url_lang placeholder='https://example.com/kolekcja'}
+              </div>
+              <div class="col-md-2 form-group">
+                <label class="control-label">{l s='Tło panelu' mod='hummingbird_editor'}</label>
+                <input type="color" class="form-control" name="HBE_IMGTEXT_BG" value="{$hbe_imgtext_bg|escape:'html':'UTF-8'}">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-3 form-group">
+                <label class="control-label">{l s='Zdjęcia per język' mod='hummingbird_editor'}</label>
+                <div class="checkbox"><label>
+                  <input type="checkbox" name="ml_images" value="1" {if $hbe_imgtext_ml_images}checked{/if}>
+                  {l s='Tak (osobne zdjęcia dla języków)' mod='hummingbird_editor'}
+                </label></div>
+              </div>
+              <div class="col-md-6 form-group">
+                <label class="control-label">{l s='Zdjęcie sekcji' mod='hummingbird_editor'}</label>
+                {capture name=hbe_imgtext_help}{l s='Zalecany format: JPG/WebP, min. 1200×600 px.' mod='hummingbird_editor'}{/capture}
+                {include file="{$hbe_tpl_dir}_ml_image.tpl"
+                  name="image" dom_prefix="hbe-imgtext-img"
+                  base_url=$hbe_imgtext_img_url
+                  per_lang=$hbe_imgtext_image_lang per_lang_urls=$hbe_imgtext_image_lang_urls
+                  delete_action="DeleteImgTextImage" help=$smarty.capture.hbe_imgtext_help
+                  ml=$hbe_imgtext_ml_images mobile=1
+                  mobile_base_url=$hbe_imgtext_img_mobile_url
+                  mobile_per_lang_urls=$hbe_imgtext_image_mobile_lang_urls}
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz sekcję' mod='hummingbird_editor'}</button>
+            <div class="hbe-alerts"></div>
+          </form>
+        </div>
+      </div>
+
+    </div>{* /hbe-tab-imgtext *}
 
     {* ══ FAQ (below add-to-cart on product page) ══════════════════════════ *}
     <div id="hbe-tab-faq" class="tab-pane" role="tabpanel">

@@ -24,7 +24,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.2.0';
+        $this->version = '1.3.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -292,6 +292,23 @@ class Hummingbird_editor extends Module
             Configuration::updateValue('HBE_RELATED_TITLE', 'Inni kupili również');
         }
 
+        // Image + text section (below the description on the product page)
+        if (Configuration::get('HBE_IMGTEXT_ENABLED') === false) {
+            Configuration::updateValue('HBE_IMGTEXT_ENABLED', 0);
+        }
+        if (Configuration::get('HBE_IMGTEXT_BG') === false) {
+            Configuration::updateValue('HBE_IMGTEXT_BG', '#f5f1ea');
+        }
+        foreach (['HBE_IMGTEXT_IMAGE', 'HBE_IMGTEXT_IMAGE_MOBILE', 'HBE_IMGTEXT_TITLE',
+                  'HBE_IMGTEXT_DESC', 'HBE_IMGTEXT_CTA_TEXT', 'HBE_IMGTEXT_CTA_URL'] as $k) {
+            if (Configuration::get($k) === false) {
+                Configuration::updateValue($k, '');
+            }
+        }
+        if (Configuration::get('HBE_IMGTEXT_IMAGE_ML') === false) {
+            Configuration::updateValue('HBE_IMGTEXT_IMAGE_ML', 0);
+        }
+
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
@@ -299,6 +316,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('displayAfterBodyOpeningTag')
             && $this->registerHook('displayHome')
             && $this->registerHook('displayProductButtons')
+            && $this->registerHook('displayFooterProduct')
             && $this->installTab();
     }
 
@@ -394,6 +412,11 @@ class Hummingbird_editor extends Module
         }
         Configuration::deleteByName('HBE_RELATED_ENABLED');
         Configuration::deleteByName('HBE_RELATED_TITLE');
+        foreach (['HBE_IMGTEXT_ENABLED', 'HBE_IMGTEXT_BG', 'HBE_IMGTEXT_IMAGE', 'HBE_IMGTEXT_IMAGE_MOBILE',
+                  'HBE_IMGTEXT_IMAGE_ML', 'HBE_IMGTEXT_TITLE', 'HBE_IMGTEXT_DESC',
+                  'HBE_IMGTEXT_CTA_TEXT', 'HBE_IMGTEXT_CTA_URL'] as $k) {
+            Configuration::deleteByName($k);
+        }
 
         return parent::uninstall()
             && $this->dropTables()
@@ -791,6 +814,52 @@ class Hummingbird_editor extends Module
         ]);
 
         return $this->display(__FILE__, 'views/templates/hook/related.tpl');
+    }
+
+    /**
+     * Explicit hook (would otherwise go through __call) so the "image + text"
+     * section renders below the product description, before any custom blocks
+     * assigned to this hook.
+     */
+    public function hookDisplayFooterProduct(array $params = []): string
+    {
+        return $this->renderImgText() . $this->renderHookBlocks('displayFooterProduct', $params);
+    }
+
+    /**
+     * Image + text split section (Figma: Image with Text) — cream text panel
+     * with title/desc/outline CTA on the left, full-bleed image on the right.
+     */
+    private function renderImgText(): string
+    {
+        if (!(int) Configuration::get('HBE_IMGTEXT_ENABLED')) {
+            return '';
+        }
+        $image = trim((string) Configuration::get('HBE_IMGTEXT_IMAGE'));
+        if ($image === '') {
+            return '';
+        }
+        $imageSources = $this->resolveHbEditorImageSources($image);
+        $mobileImage = trim((string) Configuration::get('HBE_IMGTEXT_IMAGE_MOBILE'));
+        $mobileSources = $this->resolveHbEditorImageSources($mobileImage);
+        $url = trim($this->hbeLocConfig('HBE_IMGTEXT_CTA_URL'));
+        if ($url !== '' && !preg_match('#^https?://#i', $url) && strpos($url, '/') !== 0) {
+            $url = 'https://' . $url;
+        }
+
+        $this->context->smarty->assign([
+            'hbe_imgtext_image_url' => $imageSources['url'],
+            'hbe_imgtext_image_webp_url' => $imageSources['webp_url'],
+            'hbe_imgtext_image_mobile_url' => $mobileSources['url'],
+            'hbe_imgtext_image_mobile_webp_url' => $mobileSources['webp_url'],
+            'hbe_imgtext_title'    => $this->hbeLocConfig('HBE_IMGTEXT_TITLE'),
+            'hbe_imgtext_desc'     => $this->hbeLocConfig('HBE_IMGTEXT_DESC'),
+            'hbe_imgtext_cta_text' => $this->hbeLocConfig('HBE_IMGTEXT_CTA_TEXT'),
+            'hbe_imgtext_cta_url'  => $url,
+            'hbe_imgtext_bg'       => (string) (Configuration::get('HBE_IMGTEXT_BG') ?: '#f5f1ea'),
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/imgtext.tpl');
     }
 
     private function renderFaq(): string
