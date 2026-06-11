@@ -1441,6 +1441,7 @@ var hbeTrans = {
 };
 
 // FAQ builder
+{literal}
 document.addEventListener('DOMContentLoaded', function () {
   // Add FAQ row
   document.querySelectorAll('.hbe-faq-add-btn').forEach(function (btn) {
@@ -1499,4 +1500,5 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 });
+{/literal}
 </script>
