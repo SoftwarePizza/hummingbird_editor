@@ -6,9 +6,9 @@
 }
 .hbe-brands__title {
   text-align: center;
-  font-family: 'Lora', Georgia, serif;
+  font-family: var(--font-heading);
   font-weight: 400;
-  font-size: 1.5rem;
+  font-size: var(--fs-h4);
   line-height: 1;
   margin-bottom: 1.5rem;
   color: var(--bs-body-color);
@@ -49,7 +49,7 @@
     width: 100%;
     text-align: center;
     padding: 0.75rem 1rem;
-    font-size: 0.95rem;
+    font-size: var(--fs-body-m);
     font-weight: 500;
     line-height: 1.4;
     box-sizing: border-box;
@@ -99,10 +99,10 @@
 
 .hbe-imghero__title {
     margin-bottom: 2rem;
-    font-family: 'Lora', Georgia, serif;
+    font-family: var(--font-heading);
     font-weight: 400;
     font-style: normal;
-    font-size: 32px;
+    font-size: var(--fs-h2);
     line-height: 1;
     letter-spacing: 0;
     color: var(--hbe-white);
@@ -127,10 +127,10 @@
     gap: 10px;
     background: var(--hbe-white);
     color: var(--hbe-black);
-    font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-body);
     font-weight: 500;
     font-style: normal;
-    font-size: 14px;
+    font-size: var(--fs-body-s);
     line-height: 1;
     letter-spacing: 0;
     border-radius: 0px;
@@ -189,7 +189,7 @@
     min-height: 64px;
     padding: 12px 0;
     text-decoration: none;
-    color: rgba(36, 36, 36, 1);
+    color: var(--c-black);
     gap: 20px;
     transition: opacity 0.15s;
 }
@@ -198,7 +198,7 @@
 .hbe-cols3__link:focus {
     background: transparent;
     text-decoration: none;
-    color: rgba(36, 36, 36, 1);
+    color: var(--c-black);
     opacity: 0.82;
 }
 
@@ -211,13 +211,13 @@
 }
 
 .hbe-cols3__text {
-    font-family: 'Lora', Georgia, serif;
+    font-family: var(--font-heading);
     font-weight: 400;
     font-style: normal;
-    font-size: 26px;
+    font-size: var(--fs-h3);
     line-height: 1;
     letter-spacing: 0;
-    color: rgba(36, 36, 36, 1);
+    color: var(--c-black);
     flex: 1;
 }
 
@@ -226,7 +226,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: rgba(36, 36, 36, 1);
+    color: var(--c-black);
     transition: transform 0.15s;
 }
 
@@ -263,10 +263,10 @@
 }
 
 .hbe-tagline__text {
-    font-family: 'Lora', Georgia, serif;
+    font-family: var(--font-heading);
     font-weight: 400;
     font-style: normal;
-    font-size: 32px;
+    font-size: var(--fs-h2);
     line-height: 1;
     letter-spacing: 0;
     margin: 0 0 1.25rem;
@@ -277,10 +277,10 @@
 
 .hbe-tagline__link {
     display: inline-block;
-    font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-body);
     font-weight: 400;
     font-style: normal;
-    font-size: 14px;
+    font-size: var(--fs-body-s);
     line-height: 1;
     letter-spacing: 0;
     text-decoration: underline;
@@ -301,7 +301,7 @@
 
 @media (max-width: 767px) {
     .hbe-tagline__text {
-        font-size: 22px;
+        font-size: var(--fs-h4);
         max-width: 100%;
     }
 }
@@ -319,7 +319,7 @@
     gap: 8px;
 }
 .hbe-katcols__title {
-    font-size: 1.6rem;
+    font-size: var(--fs-h3);
     font-weight: 700;
     margin: 0;
 }
@@ -327,7 +327,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 0.92rem;
+    font-size: var(--fs-body-s);
     color: #555;
 }
 .hbe-katcols__hdr-link {
@@ -370,16 +370,16 @@
 .hbe-katcols__caption {
         display: block;
     margin-top: 1.2rem;
-    font-family: 'Lora', Georgia, serif;
+    font-family: var(--font-heading);
     font-weight: 400;
     font-style: normal;
-    font-size: 24px;
+    font-size: var(--fs-h4);
     letter-spacing: 0;
-    color: rgba(36, 36, 36, 1);
+    color: var(--c-black);
     text-align: left;
 }
 .hbe-katcols__col--right .hbe-katcols__caption {
-    font-size: 24px;
+    font-size: var(--fs-h4);
 }
 @media (max-width: 767px) {
     .hbe-katcols__cols {
@@ -445,17 +445,17 @@
     object-fit: cover;
 }
 .hbe-splitblock__title {
-    font-family: 'Lora', Georgia, serif;
+    font-family: var(--font-heading);
     font-weight: 400;
     font-style: normal;
-    font-size: 32px;
+    font-size: var(--fs-h2);
     line-height: 100%;
     letter-spacing: 0;
-    color: rgba(36, 36, 36, 1);
+    color: var(--c-black);
     margin: 0;
 }
 .hbe-splitblock__desc {
-    font-size: 0.95rem;
+    font-size: var(--fs-body-m);
     line-height: 1.6;
     color: #444;
     margin: 0;
@@ -468,7 +468,7 @@
     color: var(--hbe-black);
     border: 1px solid var(--hbe-black);
     border-radius: 0;
-    font-size: 0.9rem;
+    font-size: var(--fs-body-s);
     font-weight: 600;
     text-decoration: none;
     letter-spacing: 0.04em;
@@ -513,7 +513,7 @@
 .hbe-cols3desc__row {
     display: flex;
     align-items: stretch;
-    border-bottom: 1px solid rgba(36, 36, 36, 1);
+    border-bottom: 1px solid var(--c-black);
 }
 
 .hbe-cols3desc__col {
@@ -545,7 +545,7 @@
 }
 
 .hbe-cols3desc__title {
-    font-size: 1rem;
+    font-size: var(--fs-body-m);
     font-weight: 700;
     line-height: 1.3;
     display: block;
@@ -554,7 +554,7 @@
 }
 
 .hbe-cols3desc__desc {
-    font-size: 0.875rem;
+    font-size: var(--fs-body-s);
     color: #555;
     line-height: 1.5;
     margin: 0;
@@ -633,13 +633,13 @@
     object-fit: contain;
 }
 .hbe-icons4__title {
-    font-size: 1rem;
+    font-size: var(--fs-body-m);
     font-weight: 700;
     margin: 0;
     line-height: 1.3;
 }
 .hbe-icons4__desc {
-    font-size: 0.875rem;
+    font-size: var(--fs-body-s);
     color: #555;
     line-height: 1.55;
     margin: 0;
@@ -647,7 +647,7 @@
 .hbe-icons4__divider {
     width: 1px;
     align-self: stretch;
-    background: #e5e5e5;
+    background: var(--c-grey-2);
     flex-shrink: 0;
     margin: 16px 0;
 }
@@ -786,8 +786,8 @@
 }
 
 .hbe-slider__title {
-    font-family: 'Lora', serif;
-    font-size: 36px;
+    font-family: var(--font-heading);
+    font-size: var(--fs-h1);
     font-weight: 400;
     font-style: normal;
     line-height: 1;
@@ -799,8 +799,8 @@
 }
 
 .hbe-slider__desc {
-    font-family: 'Lora', serif;
-    font-size: 1.125rem;
+    font-family: var(--font-heading);
+    font-size: var(--fs-body-l);
     font-weight: 400;
     font-style: normal;
     line-height: 1;
@@ -993,28 +993,26 @@
 
 .hbe-slider__cta--sm {
     padding: 0.45rem 1rem;
-    font-size: 0.8rem;
+    font-size: var(--fs-body-xs);
 }
 
 .hbe-slider__cta--md {
     padding: 0.65rem 1.5rem;
-    font-size: 1rem;
+    font-size: var(--fs-body-m);
 }
 
 .hbe-slider__cta--lg {
     padding: 0.9rem 2rem;
-    font-size: 1.2rem;
+    font-size: var(--fs-h4);
 }
 
 @media (max-width: 992px) {
-    .hbe-slider__title { font-size: 28px; }
-    .hbe-slider__desc { font-size: 1rem; }
+    .hbe-slider__desc { font-size: var(--fs-body-m); }
     .hbe-slider__caption { padding: 1.5rem; }
 }
 
 @media (max-width: 768px) {
-    .hbe-slider__title { font-size: 24px; }
-    .hbe-slider__desc { font-size: 0.9375rem; }
+    .hbe-slider__desc { font-size: var(--fs-body-m); }
     .hbe-slider__caption { padding: 1rem; }
     .hbe-slider__arrow { padding: 0.75rem; }
     .hbe-slider__arrow svg { width: 20px; height: 20px; }
@@ -1039,9 +1037,8 @@
 }
 
 @media (max-width: 576px) {
-    .hbe-slider__title { font-size: 20px; }
     .hbe-slider__desc {
-        font-size: 0.875rem;
+        font-size: var(--fs-body-s);
         display: -webkit-box;
         -webkit-line-clamp: 3;
         line-clamp: 3;

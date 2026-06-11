@@ -1,8 +1,8 @@
 /* Hummingbird Editor — Frontend block styles */
 
 :root {
-    --hbe-black: rgba(36, 36, 36, 1);
-    --hbe-white: #fff;
+    --hbe-black: var(--c-black, #242424);
+    --hbe-white: var(--c-white, #fff);
 }
 
 /* Lora loaded via theme SCSS (_fonts.scss @fontsource/lora) */
@@ -51,7 +51,7 @@
 .hbe-topbar {
   background: var(--bs-primary);
   color: #fff;
-  font-size: 12px;
+  font-size: var(--fs-body-xs);
   line-height: 1.2;
   padding: 6px 10px;
   text-align: center;
@@ -111,7 +111,7 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none !important;
-  font-size: 1.1rem;
+  font-size: var(--fs-body-l);
   padding: 0.4rem 0.25rem;
 }
 
@@ -183,7 +183,7 @@
 }
 
 .ps-search-suggestions__label {
-  font-size: 0.78rem;
+  font-size: var(--fs-body-xs);
   color: var(--bs-secondary-color, #6c757d);
   white-space: nowrap;
   margin-right: 0.15rem;
@@ -196,7 +196,7 @@
   border: 1px solid var(--bs-border-color, #ccc);
   border-radius: 50rem;
   background: var(--bs-body-bg, #fff);
-  font-size: 0.8rem;
+  font-size: var(--fs-body-xs);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   line-height: 1.4;

@@ -24,8 +24,8 @@
 }
 .hbe-listban__title {
     margin: 0;
-    font-family: "Lora", Georgia, serif;
-    font-size: 1.375rem;
+    font-family: var(--font-heading);
+    font-size: var(--fs-h4);
     font-weight: 400;
     line-height: 1.2;
     color: var(--hbe-white);
@@ -34,8 +34,8 @@
 .hbe-listban__cta {
     display: inline-block;
     padding: 0.5rem 0.875rem;
-    font-family: "Geist", "Geist Sans", sans-serif;
-    font-size: 0.8125rem;
+    font-family: var(--font-body);
+    font-size: var(--fs-body-xs);
     font-weight: 400;
     line-height: 1;
     color: var(--hbe-black);
@@ -60,6 +60,6 @@
         left: 2rem;
     }
     .hbe-listban__title {
-        font-size: 1.625rem;
+        font-size: var(--fs-h3);
     }
 }
