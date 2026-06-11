@@ -528,6 +528,26 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_imgtext_image_lang'      => $this->getImageFilenamesPerLang('HBE_IMGTEXT_IMAGE', $languages),
             'hbe_imgtext_image_lang_urls' => $this->getImageUrlsPerLang('HBE_IMGTEXT_IMAGE',      $languages),
             'hbe_imgtext_image_mobile_lang_urls' => $this->getImageUrlsPerLang('HBE_IMGTEXT_IMAGE_MOBILE', $languages),
+            // Listing banners (category pages)
+            'hbe_listban_slots' => (function () use ($languages): array {
+                $slots = [];
+                for ($i = 1; $i <= 5; $i++) {
+                    $img       = (string) Configuration::get('HBE_LISTBAN_' . $i . '_IMAGE');
+                    $imgMobile = (string) Configuration::get('HBE_LISTBAN_' . $i . '_IMAGE_MOBILE');
+                    $slots[] = [
+                        'n'              => $i,
+                        'enabled'        => (int) Configuration::get('HBE_LISTBAN_' . $i . '_ENABLED'),
+                        'img_url'        => $img ? __PS_BASE_URI__ . 'img/hb_editor/' . $img : '',
+                        'img_mobile_url' => $imgMobile ? __PS_BASE_URI__ . 'img/hb_editor/' . $imgMobile : '',
+                        'title_lang'     => $this->getConfigPerLang('HBE_LISTBAN_' . $i . '_TITLE', $languages),
+                        'cta_text_lang'  => $this->getConfigPerLang('HBE_LISTBAN_' . $i . '_CTA_TEXT', $languages),
+                        'url_lang'       => $this->getConfigPerLang('HBE_LISTBAN_' . $i . '_URL', $languages),
+                        'cats'           => array_filter(array_map('intval', explode(',', (string) Configuration::get('HBE_LISTBAN_' . $i . '_CATS')))),
+                    ];
+                }
+                return $slots;
+            })(),
+            'hbe_all_categories' => Category::getCategories((int) $this->context->language->id, true, false),
         ]);
 
         $this->assignSliderTab($languages);
@@ -1708,6 +1728,54 @@ class AdminHbEditorController extends ModuleAdminController
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $key = Tools::getValue('variant') === 'mobile' ? 'HBE_IMGTEXT_IMAGE_MOBILE' : 'HBE_IMGTEXT_IMAGE';
         $this->deleteLocalizedImage($key, $idLang);
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    public function ajaxProcessSaveListingBanners(): void
+    {
+        $response = ['success' => true];
+        $uploadDir = _PS_IMG_DIR_ . 'hb_editor/';
+
+        for ($i = 1; $i <= 5; $i++) {
+            Configuration::updateValue('HBE_LISTBAN_' . $i . '_ENABLED', (int) Tools::getValue('enabled_' . $i, 0));
+
+            foreach (['_IMAGE' => 'listban_' . $i, '_IMAGE_MOBILE' => 'listban_m_' . $i] as $suffix => $prefix) {
+                $fileKey = 'HBE_LISTBAN_' . $i . $suffix;
+                $newName = $this->processImageUpload($fileKey, $prefix);
+                if ($newName !== null) {
+                    $old = (string) Configuration::get($fileKey);
+                    if ($old && $old !== $newName && is_file($uploadDir . $old)) {
+                        @unlink($uploadDir . $old);
+                        $oldWebp = preg_replace('/\.[^.]+$/', '.webp', $uploadDir . $old);
+                        if (is_string($oldWebp) && is_file($oldWebp)) {
+                            @unlink($oldWebp);
+                        }
+                    }
+                    Configuration::updateValue($fileKey, $newName);
+                    $urlKey = $suffix === '_IMAGE_MOBILE' ? 'img_url_mobile_' . $i : 'img_url_' . $i;
+                    $response[$urlKey] = __PS_BASE_URI__ . 'img/hb_editor/' . $newName;
+                }
+            }
+
+            $this->saveLocalizedFromForm('HBE_LISTBAN_' . $i . '_TITLE',    Tools::getValue('title_' . $i, ''));
+            $this->saveLocalizedFromForm('HBE_LISTBAN_' . $i . '_CTA_TEXT', Tools::getValue('cta_text_' . $i, ''));
+            $this->saveLocalizedFromForm('HBE_LISTBAN_' . $i . '_URL',      Tools::getValue('url_' . $i, ''), true);
+
+            $cats = Tools::getValue('cats_' . $i, []);
+            $cats = is_array($cats) ? array_filter(array_map('intval', $cats)) : [];
+            Configuration::updateValue('HBE_LISTBAN_' . $i . '_CATS', implode(',', $cats));
+        }
+
+        $this->ajaxDie(json_encode($response));
+    }
+
+    public function ajaxProcessDeleteListingBannerImage(): void
+    {
+        $i = max(1, min(5, (int) Tools::getValue('slot')));
+        $key = Tools::getValue('variant') === 'mobile'
+            ? 'HBE_LISTBAN_' . $i . '_IMAGE_MOBILE'
+            : 'HBE_LISTBAN_' . $i . '_IMAGE';
+        $this->deleteLocalizedImage($key, 0);
         $this->ajaxDie(json_encode(['success' => true]));
     }
 

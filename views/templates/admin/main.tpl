@@ -90,6 +90,9 @@
       <a href="#hbe-tab-imgtext" data-toggle="tab" role="tab"><i class="icon-picture"></i> {l s='Obraz + tekst' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-listing" data-toggle="tab" role="tab"><i class="icon-th-list"></i> {l s='Listing' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-settings" data-toggle="tab" role="tab"><i class="icon-cogs"></i> {l s='Ustawienia' mod='hummingbird_editor'}</a>
     </li>
   </ul>
@@ -1202,6 +1205,96 @@
       </div>
 
     </div>{* /hbe-tab-imgtext *}
+
+    {* ══ Listing — banery między rzędami produktów na kategoriach ═════════ *}
+    <div id="hbe-tab-listing" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title"><i class="icon-th-list"></i> {l s='Banery na listingu kategorii' mod='hummingbird_editor'}</h3></div>
+        <div class="panel-body">
+          <p class="text-muted" style="margin-bottom:1rem">
+            {l s='Baner pojawia się po drugiej linii produktów na stronie kategorii. Każdy baner można przypisać do jednej lub wielu kategorii — pierwszy włączony baner pasujący do kategorii wygrywa. Pamiętaj o wersji mobilnej zdjęcia.' mod='hummingbird_editor'}
+          </p>
+          <form id="hbe-listban-form" method="post" action="{$hbe_ajax_url nofilter}" enctype="multipart/form-data" autocomplete="off">
+            <input type="hidden" name="token" value="{$hbe_token}">
+
+            {foreach from=$hbe_listban_slots item=slot}
+            <div class="panel panel-default hbe-collapse-panel">
+              <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-listban-{$slot.n}">
+                <h4 class="panel-title clearfix">
+                  {l s='Baner' mod='hummingbird_editor'} {$slot.n}
+                  <span class="pull-right">
+                    {if $slot.enabled}<span class="label label-success hbe-status-badge">{l s='Włączone' mod='hummingbird_editor'}</span>{/if}
+                    <i class="icon-chevron-down hbe-chevron{if $slot.enabled} hbe-chevron-open{/if}"></i>
+                  </span>
+                </h4>
+              </div>
+              <div id="hbe-c-listban-{$slot.n}" class="panel-collapse collapse{if $slot.enabled} in{/if}">
+                <div class="panel-body">
+                  <div class="row">
+                    <div class="col-md-2 form-group">
+                      <label class="control-label">{l s='Włącz' mod='hummingbird_editor'}</label>
+                      <div class="checkbox"><label>
+                        <input type="checkbox" name="enabled_{$slot.n}" value="1" {if $slot.enabled}checked{/if}>
+                        {l s='Yes' mod='hummingbird_editor'}
+                      </label></div>
+                    </div>
+                    <div class="col-md-4 form-group">
+                      <label class="control-label">{l s='Tytuł' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name="title_{$slot.n}" values=$slot.title_lang placeholder='np. Wyróżniona kolekcja'}
+                    </div>
+                    <div class="col-md-3 form-group">
+                      <label class="control-label">{l s='Tekst przycisku' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name="cta_text_{$slot.n}" values=$slot.cta_text_lang placeholder='np. Zobacz produkty'}
+                    </div>
+                    <div class="col-md-3 form-group">
+                      <label class="control-label">{l s='Link' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name="url_{$slot.n}" values=$slot.url_lang placeholder='https://example.com/kolekcja'}
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col-md-4 form-group">
+                      <label class="control-label">{l s='Kategorie (ctrl+klik = wiele)' mod='hummingbird_editor'}</label>
+                      <select name="cats_{$slot.n}[]" multiple size="8" class="form-control">
+                        {foreach from=$hbe_all_categories item=cat}
+                          <option value="{$cat.id_category|intval}"
+                            {if in_array((int)$cat.id_category, $slot.cats)}selected{/if}>
+                            {$cat.name|escape:'html':'UTF-8'} (#{$cat.id_category|intval})
+                          </option>
+                        {/foreach}
+                      </select>
+                    </div>
+                    <div class="col-md-4 form-group">
+                      <label class="control-label">{l s='Zdjęcie (desktop)' mod='hummingbird_editor'}</label>
+                      <div id="hbe-listban-img-{$slot.n}-wrap" {if !$slot.img_url}style="display:none"{/if}>
+                        <img id="hbe-listban-img-{$slot.n}-preview" src="{$slot.img_url|escape:'html':'UTF-8'}" alt="" style="max-width:100%;max-height:120px;margin-bottom:6px">
+                        <button type="button" class="btn btn-xs btn-danger hbe-listban-del" data-slot="{$slot.n}" data-variant="desktop">{l s='Usuń' mod='hummingbird_editor'}</button>
+                      </div>
+                      <input type="file" name="HBE_LISTBAN_{$slot.n}_IMAGE" accept="image/*" class="form-control">
+                      <p class="help-block">{l s='Zalecany format: JPG/WebP, min. 1600×500 px.' mod='hummingbird_editor'}</p>
+                    </div>
+                    <div class="col-md-4 form-group">
+                      <label class="control-label">{l s='Zdjęcie (mobile)' mod='hummingbird_editor'}</label>
+                      <div id="hbe-listban-img-m-{$slot.n}-wrap" {if !$slot.img_mobile_url}style="display:none"{/if}>
+                        <img id="hbe-listban-img-m-{$slot.n}-preview" src="{$slot.img_mobile_url|escape:'html':'UTF-8'}" alt="" style="max-width:100%;max-height:120px;margin-bottom:6px">
+                        <button type="button" class="btn btn-xs btn-danger hbe-listban-del" data-slot="{$slot.n}" data-variant="mobile">{l s='Usuń' mod='hummingbird_editor'}</button>
+                      </div>
+                      <input type="file" name="HBE_LISTBAN_{$slot.n}_IMAGE_MOBILE" accept="image/*" class="form-control">
+                      <p class="help-block">{l s='Pionowy kadr na telefony, np. 800×1000 px.' mod='hummingbird_editor'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/foreach}
+
+            <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz banery' mod='hummingbird_editor'}</button>
+            <div class="hbe-alerts"></div>
+          </form>
+        </div>
+      </div>
+
+    </div>{* /hbe-tab-listing *}
 
     {* ══ FAQ (below add-to-cart on product page) ══════════════════════════ *}
     <div id="hbe-tab-faq" class="tab-pane" role="tabpanel">

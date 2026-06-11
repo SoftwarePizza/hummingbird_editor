@@ -24,7 +24,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.3.0';
+        $this->version = '1.4.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -309,6 +309,18 @@ class Hummingbird_editor extends Module
             Configuration::updateValue('HBE_IMGTEXT_IMAGE_ML', 0);
         }
 
+        // Listing banners (injected after the 2nd product row on category pages)
+        for ($i = 1; $i <= 5; $i++) {
+            if (Configuration::get('HBE_LISTBAN_' . $i . '_ENABLED') === false) {
+                Configuration::updateValue('HBE_LISTBAN_' . $i . '_ENABLED', 0);
+            }
+            foreach (['_IMAGE', '_IMAGE_MOBILE', '_TITLE', '_CTA_TEXT', '_URL', '_CATS'] as $suffix) {
+                if (Configuration::get('HBE_LISTBAN_' . $i . $suffix) === false) {
+                    Configuration::updateValue('HBE_LISTBAN_' . $i . $suffix, '');
+                }
+            }
+        }
+
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
@@ -317,6 +329,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('displayHome')
             && $this->registerHook('displayProductButtons')
             && $this->registerHook('displayFooterProduct')
+            && $this->registerHook('displayListingBanner')
             && $this->installTab();
     }
 
@@ -416,6 +429,11 @@ class Hummingbird_editor extends Module
                   'HBE_IMGTEXT_IMAGE_ML', 'HBE_IMGTEXT_TITLE', 'HBE_IMGTEXT_DESC',
                   'HBE_IMGTEXT_CTA_TEXT', 'HBE_IMGTEXT_CTA_URL'] as $k) {
             Configuration::deleteByName($k);
+        }
+        for ($i = 1; $i <= 5; $i++) {
+            foreach (['_ENABLED', '_IMAGE', '_IMAGE_MOBILE', '_TITLE', '_CTA_TEXT', '_URL', '_CATS'] as $suffix) {
+                Configuration::deleteByName('HBE_LISTBAN_' . $i . $suffix);
+            }
         }
 
         return parent::uninstall()
@@ -860,6 +878,56 @@ class Hummingbird_editor extends Module
         ]);
 
         return $this->display(__FILE__, 'views/templates/hook/imgtext.tpl');
+    }
+
+    /**
+     * Listing banner (Figma: Image Banner) — full-width photo with a serif
+     * title and CTA bottom-left, injected by the theme after the 2nd product
+     * row on category pages. First enabled banner slot (1-5) assigned to the
+     * current category wins.
+     */
+    public function hookDisplayListingBanner(array $params = []): string
+    {
+        $idCategory = (int) ($params['id_category'] ?? Tools::getValue('id_category'));
+        if (!$idCategory) {
+            return '';
+        }
+
+        for ($i = 1; $i <= 5; $i++) {
+            if (!(int) Configuration::get('HBE_LISTBAN_' . $i . '_ENABLED')) {
+                continue;
+            }
+            $cats = array_filter(array_map('intval', explode(',', (string) Configuration::get('HBE_LISTBAN_' . $i . '_CATS'))));
+            if (!in_array($idCategory, $cats, true)) {
+                continue;
+            }
+            $image = trim((string) Configuration::get('HBE_LISTBAN_' . $i . '_IMAGE'));
+            if ($image === '') {
+                continue;
+            }
+
+            $imageSources = $this->resolveHbEditorImageSources($image);
+            $mobileImage = trim((string) Configuration::get('HBE_LISTBAN_' . $i . '_IMAGE_MOBILE'));
+            $mobileSources = $this->resolveHbEditorImageSources($mobileImage);
+            $url = trim($this->hbeLocConfig('HBE_LISTBAN_' . $i . '_URL'));
+            if ($url !== '' && !preg_match('#^https?://#i', $url) && strpos($url, '/') !== 0) {
+                $url = 'https://' . $url;
+            }
+
+            $this->context->smarty->assign([
+                'hbe_listban_image_url' => $imageSources['url'],
+                'hbe_listban_image_webp_url' => $imageSources['webp_url'],
+                'hbe_listban_image_mobile_url' => $mobileSources['url'],
+                'hbe_listban_image_mobile_webp_url' => $mobileSources['webp_url'],
+                'hbe_listban_title'    => $this->hbeLocConfig('HBE_LISTBAN_' . $i . '_TITLE'),
+                'hbe_listban_cta_text' => $this->hbeLocConfig('HBE_LISTBAN_' . $i . '_CTA_TEXT'),
+                'hbe_listban_url'      => $url,
+            ]);
+
+            return $this->display(__FILE__, 'views/templates/hook/listing-banner.tpl');
+        }
+
+        return '';
     }
 
     private function renderFaq(): string

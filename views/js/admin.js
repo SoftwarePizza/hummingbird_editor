@@ -407,6 +407,67 @@ $(function () {
         });
     });
 
+    /* ── Listing banners (category pages): save ───────────────── */
+    $(document).on('submit', '#hbe-listban-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var fd = new FormData($form[0]);
+        for (var i = 1; i <= 5; i++) {
+            if (!$form.find('[name=enabled_' + i + ']').is(':checked')) {
+                fd.set('enabled_' + i, '0');
+            }
+        }
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveListingBanners&ajax=1',
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                    for (var i = 1; i <= 5; i++) {
+                        if (resp['img_url_' + i]) {
+                            $('#hbe-listban-img-' + i + '-preview').attr('src', resp['img_url_' + i]);
+                            $('#hbe-listban-img-' + i + '-wrap').show();
+                            $form.find('[name=HBE_LISTBAN_' + i + '_IMAGE]').val('');
+                        }
+                        if (resp['img_url_mobile_' + i]) {
+                            $('#hbe-listban-img-m-' + i + '-preview').attr('src', resp['img_url_mobile_' + i]);
+                            $('#hbe-listban-img-m-' + i + '-wrap').show();
+                            $form.find('[name=HBE_LISTBAN_' + i + '_IMAGE_MOBILE]').val('');
+                        }
+                    }
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    /* ── Listing banners: delete image ─────────────────────────── */
+    $(document).on('click', '.hbe-listban-del', function () {
+        if (!confirm('Usunąć zdjęcie?')) { return; }
+        var slot = $(this).data('slot');
+        var variant = $(this).data('variant');
+        $.ajax({
+            url: hbeAjaxUrl + 'action=DeleteListingBannerImage&ajax=1',
+            type: 'POST',
+            data: { token: hbeToken, slot: slot, variant: variant },
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    var prefix = variant === 'mobile' ? '#hbe-listban-img-m-' : '#hbe-listban-img-';
+                    $(prefix + slot + '-wrap').hide();
+                    $(prefix + slot + '-preview').attr('src', '');
+                }
+            }
+        });
+    });
+
     /* ── 3-column text links block: save ─────────────────────────────────── */
     $(document).on('submit', '#hbe-cols3-form', function (e) {
         e.preventDefault();
