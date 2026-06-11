@@ -7,6 +7,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorConfig.php';
 require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorBlock.php';
 require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorTransfer.php';
 require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorSlide.php';
@@ -544,12 +545,12 @@ class AdminHbEditorController extends ModuleAdminController
         }
 
         if (Tools::isSubmit('submitSlider')) {
-            Configuration::updateValue('HBE_SLIDER_SPEED', (int) Tools::getValue('HBE_SLIDER_SPEED'));
-            Configuration::updateValue('HBE_SLIDER_AUTOPLAY', (int) Tools::getValue('HBE_SLIDER_AUTOPLAY'));
-            Configuration::updateValue('HBE_SLIDER_PAUSE_ON_HOVER', (int) Tools::getValue('HBE_SLIDER_PAUSE_ON_HOVER'));
-            Configuration::updateValue('HBE_SLIDER_SHOW_ARROWS', (int) Tools::getValue('HBE_SLIDER_SHOW_ARROWS'));
-            Configuration::updateValue('HBE_SLIDER_ARROW_STYLE', Tools::getValue('HBE_SLIDER_ARROW_STYLE') === 'corner' ? 'corner' : 'classic');
-            Configuration::updateValue('HBE_SLIDER_SHOW_DOTS', (int) Tools::getValue('HBE_SLIDER_SHOW_DOTS'));
+            HbEditorConfig::set('HBE_SLIDER_SPEED', (int) Tools::getValue('HBE_SLIDER_SPEED'));
+            HbEditorConfig::set('HBE_SLIDER_AUTOPLAY', (int) Tools::getValue('HBE_SLIDER_AUTOPLAY'));
+            HbEditorConfig::set('HBE_SLIDER_PAUSE_ON_HOVER', (int) Tools::getValue('HBE_SLIDER_PAUSE_ON_HOVER'));
+            HbEditorConfig::set('HBE_SLIDER_SHOW_ARROWS', (int) Tools::getValue('HBE_SLIDER_SHOW_ARROWS'));
+            HbEditorConfig::set('HBE_SLIDER_ARROW_STYLE', Tools::getValue('HBE_SLIDER_ARROW_STYLE') === 'corner' ? 'corner' : 'classic');
+            HbEditorConfig::set('HBE_SLIDER_SHOW_DOTS', (int) Tools::getValue('HBE_SLIDER_SHOW_DOTS'));
             $this->sliderRedirect(6);
             return;
         }
@@ -857,12 +858,12 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_slider_image_baseurl' => $this->sliderImgBaseUrl(),
             'hbe_slider_form_action'   => $this->context->link->getAdminLink('AdminHbEditor'),
             'hbe_slider_max_file_size' => (int) (Tools::getMaxUploadSize() / 1024 / 1024) . ' MB',
-            'hbe_slider_speed'         => (int) (Configuration::get('HBE_SLIDER_SPEED') ?: 5000),
-            'hbe_slider_autoplay'      => (int) Configuration::get('HBE_SLIDER_AUTOPLAY'),
-            'hbe_slider_pause'         => (int) Configuration::get('HBE_SLIDER_PAUSE_ON_HOVER'),
-            'hbe_slider_arrows'        => (int) Configuration::get('HBE_SLIDER_SHOW_ARROWS'),
-            'hbe_slider_arrow_style'   => Configuration::get('HBE_SLIDER_ARROW_STYLE') === 'corner' ? 'corner' : 'classic',
-            'hbe_slider_dots'          => (int) Configuration::get('HBE_SLIDER_SHOW_DOTS'),
+            'hbe_slider_speed'         => (int) (HbEditorConfig::get('HBE_SLIDER_SPEED') ?: 5000),
+            'hbe_slider_autoplay'      => (int) HbEditorConfig::get('HBE_SLIDER_AUTOPLAY'),
+            'hbe_slider_pause'         => (int) HbEditorConfig::get('HBE_SLIDER_PAUSE_ON_HOVER'),
+            'hbe_slider_arrows'        => (int) HbEditorConfig::get('HBE_SLIDER_SHOW_ARROWS'),
+            'hbe_slider_arrow_style'   => HbEditorConfig::get('HBE_SLIDER_ARROW_STYLE') === 'corner' ? 'corner' : 'classic',
+            'hbe_slider_dots'          => (int) HbEditorConfig::get('HBE_SLIDER_SHOW_DOTS'),
         ]);
     }
 

@@ -185,6 +185,25 @@ Slider posiada ustawienia globalne, między innymi:
 
 Domyślne wartości są ustawiane podczas instalacji, ale możesz je później zmienić z poziomu panelu modułu.
 
+## Multisklep (multistore)
+
+Moduł działa per‑sklep w oparciu o natywny kontekst sklepu PrestaShop:
+
+- **Bloki** mają przypisanie do sklepów (tabela `hb_editor_block_shop`); na froncie renderują się tylko dla bieżącego sklepu.
+- **Slajdy slidera** są przypisane per‑sklep (kolumna `id_shop`).
+- **Ustawienia** (`HBE_*`: paski, banery, tagline, ikony, ustawienia slidera itd.) zapisują się w kontekście aktywnego sklepu:
+  - w kontekście pojedynczego sklepu → zapis tworzy **nadpiskę per‑sklep**,
+  - w kontekście **„Wszystkie sklepy"** → zapis ustawia **wartość globalną** dziedziczoną przez każdy sklep (to też domyślne wartości z instalacji).
+
+Aby ustawić inną treść dla konkretnego sklepu, **wybierz ten sklep w selektorze sklepów** w panelu, a następnie zapisz sekcję.
+
+Cały dostęp do konfiguracji przechodzi przez jeden helper
+[classes/HbEditorConfig.php](classes/HbEditorConfig.php) (`HbEditorConfig::get()` / `::set()`),
+który jawnie rozwiązuje kontekst sklepu tak samo przy odczycie i zapisie — dzięki czemu
+zachowanie jest spójne (read == write) także w kontekstach bez ustawionego sklepu
+(cron, web service). Obrazy w `img/hb_editor/` oraz `modules/hummingbird_editor/images/`
+są współdzieloną pulą dla wszystkich sklepów.
+
 ## Struktura katalogów
 
 ```text

@@ -12,6 +12,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+require_once __DIR__ . '/classes/HbEditorConfig.php';
 require_once __DIR__ . '/classes/HbEditorBlock.php';
 require_once __DIR__ . '/classes/HbEditorSlide.php';
 
@@ -1017,11 +1018,7 @@ class Hummingbird_editor extends Module
         }
         $idLang = (int) $this->context->language->id;
         $get = static function (string $key) use ($idLang): string {
-            $v = Configuration::get($key, $idLang);
-            if ($v === false || $v === null || $v === '') {
-                $v = Configuration::get($key);
-            }
-            return trim((string) ($v ?? ''));
+            return trim((string) (HbEditorConfig::get($key, $idLang) ?? ''));
         };
         $text = $get('HBE_TAGLINE_TEXT');
         if ($text === '') {
@@ -1046,11 +1043,7 @@ class Hummingbird_editor extends Module
         }
         $idLang = (int) $this->context->language->id;
         $get = static function (string $key) use ($idLang): string {
-            $v = Configuration::get($key, $idLang);
-            if ($v === false || $v === null || $v === '') {
-                $v = Configuration::get($key);
-            }
-            return (string) ($v ?? '');
+            return (string) (HbEditorConfig::get($key, $idLang) ?? '');
         };
         $sanitizeUrl = static function (string $url): string {
             if ($url !== '' && !preg_match('#^https?://#i', $url) && strpos($url, '/') !== 0) {
@@ -1208,11 +1201,8 @@ class Hummingbird_editor extends Module
      */
     private function getSliderConfig(): array
     {
-        $idGroup = Shop::getContextShopGroupID();
-        $idShop  = Shop::getContextShopID();
-
-        $get = static function (string $key, $default) use ($idGroup, $idShop) {
-            $v = Configuration::get($key, null, $idGroup, $idShop);
+        $get = static function (string $key, $default) {
+            $v = HbEditorConfig::get($key);
             return ($v === false || $v === null || $v === '') ? $default : $v;
         };
 
@@ -1721,11 +1711,8 @@ class Hummingbird_editor extends Module
         if ($idLang === null) {
             $idLang = (int) $this->context->language->id;
         }
-        $v = Configuration::get($key, $idLang);
-        if ($v === false || $v === null || $v === '') {
-            $v = Configuration::get($key);
-        }
-        return (string) ($v ?? '');
+
+        return (string) (HbEditorConfig::get($key, $idLang) ?? '');
     }
 
     /**
