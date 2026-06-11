@@ -1546,3 +1546,27 @@ img.product-miniature__image {
         min-height: 8px;
     }
 }
+
+
+/* ── FAQ accordion ───────────────────────────── */
+.hbe-faq { margin: 1.5rem 0; }
+.hbe-faq__item { border-top: 1px solid #e5e5e5; }
+.hbe-faq__question {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; padding: 1rem 0;
+  font-family: "Geist", "Geist Sans", sans-serif; font-size: 0.9375rem; font-weight: 400;
+  text-align: left; background: transparent; border: 0; cursor: pointer;
+  line-height: 1.4;
+}
+.hbe-faq__icon { flex-shrink: 0; width: 1.25rem; height: 1.25rem; margin-left: 1rem; position: relative; }
+.hbe-faq__icon::before,
+.hbe-faq__icon::after { content: ''; position: absolute; background: currentColor; border-radius: 2px; }
+.hbe-faq__icon::before { width: 14px; height: 1.5px; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+.hbe-faq__icon::after  { width: 1.5px; height: 14px; top: 50%; left: 50%; transform: translate(-50%,-50%); transition: transform 0.2s, opacity 0.2s; }
+.hbe-faq__item--open .hbe-faq__icon::after { transform: translate(-50%,-50%) rotate(90deg); opacity: 0; }
+.hbe-faq__answer { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.25s ease; }
+.hbe-faq__item--open .hbe-faq__answer { grid-template-rows: 1fr; }
+.hbe-faq__answer-inner { overflow: hidden; }
+.hbe-faq__answer-inner p { margin: 0 0 0.75rem; font-family: "Geist", "Geist Sans", sans-serif; font-size: 0.875rem; line-height: 1.6; }
+.hbe-faq__answer-inner a { text-decoration: underline; }
+.hbe-faq__answer-inner > :last-child { margin-bottom: 1rem; }

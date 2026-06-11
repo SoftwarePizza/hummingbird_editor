@@ -24,7 +24,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.1.0';
+        $this->version = '1.2.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -273,12 +273,24 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // FAQ section
+        if (Configuration::get('HBE_FAQ_ENABLED') === false) {
+            Configuration::updateValue('HBE_FAQ_ENABLED', 0);
+        }
+        foreach (['HBE_FAQ_BG' => '#ffffff', 'HBE_FAQ_QUESTION_COLOR' => '#242424',
+                  'HBE_FAQ_ANSWER_COLOR' => '#4a4a4a', 'HBE_FAQ_BORDER_COLOR' => '#e5e5e5'] as $k => $v) {
+            if (Configuration::get($k) === false) {
+                Configuration::updateValue($k, $v);
+            }
+        }
+
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
             && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('displayAfterBodyOpeningTag')
             && $this->registerHook('displayHome')
+            && $this->registerHook('displayProductButtons')
             && $this->installTab();
     }
 
@@ -362,6 +374,15 @@ class Hummingbird_editor extends Module
             Configuration::deleteByName($prefix . '_TEXT');
             Configuration::deleteByName($prefix . '_LINK_TEXT');
             Configuration::deleteByName($prefix . '_LINK_URL');
+        }
+
+        foreach (['HBE_FAQ_ENABLED', 'HBE_FAQ_BG', 'HBE_FAQ_QUESTION_COLOR',
+                  'HBE_FAQ_ANSWER_COLOR', 'HBE_FAQ_BORDER_COLOR'] as $k) {
+            Configuration::deleteByName($k);
+        }
+        // also delete per-language items
+        foreach (Language::getLanguages(false) as $lang) {
+            Configuration::deleteByName('HBE_FAQ_ITEMS_' . (int)$lang['id_lang']);
         }
 
         return parent::uninstall()
@@ -592,6 +613,12 @@ class Hummingbird_editor extends Module
             ['position' => 'bottom', 'priority' => 200]
         );
 
+        $this->context->controller->registerJavascript(
+            'hb-editor-faq',
+            'modules/' . $this->name . '/views/js/faq.js',
+            ['position' => 'bottom', 'priority' => 200]
+        );
+
         // Assign carousel section header vars for template overrides (localized)
         $this->context->smarty->assign([
             'hbe_np_title'     => $this->hbeLocConfig('HBE_NP_TITLE'),
@@ -700,6 +727,46 @@ class Hummingbird_editor extends Module
     public function hookDisplayTop(): string
     {
         return '';
+    }
+
+    public function hookDisplayProductButtons(array $params = []): string
+    {
+        return $this->renderFaq();
+    }
+
+    private function renderFaq(): string
+    {
+        if (!(int) Configuration::get('HBE_FAQ_ENABLED')) {
+            return '';
+        }
+        $idLang = (int) $this->context->language->id;
+        $rawItems = Configuration::get('HBE_FAQ_ITEMS_' . $idLang);
+        if (!$rawItems) {
+            $idLangDefault = (int) Configuration::get('PS_LANG_DEFAULT');
+            $rawItems = Configuration::get('HBE_FAQ_ITEMS_' . $idLangDefault);
+        }
+        $items = [];
+        if ($rawItems) {
+            $decoded = json_decode($rawItems, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $row) {
+                    if (!empty($row['q'])) {
+                        $items[] = ['q' => $row['q'], 'a' => $row['a'] ?? ''];
+                    }
+                }
+            }
+        }
+        if (!$items) {
+            return '';
+        }
+        $this->context->smarty->assign([
+            'hbe_faq_items'          => $items,
+            'hbe_faq_bg'             => (string) (Configuration::get('HBE_FAQ_BG') ?: '#ffffff'),
+            'hbe_faq_question_color' => (string) (Configuration::get('HBE_FAQ_QUESTION_COLOR') ?: '#242424'),
+            'hbe_faq_answer_color'   => (string) (Configuration::get('HBE_FAQ_ANSWER_COLOR') ?: '#4a4a4a'),
+            'hbe_faq_border_color'   => (string) (Configuration::get('HBE_FAQ_BORDER_COLOR') ?: '#e5e5e5'),
+        ]);
+        return $this->display(__FILE__, 'views/templates/hook/faq.tpl');
     }
 
     public function hookDisplayAfterBodyOpeningTag(): string

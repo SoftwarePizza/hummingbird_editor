@@ -486,6 +486,31 @@ class AdminHbEditorController extends ModuleAdminController
                 return $items;
             })(),
             'hbe_manufacturers'     => $hbeManufacturers,
+            // FAQ
+            'hbe_faq_enabled'          => (int) Configuration::get('HBE_FAQ_ENABLED'),
+            'hbe_faq_bg'               => (string) (Configuration::get('HBE_FAQ_BG') ?: '#ffffff'),
+            'hbe_faq_question_color'   => (string) (Configuration::get('HBE_FAQ_QUESTION_COLOR') ?: '#242424'),
+            'hbe_faq_answer_color'     => (string) (Configuration::get('HBE_FAQ_ANSWER_COLOR') ?: '#4a4a4a'),
+            'hbe_faq_border_color'     => (string) (Configuration::get('HBE_FAQ_BORDER_COLOR') ?: '#e5e5e5'),
+            'hbe_faq_items_lang'       => (function () use ($languages): array {
+                $out = [];
+                foreach ($languages as $lang) {
+                    $id = (int) $lang['id_lang'];
+                    $raw = Configuration::get('HBE_FAQ_ITEMS_' . $id);
+                    $out[$id] = $raw ? json_decode($raw, true) : [];
+                }
+                return $out;
+            })(),
+            'hbe_faq_items_lang_json'  => (function () use ($languages): array {
+                $out = [];
+                foreach ($languages as $lang) {
+                    $id = (int) $lang['id_lang'];
+                    $raw = Configuration::get('HBE_FAQ_ITEMS_' . $id);
+                    $decoded = $raw ? json_decode($raw, true) : [];
+                    $out[$id] = json_encode(is_array($decoded) ? $decoded : [], JSON_UNESCAPED_UNICODE | JSON_HEX_QUOT);
+                }
+                return $out;
+            })(),
         ]);
 
         $this->assignSliderTab($languages);
@@ -2294,6 +2319,35 @@ class AdminHbEditorController extends ModuleAdminController
                 @unlink($destDir . $f);
             }
         }
+    }
+
+    public function ajaxProcessSaveFaq(): void
+    {
+        Configuration::updateValue('HBE_FAQ_ENABLED', (int) Tools::getValue('enabled', 0));
+        Configuration::updateValue('HBE_FAQ_BG', Tools::getValue('HBE_FAQ_BG', '#ffffff'));
+        Configuration::updateValue('HBE_FAQ_QUESTION_COLOR', Tools::getValue('HBE_FAQ_QUESTION_COLOR', '#242424'));
+        Configuration::updateValue('HBE_FAQ_ANSWER_COLOR', Tools::getValue('HBE_FAQ_ANSWER_COLOR', '#4a4a4a'));
+        Configuration::updateValue('HBE_FAQ_BORDER_COLOR', Tools::getValue('HBE_FAQ_BORDER_COLOR', '#e5e5e5'));
+
+        $languages = Language::getLanguages(true);
+        foreach ($languages as $lang) {
+            $id = (int) $lang['id_lang'];
+            $rawItems = Tools::getValue('faq_items_' . $id, '[]');
+            $decoded = json_decode($rawItems, true);
+            if (!is_array($decoded)) {
+                $decoded = [];
+            }
+            $clean = [];
+            foreach ($decoded as $row) {
+                $q = trim((string)($row['q'] ?? ''));
+                $a = trim((string)($row['a'] ?? ''));
+                if ($q !== '') {
+                    $clean[] = ['q' => $q, 'a' => $a];
+                }
+            }
+            Configuration::updateValue('HBE_FAQ_ITEMS_' . $id, json_encode($clean, JSON_UNESCAPED_UNICODE), true);
+        }
+        $this->ajaxDie(json_encode(['success' => true]));
     }
 
     private function ajaxDie(string $json): void

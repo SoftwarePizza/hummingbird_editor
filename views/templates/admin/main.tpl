@@ -84,6 +84,9 @@
       <a href="#hbe-tab-cart" data-toggle="tab" role="tab"><i class="icon-shopping-cart"></i> {l s='Koszyk' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-faq" data-toggle="tab" role="tab"><i class="icon-question-sign"></i> {l s='FAQ' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-settings" data-toggle="tab" role="tab"><i class="icon-cogs"></i> {l s='Ustawienia' mod='hummingbird_editor'}</a>
     </li>
   </ul>
@@ -1128,6 +1131,102 @@
 
     </div>{* /tab-settings *}
 
+    {* ══ FAQ (below add-to-cart on product page) ══════════════════════════ *}
+    <div id="hbe-tab-faq" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title"><i class="icon-question-sign"></i> {l s='Sekcja FAQ (karta produktu)' mod='hummingbird_editor'}</h3></div>
+        <div class="panel-body">
+
+          <form id="hbe-faq-form" autocomplete="off">
+
+            <div class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="hbe_faq_enabled" name="enabled" value="1"{if $hbe_faq_enabled} checked{/if}>
+                  {l s='Włącz sekcję FAQ na karcie produktu' mod='hummingbird_editor'}
+                </label>
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="row">
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Tło sekcji' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_BG" value="{$hbe_faq_bg|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Kolor pytania' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_QUESTION_COLOR" value="{$hbe_faq_question_color|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Kolor odpowiedzi' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_ANSWER_COLOR" value="{$hbe_faq_answer_color|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Kolor separatora' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_BORDER_COLOR" value="{$hbe_faq_border_color|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+            </div>
+
+            <hr>
+
+            {* Language tabs for FAQ items *}
+            <ul class="nav nav-tabs" role="tablist">
+              {foreach from=$hbe_languages item=lang name=faqLang}
+              <li role="presentation"{if $smarty.foreach.faqLang.first} class="active"{/if}>
+                <a href="#hbe-faq-lang-{$lang.id_lang|intval}" data-toggle="tab" role="tab">{$lang.name|escape:'html':'UTF-8'}</a>
+              </li>
+              {/foreach}
+            </ul>
+            <div class="tab-content" style="padding-top:1rem">
+              {foreach from=$hbe_languages item=lang name=faqLangContent}
+              {assign var=faqLangId value=$lang.id_lang|intval}
+              <div id="hbe-faq-lang-{$faqLangId}" class="tab-pane{if $smarty.foreach.faqLangContent.first} active{/if}" role="tabpanel">
+                <div class="hbe-faq-builder" data-lang="{$faqLangId}">
+                  {assign var=faqItemsForLang value=$hbe_faq_items_lang[$faqLangId]|default:[]}
+                  {foreach from=$faqItemsForLang item=faqRow name=faqRows}
+                  <div class="hbe-faq-row">
+                    <div class="form-group">
+                      <label>{l s='Pytanie' mod='hummingbird_editor'}</label>
+                      <input type="text" class="form-control hbe-faq-q" value="{$faqRow.q|escape:'html':'UTF-8'}" placeholder="{l s='Pytanie...' mod='hummingbird_editor'}">
+                    </div>
+                    <div class="form-group">
+                      <label>{l s='Odpowiedź (HTML dozwolony)' mod='hummingbird_editor'}</label>
+                      <textarea class="form-control hbe-faq-a" rows="4" placeholder="{l s='Odpowiedź...' mod='hummingbird_editor'}">{$faqRow.a|escape:'html':'UTF-8'}</textarea>
+                    </div>
+                    <button type="button" class="btn btn-xs btn-danger hbe-faq-remove-btn">{l s='Usuń' mod='hummingbird_editor'}</button>
+                    <hr>
+                  </div>
+                  {/foreach}
+                </div>
+                <button type="button" class="btn btn-default hbe-faq-add-btn" data-lang="{$faqLangId}">
+                  <i class="icon-plus"></i> {l s='Dodaj pytanie' mod='hummingbird_editor'}
+                </button>
+                <input type="hidden" class="hbe-faq-items-input" name="faq_items_{$faqLangId}" value="{$hbe_faq_items_lang_json[$faqLangId]|escape:'html':'UTF-8'}">
+              </div>
+              {/foreach}
+            </div>
+
+            <div class="form-group" style="margin-top:1.5rem">
+              <button type="submit" class="btn btn-primary"><i class="icon-save"></i> {l s='Zapisz FAQ' mod='hummingbird_editor'}</button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+    </div>{* /hbe-tab-faq *}
+
   </div>{* /tab-content *}
 
   <div id="hbe-add-panel" class="hbe-panel panel" style="display:none">
@@ -1340,4 +1439,64 @@ var hbeTrans = {
   duplicated    : '{l s='Block duplicated.' mod='hummingbird_editor' js=1}',
   error         : '{l s='An error occurred.' mod='hummingbird_editor' js=1}'
 };
+
+// FAQ builder
+document.addEventListener('DOMContentLoaded', function () {
+  // Add FAQ row
+  document.querySelectorAll('.hbe-faq-add-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var lang = btn.dataset.lang;
+      var builder = document.querySelector('.hbe-faq-builder[data-lang="' + lang + '"]');
+      var row = document.createElement('div');
+      row.className = 'hbe-faq-row';
+      row.innerHTML = '<div class="form-group"><label>Pytanie</label><input type="text" class="form-control hbe-faq-q" placeholder="Pytanie..."></div>'
+        + '<div class="form-group"><label>Odpowiedź (HTML dozwolony)</label><textarea class="form-control hbe-faq-a" rows="4" placeholder="Odpowiedź..."></textarea></div>'
+        + '<button type="button" class="btn btn-xs btn-danger hbe-faq-remove-btn">Usuń</button><hr>';
+      builder.appendChild(row);
+      attachRemoveBtn(row.querySelector('.hbe-faq-remove-btn'));
+    });
+  });
+
+  // Remove row
+  function attachRemoveBtn(btn) {
+    btn.addEventListener('click', function () {
+      btn.closest('.hbe-faq-row').remove();
+    });
+  }
+  document.querySelectorAll('.hbe-faq-remove-btn').forEach(attachRemoveBtn);
+
+  // Serialize before submit
+  var faqForm = document.getElementById('hbe-faq-form');
+  if (faqForm) {
+    faqForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      document.querySelectorAll('.hbe-faq-builder').forEach(function (builder) {
+        var lang = builder.dataset.lang;
+        var items = [];
+        builder.querySelectorAll('.hbe-faq-row').forEach(function (row) {
+          var q = row.querySelector('.hbe-faq-q').value.trim();
+          var a = row.querySelector('.hbe-faq-a').value.trim();
+          if (q) items.push({q: q, a: a});
+        });
+        var input = document.querySelector('.hbe-faq-items-input[name="faq_items_' + lang + '"]');
+        if (input) input.value = JSON.stringify(items);
+      });
+
+      var data = new FormData(faqForm);
+      data.append('action', 'SaveFaq');
+      data.append('ajax', '1');
+      data.append('token', hbeToken);
+
+      fetch(hbeAjaxUrl + 'action=SaveFaq&ajax=1&token=' + hbeToken, {method: 'POST', body: data})
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.success) {
+            alert(hbeTrans.saved);
+          } else {
+            alert(hbeTrans.error);
+          }
+        });
+    });
+  }
+});
 </script>
