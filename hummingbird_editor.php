@@ -650,47 +650,86 @@ class Hummingbird_editor extends Module
 
     /* ── Standard hooks ──────────────────────────────────────────────────── */
 
+    /**
+     * Current front controller page name ('index', 'product', 'category', …).
+     */
+    private function currentPage(): string
+    {
+        return (string) ($this->context->controller->php_self ?? '');
+    }
+
     public function hookActionFrontControllerSetMedia(): void
     {
+        $page = $this->currentPage();
+
+        // Core styles (header: topbar, search overlay, custom blocks) — every page.
         $this->context->controller->registerStylesheet(
             'hb-editor-front',
             'modules/' . $this->name . '/views/css/front.css',
             ['media' => 'all', 'priority' => 200]
         );
 
-        $this->context->controller->registerJavascript(
-            'hb-editor-slider',
-            'modules/' . $this->name . '/views/js/slider.js',
-            ['position' => 'bottom', 'priority' => 200]
-        );
+        if ($page === 'index') {
+            $this->context->controller->registerStylesheet(
+                'hb-editor-home',
+                'modules/' . $this->name . '/views/css/home.css',
+                ['media' => 'all', 'priority' => 200]
+            );
+            $this->context->controller->registerJavascript(
+                'hb-editor-slider',
+                'modules/' . $this->name . '/views/js/slider.js',
+                ['position' => 'bottom', 'priority' => 200]
+            );
+        }
 
-        $this->context->controller->registerJavascript(
-            'hb-editor-faq',
-            'modules/' . $this->name . '/views/js/faq.js',
-            ['position' => 'bottom', 'priority' => 200]
-        );
+        if ($page === 'product') {
+            $this->context->controller->registerStylesheet(
+                'hb-editor-product',
+                'modules/' . $this->name . '/views/css/product.css',
+                ['media' => 'all', 'priority' => 200]
+            );
+            if ((int) Configuration::get('HBE_FAQ_ENABLED')) {
+                $this->context->controller->registerJavascript(
+                    'hb-editor-faq',
+                    'modules/' . $this->name . '/views/js/faq.js',
+                    ['position' => 'bottom', 'priority' => 200]
+                );
+            }
+            if ((int) Configuration::get('HBE_RELATED_ENABLED')) {
+                $this->context->controller->registerJavascript(
+                    'hb-editor-related',
+                    'modules/' . $this->name . '/views/js/related-carousel.js',
+                    ['position' => 'bottom', 'priority' => 200]
+                );
+            }
+        }
 
-        $this->context->controller->registerJavascript(
-            'hb-editor-related',
-            'modules/' . $this->name . '/views/js/related-carousel.js',
-            ['position' => 'bottom', 'priority' => 200]
-        );
+        if ($page === 'category') {
+            $this->context->controller->registerStylesheet(
+                'hb-editor-listing',
+                'modules/' . $this->name . '/views/css/listing.css',
+                ['media' => 'all', 'priority' => 200]
+            );
+        }
 
-        // Assign carousel section header vars for template overrides (localized)
-        $this->context->smarty->assign([
-            'hbe_np_title'     => $this->hbeLocConfig('HBE_NP_TITLE'),
-            'hbe_np_text'      => $this->hbeLocConfig('HBE_NP_TEXT'),
-            'hbe_np_link_text' => $this->hbeLocConfig('HBE_NP_LINK_TEXT'),
-            'hbe_np_link_url'  => $this->hbeLocConfig('HBE_NP_LINK_URL'),
-            'hbe_bs_title'     => $this->hbeLocConfig('HBE_BS_TITLE'),
-            'hbe_bs_text'      => $this->hbeLocConfig('HBE_BS_TEXT'),
-            'hbe_bs_link_text' => $this->hbeLocConfig('HBE_BS_LINK_TEXT'),
-            'hbe_bs_link_url'  => $this->hbeLocConfig('HBE_BS_LINK_URL'),
-            'hbe_cp_title'     => $this->hbeLocConfig('HBE_CP_TITLE'),
-            'hbe_cp_text'      => $this->hbeLocConfig('HBE_CP_TEXT'),
-            'hbe_cp_link_text' => $this->hbeLocConfig('HBE_CP_LINK_TEXT'),
-            'hbe_cp_link_url'  => $this->hbeLocConfig('HBE_CP_LINK_URL'),
-        ]);
+        // Carousel section header vars — consumed by the theme overrides of
+        // ps_bestsellers / ps_newproducts / ps_featuredproducts / ps_categoryproducts.
+        if (in_array($page, ['index', 'product', 'category'], true)) {
+            $this->context->smarty->assign([
+                'hbe_np_title'     => $this->hbeLocConfig('HBE_NP_TITLE'),
+                'hbe_np_text'      => $this->hbeLocConfig('HBE_NP_TEXT'),
+                'hbe_np_link_text' => $this->hbeLocConfig('HBE_NP_LINK_TEXT'),
+                'hbe_np_link_url'  => $this->hbeLocConfig('HBE_NP_LINK_URL'),
+                'hbe_bs_title'     => $this->hbeLocConfig('HBE_BS_TITLE'),
+                'hbe_bs_text'      => $this->hbeLocConfig('HBE_BS_TEXT'),
+                'hbe_bs_link_text' => $this->hbeLocConfig('HBE_BS_LINK_TEXT'),
+                'hbe_bs_link_url'  => $this->hbeLocConfig('HBE_BS_LINK_URL'),
+                'hbe_cp_title'     => $this->hbeLocConfig('HBE_CP_TITLE'),
+                'hbe_cp_text'      => $this->hbeLocConfig('HBE_CP_TEXT'),
+                'hbe_cp_link_text' => $this->hbeLocConfig('HBE_CP_LINK_TEXT'),
+                'hbe_cp_link_url'  => $this->hbeLocConfig('HBE_CP_LINK_URL'),
+            ]);
+        }
 
         $this->setupCartPreview();
     }
@@ -991,17 +1030,23 @@ class Hummingbird_editor extends Module
             $output .= '<style>' . $css . '</style>';
         }
 
-        // Inject search overlay JS directly (registerJavascript is unreliable in PS8)
-        $jsUrl = $this->context->link->getBaseLink() . 'modules/' . $this->name . '/views/js/search-overlay.js';
-        $output .= '<script src="' . htmlspecialchars($jsUrl) . '" defer></script>';
+        $page = $this->currentPage();
+        $jsBase = $this->context->link->getBaseLink() . 'modules/' . $this->name . '/views/js/';
 
-        // Inject expand/collapse JS for .ps-customtext blocks
-        $expandUrl = $this->context->link->getBaseLink() . 'modules/' . $this->name . '/views/js/expand-text.js';
-        $output .= '<script src="' . htmlspecialchars($expandUrl) . '" defer></script>';
+        // Search overlay lives in the header — every page.
+        // (Injected directly: registerJavascript is unreliable in PS8.)
+        $output .= '<script src="' . htmlspecialchars($jsBase . 'search-overlay.js') . '" defer></script>';
 
-        // Inject drag-scroll + arrow nav for product carousels
-        $carUrl = $this->context->link->getBaseLink() . 'modules/' . $this->name . '/views/js/carousel-drag.js';
-        $output .= '<script src="' . htmlspecialchars($carUrl) . '" defer></script>';
+        // Expand/collapse for .ps-customtext blocks — rendered on home/listing/CMS only.
+        if (in_array($page, ['index', 'category', 'cms'], true)) {
+            $output .= '<script src="' . htmlspecialchars($jsBase . 'expand-text.js') . '" defer></script>';
+        }
+
+        // Drag-scroll + arrow nav for product carousels (featured/bestsellers on
+        // home, categoryproducts/accessories on product).
+        if (in_array($page, ['index', 'product'], true)) {
+            $output .= '<script src="' . htmlspecialchars($jsBase . 'carousel-drag.js') . '" defer></script>';
+        }
 
         if (!(int) Configuration::get('HBE_TOPBAR_ENABLED')) {
             return $output;
