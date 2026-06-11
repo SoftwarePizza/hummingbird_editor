@@ -1193,8 +1193,7 @@
               {assign var=faqLangId value=$lang.id_lang|intval}
               <div id="hbe-faq-lang-{$faqLangId}" class="tab-pane{if $smarty.foreach.faqLangContent.first} active{/if}" role="tabpanel">
                 <div class="hbe-faq-builder" data-lang="{$faqLangId}">
-                  {assign var=faqItemsForLang value=$hbe_faq_items_lang[$faqLangId]|default:[]}
-                  {foreach from=$faqItemsForLang item=faqRow name=faqRows}
+                  {foreach from=$hbe_faq_items_lang[$faqLangId] item=faqRow name=faqRows}
                   <div class="hbe-faq-row">
                     <div class="form-group">
                       <label>{l s='Pytanie' mod='hummingbird_editor'}</label>
