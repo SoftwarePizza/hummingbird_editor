@@ -66,14 +66,16 @@
   color: var(--hbe-black);
   padding: 24px;
   border-radius: 4px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+  /* Figma: much more delicate panel — softer, lighter shadow. */
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
   text-align: left;
 }
 
 .cart-preview__title {
   margin: 0 0 20px;
   font-size: var(--fs-h4);
-  font-weight: 600;
+  /* Figma: fewer bolds — lighter title weight. */
+  font-weight: 500;
   line-height: 1.2;
 }
 
@@ -85,7 +87,7 @@
 .cart-preview__shipping-label {
   margin: 0 0 10px;
   font-size: var(--fs-body-m);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .cart-preview__progress {
@@ -116,7 +118,8 @@
   gap: 16px;
   align-items: start;
   padding: 20px 0;
-  border-bottom: 1px solid var(--bs-border-color, var(--c-grey-2));
+  /* Figma: thinner/lighter separating line. */
+  border-bottom: 1px solid var(--c-grey-2, #e5e5e5);
 }
 
 .cart-preview__products .cart-preview-product:first-child {
@@ -226,7 +229,7 @@
 }
 
 .cart-preview__row--total {
-  font-weight: 700;
+  font-weight: 600;
   font-size: var(--fs-h4);
   margin-bottom: 20px;
 }
@@ -239,7 +242,7 @@
   color: var(--hbe-white);
   text-align: center;
   font-size: var(--fs-body-m);
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: none;
   border-radius: 2px;
   transition: opacity 0.2s;
