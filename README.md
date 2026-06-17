@@ -37,7 +37,7 @@ Podczas instalacji moduł:
 - tworzy tabele dla bloków treści i slajdów,
 - tworzy katalog `img/hb_editor/` na pliki graficzne bloków,
 - tworzy katalog `modules/hummingbird_editor/images/` dla zasobów slidera,
-- rejestruje hooki `actionFrontControllerSetMedia`, `displayAfterBodyOpeningTag` i `displayHome`,
+- rejestruje hooki `actionFrontControllerSetMedia`, `displayAfterBodyOpeningTag`, `displayHome`, `displayFooterProduct` oraz hooki własne `displayProductSections` (FAQ + karuzela „Inni kupili również" na karcie produktu) i `displayListingBanner` — własne zamiast standardowego `displayProductButtons`, bo ten jest aliasem `displayProductAdditionalInfo` i renderowałby sekcje podwójnie,
 - dodaje zakładkę administracyjną `Hummingbird Editor` w panelu PrestaShop,
 - ustawia domyślne wartości konfiguracji dla dostępnych sekcji.
 

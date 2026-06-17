@@ -327,7 +327,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('displayAfterBodyOpeningTag')
             && $this->registerHook('displayHome')
-            && $this->registerHook('displayProductButtons')
+            && $this->registerHook('displayProductSections')
             && $this->registerHook('displayFooterProduct')
             && $this->registerHook('displayListingBanner')
             && $this->installTab();
@@ -825,7 +825,14 @@ class Hummingbird_editor extends Module
         return '';
     }
 
-    public function hookDisplayProductButtons(array $params = []): string
+    /**
+     * Custom theme hook (like displayListingBanner), called once in
+     * product.tpl below the buy section. Not a standard PS hook on purpose:
+     * displayProductButtons is an alias of displayProductAdditionalInfo, so
+     * registering there made the content render twice (the theme executes
+     * the canonical hook in product-additional-info.tpl as well).
+     */
+    public function hookDisplayProductSections(array $params = []): string
     {
         return $this->renderFaq() . $this->renderRelated($params);
     }
