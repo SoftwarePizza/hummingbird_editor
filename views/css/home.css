@@ -142,15 +142,16 @@
     letter-spacing: 0;
     border-radius: 0px;
     text-decoration: none;
-    transition: background 0.2s, color 0.2s;
+    transition: opacity 0.2s ease;
     border: none;
 }
 
 .hbe-imghero__cta:hover,
 .hbe-imghero__cta:focus {
-    background: var(--hbe-black);
-    color: var(--hbe-white);
-    opacity: 0.9;
+    /* Unified hover with the slider / featured-collection CTAs: a slight
+       transparency only (no colour swap), so the button reads the same on
+       white and black variants. */
+    opacity: 0.85;
     text-decoration: none;
 }
 
@@ -1035,15 +1036,17 @@
     margin-top: 1rem;
     text-decoration: none;
     font-weight: 600;
-    transition: filter 0.2s ease, transform 0.15s ease;
+    /* Sharp corners + opacity hover, identical to the imghero CTA. */
+    border-radius: 0;
+    transition: opacity 0.2s ease;
     line-height: 1;
     cursor: pointer;
 }
 
 .hbe-slider__cta:hover,
 .hbe-slider__cta:focus {
-    filter: brightness(1.15);
-    transform: translateY(-2px);
+    /* Same hover as the imghero / featured-collection CTAs. */
+    opacity: 0.85;
     text-decoration: none;
 }
 
