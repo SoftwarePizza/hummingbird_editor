@@ -344,6 +344,9 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_cols3d_title_3'  => (string) Configuration::get('HBE_COLS3D_TITLE_3'),
             'hbe_cols3d_desc_3'   => (string) Configuration::get('HBE_COLS3D_DESC_3'),
             'hbe_cols3d_url_3'    => (string) Configuration::get('HBE_COLS3D_URL_3'),
+            'hbe_cols3d_img_url_1' => Configuration::get('HBE_COLS3D_IMG_1') ? __PS_BASE_URI__ . 'img/hb_editor/' . Configuration::get('HBE_COLS3D_IMG_1') : '',
+            'hbe_cols3d_img_url_2' => Configuration::get('HBE_COLS3D_IMG_2') ? __PS_BASE_URI__ . 'img/hb_editor/' . Configuration::get('HBE_COLS3D_IMG_2') : '',
+            'hbe_cols3d_img_url_3' => Configuration::get('HBE_COLS3D_IMG_3') ? __PS_BASE_URI__ . 'img/hb_editor/' . Configuration::get('HBE_COLS3D_IMG_3') : '',
             'hbe_cols3d_title_1_lang' => $this->getConfigPerLang('HBE_COLS3D_TITLE_1', $languages),
             'hbe_cols3d_desc_1_lang'  => $this->getConfigPerLang('HBE_COLS3D_DESC_1',  $languages),
             'hbe_cols3d_url_1_lang'   => $this->getConfigPerLang('HBE_COLS3D_URL_1',   $languages),
@@ -1867,11 +1870,31 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $enabled = (int) Tools::getValue('enabled', 0);
         Configuration::updateValue('HBE_COLS3D_ENABLED', $enabled);
+
+        $response = ['success' => true];
+
         for ($i = 1; $i <= 3; $i++) {
             $this->saveLocalizedFromForm('HBE_COLS3D_TITLE_' . $i, Tools::getValue('title_' . $i, ''));
             $this->saveLocalizedFromForm('HBE_COLS3D_DESC_'  . $i, Tools::getValue('desc_'  . $i, ''));
             $this->saveLocalizedFromForm('HBE_COLS3D_URL_'   . $i, Tools::getValue('url_'   . $i, ''), true);
+
+            // Single image per column (salon photo) — language-agnostic.
+            $this->saveLocalizedImage('HBE_COLS3D_IMG_' . $i, 'img_' . $i, 'cols3d_' . $i, false);
+            $img = (string) Configuration::get('HBE_COLS3D_IMG_' . $i);
+            if ($img) {
+                $response['img_url_' . $i] = __PS_BASE_URI__ . 'img/hb_editor/' . $img;
+            }
         }
+
+        $this->ajaxDie(json_encode($response));
+    }
+
+    public function ajaxProcessDeleteCols3descImage(): void
+    {
+        $col = max(1, min(3, (int) Tools::getValue('col', 1)));
+        $key = 'HBE_COLS3D_IMG_' . $col;
+        $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
+        $this->deleteLocalizedImage($key, $idLang);
         $this->ajaxDie(json_encode(['success' => true]));
     }
 

@@ -475,7 +475,7 @@
         <div id="hbe-c-cols3d" class="panel-collapse collapse{if !$hbe_s_cols3d} in{/if}">
           <div class="panel-body">
             <p class="text-muted" style="margin-bottom:1rem">{l s='Trzy równe kolumny, każda z tytułem, opisem i linkiem.' mod='hummingbird_editor'}</p>
-            <form id="hbe-cols3desc-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+            <form id="hbe-cols3desc-form" method="post" action="{$hbe_ajax_url nofilter}" enctype="multipart/form-data" autocomplete="off">
               <input type="hidden" name="token" value="{$hbe_token}">
               <div class="row" style="margin-bottom:0.5rem">
                 <div class="col-md-2 form-group">
@@ -487,18 +487,26 @@
                 </div>
               </div>
               {foreach from=[1,2,3] item=i}
-              {if $i == 1}{assign var=title_lang value=$hbe_cols3d_title_1_lang}{assign var=desc_lang value=$hbe_cols3d_desc_1_lang}{assign var=url_lang value=$hbe_cols3d_url_1_lang}{elseif $i == 2}{assign var=title_lang value=$hbe_cols3d_title_2_lang}{assign var=desc_lang value=$hbe_cols3d_desc_2_lang}{assign var=url_lang value=$hbe_cols3d_url_2_lang}{else}{assign var=title_lang value=$hbe_cols3d_title_3_lang}{assign var=desc_lang value=$hbe_cols3d_desc_3_lang}{assign var=url_lang value=$hbe_cols3d_url_3_lang}{/if}
+              {if $i == 1}{assign var=title_lang value=$hbe_cols3d_title_1_lang}{assign var=desc_lang value=$hbe_cols3d_desc_1_lang}{assign var=url_lang value=$hbe_cols3d_url_1_lang}{assign var=c3d_img_url value=$hbe_cols3d_img_url_1}{elseif $i == 2}{assign var=title_lang value=$hbe_cols3d_title_2_lang}{assign var=desc_lang value=$hbe_cols3d_desc_2_lang}{assign var=url_lang value=$hbe_cols3d_url_2_lang}{assign var=c3d_img_url value=$hbe_cols3d_img_url_2}{else}{assign var=title_lang value=$hbe_cols3d_title_3_lang}{assign var=desc_lang value=$hbe_cols3d_desc_3_lang}{assign var=url_lang value=$hbe_cols3d_url_3_lang}{assign var=c3d_img_url value=$hbe_cols3d_img_url_3}{/if}
               <div class="row" style="margin-bottom:0.75rem;padding-bottom:0.75rem;border-bottom:1px solid #eee">
                 <div class="col-md-1 form-group" style="padding-top:2rem;font-weight:600;font-size:1.1rem;color:#555">{$i}</div>
                 <div class="col-md-3 form-group">
-                  <label class="control-label">{l s='Tytuł kolumny' mod='hummingbird_editor'} {$i}</label>
-                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name="title_{$i}" values=$title_lang placeholder='np. Szybka dostawa'}
+                  <label class="control-label">{l s='Zdjęcie nad linkiem (opcjonalnie)' mod='hummingbird_editor'} {$i}</label>
+                  {include file="{$hbe_tpl_dir}_ml_image.tpl"
+                    name="img_`$i`" dom_prefix="hbe-cols3d-`$i`-img"
+                    base_url=$c3d_img_url per_lang=[] per_lang_urls=[]
+                    delete_action="DeleteCols3descImage" delete_extra="col=`$i`"
+                    ml=0 mobile=0}
                 </div>
-                <div class="col-md-4 form-group">
+                <div class="col-md-2 form-group">
+                  <label class="control-label">{l s='Tytuł kolumny' mod='hummingbird_editor'} {$i}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name="title_{$i}" values=$title_lang placeholder='np. LLadro'}
+                </div>
+                <div class="col-md-3 form-group">
                   <label class="control-label">{l s='Opis kolumny' mod='hummingbird_editor'} {$i}</label>
                   {include file="{$hbe_tpl_dir}_ml_input.tpl" name="desc_{$i}" values=$desc_lang type='textarea' rows=2 placeholder='Krótki opis...'}
                 </div>
-                <div class="col-md-4 form-group">
+                <div class="col-md-3 form-group">
                   <label class="control-label">{l s='Link (URL)' mod='hummingbird_editor'} {$i}</label>
                   {include file="{$hbe_tpl_dir}_ml_input.tpl" name="url_{$i}" values=$url_lang placeholder='https://example.com/strona'}
                 </div>

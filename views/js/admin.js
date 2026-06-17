@@ -497,19 +497,29 @@ $(function () {
     $(document).on('submit', '#hbe-cols3desc-form', function (e) {
         e.preventDefault();
         var $form = $(this);
-        var data = $form.serializeArray();
+        // FormData so the optional per-column image file inputs are sent.
+        var fd = new FormData($form[0]);
         if (!$form.find('[name=enabled]').is(':checked')) {
-            data.push({ name: 'enabled', value: '0' });
+            fd.set('enabled', '0');
         }
         $.ajax({
             url: hbeAjaxUrl + 'action=SaveCols3Desc&ajax=1',
             type: 'POST',
-            data: data,
+            data: fd,
+            processData: false,
+            contentType: false,
             dataType: 'json',
             success: function (resp) {
                 if (resp && resp.success) {
                     showGlobalSuccess(hbeTrans.saved);
                     clearFormErrors($form);
+                    for (var i = 1; i <= 3; i++) {
+                        if (resp['img_url_' + i]) {
+                            $('#hbe-cols3d-' + i + '-img-preview').attr('src', resp['img_url_' + i]);
+                            $('#hbe-cols3d-' + i + '-img-wrap').show();
+                            $form.find('[name=img_' + i + ']').val('');
+                        }
+                    }
                 } else {
                     showFormError($form, resp ? resp.error : hbeTrans.error);
                 }

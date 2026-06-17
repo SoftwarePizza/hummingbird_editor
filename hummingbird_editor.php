@@ -166,6 +166,9 @@ class Hummingbird_editor extends Module
             if (Configuration::get('HBE_COLS3D_URL_' . $i) === false) {
                 Configuration::updateValue('HBE_COLS3D_URL_' . $i, '');
             }
+            if (Configuration::get('HBE_COLS3D_IMG_' . $i) === false) {
+                Configuration::updateValue('HBE_COLS3D_IMG_' . $i, '');
+            }
         }
         // displayHome element order (comma-separated)
         if (Configuration::get('HBE_HOME_ORDER') === false) {
@@ -378,6 +381,7 @@ class Hummingbird_editor extends Module
             Configuration::deleteByName('HBE_COLS3D_TITLE_' . $i);
             Configuration::deleteByName('HBE_COLS3D_DESC_' . $i);
             Configuration::deleteByName('HBE_COLS3D_URL_' . $i);
+            Configuration::deleteByName('HBE_COLS3D_IMG_' . $i);
         }
         Configuration::deleteByName('HBE_TAGLINE_ENABLED');
         Configuration::deleteByName('HBE_TAGLINE_TEXT');
@@ -1387,10 +1391,13 @@ class Hummingbird_editor extends Module
             if ($url !== '' && !preg_match('#^https?://#i', $url) && strpos($url, '/') !== 0) {
                 $url = 'https://' . $url;
             }
+            $imgSources = $this->resolveHbEditorImageSources((string) Configuration::get('HBE_COLS3D_IMG_' . $i));
             $cols[] = [
                 'title' => $this->hbeLocConfig('HBE_COLS3D_TITLE_' . $i),
                 'desc'  => $this->hbeLocConfig('HBE_COLS3D_DESC_' . $i),
                 'url'   => $url,
+                'img_url'      => $imgSources['url'],
+                'img_webp_url' => $imgSources['webp_url'],
             ];
         }
         $this->context->smarty->assign('hbe_cols3desc', $cols);
