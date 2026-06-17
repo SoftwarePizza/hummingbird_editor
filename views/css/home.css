@@ -66,6 +66,13 @@
     text-decoration: underline;
 }
 
+@media (max-width: 767px) {
+    .hbe-infobar {
+        font-size: var(--fs-body-s);
+        padding: 0.7rem 1rem;
+    }
+}
+
 
 /* ── Image hero banner ───────────────────────────────────────────────────── */
 .hbe-imghero {
@@ -149,10 +156,13 @@
 
 @media (max-width: 575px) {
     .hbe-imghero__overlay {
-        bottom: 1rem;
+        bottom: 1.5rem;
         left: 1rem;
-        max-width: 80%;
+        max-width: 90%;
         gap: 0.35rem;
+    }
+    .hbe-imghero__title {
+        margin-bottom: 1rem;
     }
 }
 
@@ -241,12 +251,24 @@
 @media (max-width: 767px) {
     .hbe-cols3__row {
         flex-direction: column;
-        gap: 18px;
+        gap: 0;
+        border-bottom: 1px solid var(--c-grey-2);
     }
 
     .hbe-cols3__col {
         flex: 0 0 100%;
         width: 100%;
+        border-top: 1px solid var(--c-grey-2);
+    }
+
+    .hbe-cols3__link,
+    .hbe-cols3__col:not(:has(.hbe-cols3__link)) {
+        min-height: 56px;
+        padding: 10px 0;
+    }
+
+    .hbe-cols3__text {
+        font-size: var(--fs-h4);
     }
 
     .hbe-cols3__divider {
@@ -300,8 +322,10 @@
 }
 
 @media (max-width: 767px) {
+    .hbe-tagline {
+        padding: 2.5rem 0;
+    }
     .hbe-tagline__text {
-        font-size: var(--fs-h4);
         max-width: 100%;
     }
 }
@@ -320,7 +344,7 @@
 }
 .hbe-katcols__title {
     font-size: var(--fs-h3);
-    font-weight: 700;
+    font-weight: 400;
     margin: 0;
 }
 .hbe-katcols__header-right {
@@ -504,6 +528,25 @@
     }
 }
 
+/* Mobile (Figma "Zainspiruj się"): title, desc, both images, then CTA last.
+   Flatten the wrappers with display:contents and reorder the flattened children. */
+@media (max-width: 767px) {
+    .hbe-splitblock__inner {
+        flex-direction: column;
+        gap: 16px;
+    }
+    .hbe-splitblock__left-half,
+    .hbe-splitblock__col--text {
+        display: contents;
+    }
+    .hbe-splitblock__title { order: 1; }
+    .hbe-splitblock__desc { order: 2; }
+    .hbe-splitblock__col--mid { order: 3; padding: 0; }
+    .hbe-splitblock__right-half { order: 4; min-height: 0; }
+    .hbe-splitblock__cta { order: 5; }
+    .hbe-splitblock__right-img { height: auto; }
+}
+
 /* ── 3-column block with title + desc + link ─────────────────────────────── */
 .hbe-cols3desc {
     width: 100%;
@@ -513,7 +556,7 @@
 .hbe-cols3desc__row {
     display: flex;
     align-items: stretch;
-    border-bottom: 1px solid var(--c-black);
+    /* Figma (Links): no divider on desktop; mobile adds light grey dividers */
 }
 
 .hbe-cols3desc__col {
@@ -545,8 +588,9 @@
 }
 
 .hbe-cols3desc__title {
-    font-size: var(--fs-body-m);
-    font-weight: 700;
+    font-family: var(--font-heading);
+    font-size: var(--fs-h4);
+    font-weight: 400;
     line-height: 1.3;
     display: block;
     grid-column: 1;
@@ -584,14 +628,19 @@
 @media (max-width: 767px) {
     .hbe-cols3desc__row {
         flex-direction: column;
+        border-bottom: 1px solid var(--c-grey-2);
+    }
+
+    .hbe-cols3desc__col {
+        border-top: 1px solid var(--c-grey-2);
+    }
+
+    .hbe-cols3desc__link {
+        padding: 1.1rem 0;
     }
 
     .hbe-cols3desc__divider {
-        position: static;
-        width: 100%;
-        height: 1px;
-        top: auto;
-        right: auto;
+        display: none;
     }
 }
 
@@ -605,14 +654,15 @@
 .hbe-icons4__row {
     display: flex;
     align-items: flex-start;
+    gap: 32px;
 }
 .hbe-icons4__col {
     flex: 1 1 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 16px 24px;
+    align-items: flex-start;
+    text-align: left;
+    padding: 16px 0;
     gap: 10px;
 }
 .hbe-icons4__icon {
@@ -623,10 +673,12 @@
     justify-content: center;
     flex-shrink: 0;
     margin-bottom: 4px;
+    background: var(--c-grey-1);
+    border-radius: 50%;
 }
 .hbe-icons4__icon img {
-    max-width: 64px;
-    max-height: 64px;
+    max-width: 28px;
+    max-height: 28px;
     width: auto;
     height: auto;
     display: block;
@@ -645,28 +697,23 @@
     margin: 0;
 }
 .hbe-icons4__divider {
-    width: 1px;
-    align-self: stretch;
-    background: var(--c-grey-2);
-    flex-shrink: 0;
-    margin: 16px 0;
+    /* Figma desktop has no vertical dividers between the feature columns */
+    display: none;
 }
 @media (max-width: 767px) {
     .hbe-icons4__row {
-        flex-wrap: wrap;
+        flex-direction: column;
     }
-    .hbe-icons4__col {
-        flex: 0 0 50%;
-        max-width: 50%;
-    }
-    .hbe-icons4__divider {
-        display: none;
-    }
-}
-@media (max-width: 479px) {
     .hbe-icons4__col {
         flex: 0 0 100%;
         max-width: 100%;
+        align-items: flex-start;
+        text-align: left;
+        padding: 16px 0;
+        gap: 8px;
+    }
+    .hbe-icons4__divider {
+        display: none;
     }
 }
 
@@ -1052,6 +1099,146 @@
         min-width: 8px;
         min-height: 8px;
     }
+}
+
+/* ── Mobile hero (Figma): caption BELOW the image on white, black serif text,
+   black square CTA, light circular nav arrows over the image.
+   home.css is the home-only bundle, so targeting .hbe-slider here is safe. ──── */
+@media (max-width: 767px) {
+    /* caption flows below the image (sibling of media, static) */
+    .hbe-slider__caption,
+    .hbe-slider__caption--center,
+    .hbe-slider__caption--left,
+    .hbe-slider__caption--bottom-left {
+        position: static;
+        top: auto;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        transform: none;
+        width: 100%;
+        max-width: 100%;
+        padding: 1.25rem 1rem 0.25rem;
+        background: transparent !important;
+        color: var(--c-black);
+        text-align: left;
+    }
+
+    .hbe-slider__caption-inner {
+        max-width: 100%;
+        margin: 0;
+    }
+
+    /* no dark gradient over the hero image on mobile */
+    .hbe-slider__media::after {
+        display: none;
+    }
+
+    /* slider.js sets track height = image height and the slide has overflow:hidden,
+       which would clip the caption now placed below — let it grow to fit. */
+    .hbe-slider__track {
+        height: auto !important;
+    }
+    .hbe-slider__slide {
+        overflow: visible;
+    }
+
+    .hbe-slider__title {
+        font-family: var(--font-heading);
+        font-size: var(--fs-h2);
+        line-height: 1.1;
+        text-transform: none;
+        color: var(--c-black);
+        text-shadow: none;
+        margin: 0;
+    }
+
+    .hbe-slider__desc {
+        font-family: var(--font-heading);
+        font-size: var(--fs-h2);
+        line-height: 1.1;
+        text-transform: none;
+        color: var(--c-black);
+        text-shadow: none;
+        margin: 0;
+        display: block;
+        -webkit-line-clamp: none;
+        overflow: visible;
+    }
+
+    /* CTA: the slide is configured white-bg/dark-text (for the desktop overlay on a
+       dark image) — invisible on the white caption below, so force a black button. */
+    .hbe-slider__cta {
+        margin-top: 1rem;
+        padding: 0.85rem 1.5rem;
+        font-size: var(--fs-body-s);
+        font-weight: 500;
+        color: var(--c-white) !important;
+        background: var(--c-black) !important;
+        border-radius: 0 !important;
+    }
+
+    /* nav arrows → light circles over the image (approx vertical-centre on image) */
+    .hbe-slider__arrow {
+        top: 38%;
+        transform: translateY(-50%);
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.85);
+        color: var(--c-black);
+        border-radius: 50%;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    .hbe-slider__arrow:hover {
+        background: #fff;
+        transform: translateY(-50%);
+    }
+    .hbe-slider__arrow svg { width: 18px; height: 18px; }
+    .hbe-slider__arrow--prev { left: 0.75rem; }
+    .hbe-slider__arrow--next { right: 0.75rem; }
+}
+
+
+/* ── Anti-flicker: reserve image space (aspect-ratio) + grey placeholder ─────
+   Images had no intrinsic dimensions, so they collapsed to 0 height and the page
+   jumped when each one finished loading. Each section now reserves its box from
+   the real image ratio and shows a light-grey "skeleton" until the image paints.
+   Ratios come from the actual uploaded files. */
+.hbe-slider__media img,
+.hbe-imghero__img,
+.hbe-katcols__img,
+.hbe-splitblock__mid-img,
+.hbe-splitblock__right-img {
+    background-color: var(--c-grey-1);
+    object-fit: cover;
+}
+
+/* <picture> wrappers must be block so the reserved box isn't broken by inline gaps */
+.hbe-slider__media picture,
+.hbe-imghero__inner picture,
+.hbe-katcols__img-link picture,
+.hbe-splitblock__col--mid picture,
+.hbe-splitblock__right-half picture {
+    display: block;
+}
+
+/* Per-section aspect ratios (from real image dimensions) */
+.hbe-imghero:not(.hbe-imghero--second) .hbe-imghero__img { aspect-ratio: 3 / 2; }
+.hbe-imghero--second .hbe-imghero__img { aspect-ratio: 4 / 3; }
+.hbe-katcols__col--left .hbe-katcols__img { aspect-ratio: 3 / 4; }
+.hbe-katcols__col--right .hbe-katcols__img { aspect-ratio: 2 / 3; }
+.hbe-splitblock__mid-img { aspect-ratio: 1 / 1; object-fit: contain; }
+.hbe-splitblock__right-img { aspect-ratio: 3 / 4; }
+
+/* Slider hero is art-directed: wide on desktop, ~square on mobile */
+.hbe-slider__media img { aspect-ratio: 3869 / 1558; }
+
+@media (max-width: 767px) {
+    .hbe-slider__media img { aspect-ratio: 1 / 1; }
 }
 
 
