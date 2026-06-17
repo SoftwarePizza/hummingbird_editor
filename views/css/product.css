@@ -1,11 +1,14 @@
 /* Hummingbird Editor — product page bundle. CSS vars (--hbe-*) come from front.css (always loaded). */
 
 /* ── FAQ accordion ───────────────────────────── */
-.hbe-faq { margin: 1.5rem 0; }
+/* Figma: tidy, enclosed list of expandable rows (packaging / shipping /
+   payment) — top divider on every row + a closing bottom divider, with a
+   touch more breathing room per row. */
+.hbe-faq { margin: 2rem 0; border-bottom: 1px solid var(--c-grey-2); }
 .hbe-faq__item { border-top: 1px solid var(--c-grey-2); }
 .hbe-faq__question {
   display: flex; justify-content: space-between; align-items: center;
-  width: 100%; padding: 1rem 0;
+  width: 100%; padding: 1.15rem 0;
   font-family: var(--font-body); font-size: var(--fs-body-m); font-weight: 400;
   text-align: left; background: transparent; border: 0; cursor: pointer;
   line-height: 1.4;
