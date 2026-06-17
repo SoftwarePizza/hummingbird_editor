@@ -31,6 +31,7 @@
       <div class="hbe-katcols__col hbe-katcols__col--left">
         {if $hbe_katcols_l_url}<a href="{$hbe_katcols_l_url|escape:'html':'UTF-8'}" class="hbe-katcols__img-link">{/if}
           {if $hbe_katcols_l_img_url}
+            <span class="hbe-katcols__media">
             {include file="./_picture.tpl"
               p_url=$hbe_katcols_l_img_url
               p_webp=$hbe_katcols_l_img_webp_url
@@ -38,6 +39,7 @@
               p_mobile_webp=$hbe_katcols_l_img_mobile_webp_url
               p_alt=$hbe_katcols_l_caption
               p_class='hbe-katcols__img'}
+            </span>
           {/if}
           {if $hbe_katcols_l_caption}
             <span class="hbe-katcols__caption">{$hbe_katcols_l_caption|escape:'html':'UTF-8'}</span>
@@ -51,6 +53,7 @@
       <div class="hbe-katcols__col hbe-katcols__col--right">
         {if $hbe_katcols_r_url}<a href="{$hbe_katcols_r_url|escape:'html':'UTF-8'}" class="hbe-katcols__img-link">{/if}
           {if $hbe_katcols_r_img_url}
+            <span class="hbe-katcols__media">
             {include file="./_picture.tpl"
               p_url=$hbe_katcols_r_img_url
               p_webp=$hbe_katcols_r_img_webp_url
@@ -58,6 +61,7 @@
               p_mobile_webp=$hbe_katcols_r_img_mobile_webp_url
               p_alt=$hbe_katcols_r_caption
               p_class='hbe-katcols__img'}
+            </span>
           {/if}
           {if $hbe_katcols_r_caption}
             <span class="hbe-katcols__caption">{$hbe_katcols_r_caption|escape:'html':'UTF-8'}</span>

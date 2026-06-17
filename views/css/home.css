@@ -376,10 +376,19 @@
 .hbe-katcols__img-link {
     display: block;
     position: relative;
-    overflow: hidden;
-    border-radius: 4px;
+    /* Figma: category tiles are sharp — no rounding (was 4px, inconsistent
+       with the splitblock/imghero tiles which are square). */
+    border-radius: 0;
     text-decoration: none;
     color: inherit;
+}
+/* Only the image is clipped + zoomed on hover. The caption lives OUTSIDE this
+   box so the hover zoom can never eat into the image↔caption gap — the spacing
+   stays equal at rest and "po wywołaniu ruchu" (after the motion). */
+.hbe-katcols__media {
+    display: block;
+    overflow: hidden;
+    line-height: 0;
 }
 .hbe-katcols__img {
     display: block;
