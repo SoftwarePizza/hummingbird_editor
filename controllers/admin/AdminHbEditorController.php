@@ -277,6 +277,9 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_hide_language_desktop' => (int) Configuration::get('HBE_HIDE_LANGUAGE_DESKTOP'),
             'hbe_hide_language_mobile'  => (int) Configuration::get('HBE_HIDE_LANGUAGE_MOBILE'),
             'hbe_hide_quickview'        => (int) Configuration::get('HBE_HIDE_QUICKVIEW'),
+            // Wishlist preview drawer — unset means "on" (matches isWishlistPreviewEnabled()).
+            'hbe_wishlist_preview'      => Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED') === false
+                ? 1 : (int) Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED'),
             // Cart preview (ps_shoppingcart feature toggles)
             'hbe_cart_hover'             => (int) Configuration::get('PS_BLOCK_CART_HOVER'),
             'hbe_cart_preview_modal'     => (int) Configuration::get('PS_BLOCK_CART_PREVIEW_MODAL'),
@@ -1588,6 +1591,7 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_HIDE_LANGUAGE_DESKTOP', (int) Tools::getValue('hide_language_desktop', 0));
         Configuration::updateValue('HBE_HIDE_LANGUAGE_MOBILE',  (int) Tools::getValue('hide_language_mobile', 0));
         Configuration::updateValue('HBE_HIDE_QUICKVIEW',         (int) Tools::getValue('hide_quickview', 0));
+        Configuration::updateValue('HBE_WISHLIST_PREVIEW_ENABLED', (int) Tools::getValue('wishlist_preview', 0));
         $this->ajaxDie(json_encode(['success' => true]));
     }
 

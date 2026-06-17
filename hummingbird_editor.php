@@ -24,7 +24,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.4.0';
+        $this->version = '1.6.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -732,6 +732,68 @@ class Hummingbird_editor extends Module
         }
 
         $this->setupCartPreview();
+        $this->setupWishlistPreview();
+    }
+
+    /**
+     * Wishlist preview drawer (Figma: Ulubione). Managed here so the core
+     * blockwishlist module stays untouched — the drawer talks to
+     * blockwishlist's own AJAX API from wishlist-preview.js.
+     */
+    private function setupWishlistPreview(): void
+    {
+        if (!$this->isWishlistPreviewEnabled()) {
+            return;
+        }
+
+        $this->context->controller->registerStylesheet(
+            'hb-editor-wishlist-preview',
+            'modules/' . $this->name . '/views/css/wishlist-preview.css',
+            ['media' => 'all', 'priority' => 200]
+        );
+        $this->context->controller->registerJavascript(
+            'hb-editor-wishlist-preview',
+            'modules/' . $this->name . '/views/js/wishlist-preview.js',
+            ['position' => 'bottom', 'priority' => 200]
+        );
+
+        Media::addJsDef([
+            'hbeWishlistPreview' => [
+                'getAllWishlistUrl' => $this->context->link->getModuleLink(
+                    'blockwishlist',
+                    'action',
+                    ['action' => 'getAllWishlist']
+                ),
+                'addUrl' => $this->context->link->getModuleLink(
+                    'blockwishlist',
+                    'action',
+                    ['action' => 'addProductToWishlist']
+                ),
+                'loginUrl' => $this->context->link->getPageLink('authentication', true, null, [
+                    'back' => $this->context->link->getModuleLink('blockwishlist', 'lists'),
+                ]),
+                'i18n' => [
+                    'loading'   => $this->l('Wczytywanie…'),
+                    'empty'     => $this->l('Twoja lista ulubionych jest pusta.'),
+                    'login'     => $this->l('Zaloguj się, aby zobaczyć swoje ulubione produkty.'),
+                    'loginLink' => $this->l('Zaloguj się'),
+                    'error'     => $this->l('Nie udało się wczytać ulubionych. Spróbuj ponownie.'),
+                    'added'     => $this->l('Produkt dodany do ulubionych.'),
+                    'tax'       => $this->l('(brutto)'),
+                ],
+            ],
+        ]);
+    }
+
+    /** Feature toggle — enabled by default, disable with HBE_WISHLIST_PREVIEW_ENABLED = 0. */
+    private function isWishlistPreviewEnabled(): bool
+    {
+        $flag = Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED');
+        if ($flag !== false && !(int) $flag) {
+            return false;
+        }
+
+        return Module::isEnabled('blockwishlist');
     }
 
     /**
@@ -1053,6 +1115,15 @@ class Hummingbird_editor extends Module
         // home, categoryproducts/accessories on product).
         if (in_array($page, ['index', 'product'], true)) {
             $output .= '<script src="' . htmlspecialchars($jsBase . 'carousel-drag.js') . '" defer></script>';
+        }
+
+        // Wishlist preview drawer shell (Figma: Ulubione) — every page; rows
+        // are filled client-side by wishlist-preview.js.
+        if ($this->isWishlistPreviewEnabled()) {
+            $this->context->smarty->assign([
+                'hbe_wishlist_lists_url' => $this->context->link->getModuleLink('blockwishlist', 'lists'),
+            ]);
+            $output .= $this->display(__FILE__, 'views/templates/hook/wishlist-preview.tpl');
         }
 
         if (!(int) Configuration::get('HBE_TOPBAR_ENABLED')) {

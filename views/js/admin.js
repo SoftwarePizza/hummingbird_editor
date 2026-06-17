@@ -1056,7 +1056,8 @@ $(function () {
             { name: 'hide_currency_mobile',  value: $form.find('[name=hide_currency_mobile]').is(':checked')  ? 1 : 0 },
             { name: 'hide_language_desktop', value: $form.find('[name=hide_language_desktop]').is(':checked') ? 1 : 0 },
             { name: 'hide_language_mobile',  value: $form.find('[name=hide_language_mobile]').is(':checked')  ? 1 : 0 },
-            { name: 'hide_quickview',        value: $form.find('[name=hide_quickview]').is(':checked')        ? 1 : 0 }
+            { name: 'hide_quickview',        value: $form.find('[name=hide_quickview]').is(':checked')        ? 1 : 0 },
+            { name: 'wishlist_preview',      value: $form.find('[name=wishlist_preview]').is(':checked')      ? 1 : 0 }
         ];
         $.ajax({
             url: hbeAjaxUrl + 'action=SaveHeaderToggles&ajax=1',

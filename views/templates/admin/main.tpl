@@ -1126,6 +1126,15 @@
                       </label>
                     </td>
                   </tr>
+                  <tr>
+                    <td><strong>{l s='Podgląd ulubionych (wysuwana szuflada)' mod='hummingbird_editor'}</strong></td>
+                    <td colspan="2">
+                      <label style="margin:0">
+                        <input type="checkbox" name="wishlist_preview" value="1" {if $hbe_wishlist_preview}checked{/if}>
+                        {l s='Włącz (po kliknięciu serca w nagłówku i po dodaniu produktu do ulubionych)' mod='hummingbird_editor'}
+                      </label>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
               <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
