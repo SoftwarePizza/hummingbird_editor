@@ -67,15 +67,44 @@ Ryzyko: L=niskie (CSS), M=średnie (CSS+drobny tpl), H=duże (przebudowa szablon
 - **Faza F — karta produktu (M):** #12 (bez usuwania zakładek do decyzji).
 - **Faza G — checkout jednostronicowy (H):** #13.
 
-## Progress checklist
+## Progress checklist (WSZYSTKO ZROBIONE — 2026-06-17)
 - [x] Recon: PDF odczytany ze stron jpg, mapa zmian→pliki zbudowana, plan zapisany
-- [ ] Faza A — szybkie poprawki CSS
-- [ ] Faza B — hover banerów
-- [ ] Faza C — salony + icons4 out
-- [ ] Faza D — landing kategorii
-- [ ] Faza E — koszyk (preview + strona)
-- [ ] Faza F — karta produktu
-- [ ] Faza G — checkout
+- [x] Faza A — szybkie poprawki CSS (#1 menu hover+radius, #3 serce=już OK, #4 ramka,
+      #7 katcols odstępy, #8 zaokrąglenia, #9 newsletter)
+- [x] Faza B — hover banerów (#5: ujednolicony opacity .85 imghero/slider)
+- [x] Faza C — salony + icons4 out (#6: zdjęcia w cols3desc + admin upload; icons4 OFF)
+- [x] Faza D — landing kategorii (#2: kafle podkategorii na górze, opisy niżej)
+- [x] Faza E — koszyk (#10 dropdown delikatniejszy, #11 strona = karta podsumowania)
+- [x] Faza F — karta produktu (#12: FAQ-zakładki zostają, schludniejszy styl + odstęp)
+- [x] Faza G — checkout (#13: restyle natywnego, kroki ułożone na jednej stronie)
+
+## Wykonane zmiany — szczegóły / commity
+Submoduły (commitowane per faza; gitlinki bumpowane w repo nadrzędnym):
+- **theme `themes/hummingbird`** (branch `elegant`): _mainmenu.scss, _footer.scss,
+  subcategories.tpl, category-header.tpl, _category-subcategory.scss, _cart.scss,
+  _product.scss, _checkout.scss. Po każdej zmianie: `npm run build`.
+- **module `modules/hummingbird_editor`** (branch `master`): home.css, katcols.tpl,
+  cols3desc.tpl (+ render/admin/save/install w hummingbird_editor.php i
+  AdminHbEditorController.php, main.tpl, admin.js), cart-preview.css, product.css.
+
+## Uwagi / decyzje wykonawcze
+- **#3 serce**: już zaimplementowane (czarne kółko + białe serce, scoped do
+  miniatur w `_product-miniature.scss`) — zgodne z makietą, bez zmian.
+- **#6 icons4 OUT**: zmieniono `HBE_ICONS4_ENABLED=0` w DB (ps_configuration,
+  shop globalny) + wyczyszczono var/cache. **Odwracalne**: przełącznik „Włącz"
+  w panelu modułu (sekcja Blok 4 kolumn z ikonami) albo ustaw wartość na 1.
+- **#6 zdjęcia salonów**: konfigurowalne w adminie (panel „Blok 3 kolumn z
+  opisami" → pole zdjęcia per kolumna). Klient wgrywa foto LLadro/Maison
+  Berger/Karenski. Render już je pokaże (kwadrat 1:1, desktop 3 w rzędzie).
+- **#12 zakładki produktu**: ZOSTAWIONE (decyzja klienta), tylko styl.
+- **#13 checkout**: restyle natywnego (decyzja klienta). Pełny single-page
+  (wszystkie formularze naraz, niezależnie od postępu) = dedykowany moduł OPC
+  lub zmiana w core — poza zakresem szablonu (CONTEXT.md: theme to tylko warstwa
+  prezentacji). Tu: kroki ukończone/osiągalne widoczne razem (stacked).
+- **Weryfikacja wizualna**: brak live preview (staging = inny sklep, brak headless
+  browsera). Po stronie klienta: po zmianach theme → cache już czyszczony buildem;
+  po zmianach modułu → wyczyść CCC/cache PrestaShop. Sprawdzić wizualnie na realnym
+  renderze: mega-menu hover, landing KOLEKCJE, koszyk, checkout.
 
 ## Uwagi
 - PDF `zmiany.pdf` jest **ucięty** (zadeklarowane ~10.4 MB, na dysku 1.28 MB, brak
