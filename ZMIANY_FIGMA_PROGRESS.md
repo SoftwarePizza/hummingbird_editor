@@ -57,6 +57,14 @@ Ryzyko: L=niskie (CSS), M=średnie (CSS+drobny tpl), H=duże (przebudowa szablon
   (pole per-kolumna w cols3desc), czy wystarczą wgrane na sztywno? Konfigurowalne =
   więcej pracy (admin + DB), ładniej docelowo.
 
+## Menu — układ płaski (podkategorie jako kafelki)
+Zaznaczone pozycje menu **nie pokażą** lewej kolumny z zakładkami — ich
+podkategorie wyświetlą się od razu jako kafelki ze zdjęciami. Konfiguracja
+per-urządzenie (Desktop/Mobile) w panelu modułu → **osobna zakładka „Menu"**
+(wcześniej była w zakładce „Ustawienia"). Implementacja: `HBE_MENU_FLAT_ITEMS`
+/ `HBE_MENU_FLAT_ITEMS_MOBILE`, hook `actionMainMenuModifier`
+(`ajaxProcessSaveMenuFlat`) — ps_mainmenu nie jest modyfikowany.
+
 ## Fazy (kolejność wykonania)
 - **Faza A — szybkie poprawki CSS (L):** #4, #1(radius+hover), #8, #7, #9, #3. Theme:
   jeden `npm run build`. Moduł: tylko CSS.

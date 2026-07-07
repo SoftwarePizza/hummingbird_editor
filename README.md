@@ -78,6 +78,7 @@ Moduł obsługuje gotowe sekcje frontowe, które można włączać i konfigurowa
 - `Sekcja 3 kolumn (tekst+obraz+obraz)` - rozbudowany blok typu split,
 - `Blok 4 kolumn z ikonami` - cztery pola z ikonami i opisami,
 - `Pasek marek (logotypy)` - lista logotypów producentów lub własnych grafik,
+- `Inne sklepy online` - zamykająca sekcja strony głównej z trzema kartami sklepów (mozaika 3 zdjęć, nazwa, opis, link wychodzący),
 - `Slider (banery)` - slajdy z tekstem, overlayem i CTA,
 - własne bloki przypinane do dowolnych hooków.
 
@@ -251,4 +252,4 @@ Same pliki graficzne w katalogach mogą pozostać na dysku, dlatego przed pełny
 
 ## Wersja
 
-Aktualna wersja modułu: `1.1.0`.
+Aktualna wersja modułu: `1.8.0`.

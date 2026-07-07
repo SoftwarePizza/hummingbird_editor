@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hummingbird Editor — sekcja „Inne sklepy online" (preview)</title>
+
+<!-- Lora (headings). Geist falls back to a system sans here. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Real module CSS -->
+<link rel="stylesheet" href="../views/css/front.css">
+<link rel="stylesheet" href="../views/css/home.css">
+
+<style>
+  /* ── Design tokens (mirrors theme _design-tokens.scss) ────────────────── */
+  :root{
+    --font-heading:"Lora",georgia,serif;
+    --font-body:"Geist Sans","Geist",system-ui,sans-serif;
+    --fs-h1:2.5rem; --fs-h2:2rem; --fs-h3:1.625rem; --fs-h4:1.25rem; --fs-h5:1rem;
+    --fs-body-l:1.125rem; --fs-body-m:1rem; --fs-body-s:.875rem; --fs-body-xs:.75rem; --fs-body-xxs:.6875rem;
+    --c-black:#242424; --c-grey-5:#5a5a5a; --c-grey-2:#e5e5e5; --c-grey-1:#f5f5f5;
+    --c-white:#fff; --c-beige:#f5f1ea; --bs-primary:#242424; --bs-body-color:#242424;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font-body);color:var(--c-black);background:#888}
+  h2,h3{margin:0}
+  .container{max-width:1320px;padding:0 24px;margin:0 auto}
+  .page{background:#fff;margin:0 auto 32px;box-shadow:0 0 0 1px #0003}
+  .page--desktop{max-width:1440px}
+  .page--mobile{width:360px}
+  .page--mobile .container{padding:0 16px}
+  .lbl{font:600 11px/1.4 system-ui;color:#fff;background:#0008;padding:2px 8px;position:sticky;top:0;z-index:5}
+  .filler{padding:40px 24px;color:#999;font:400 14px/1.5 system-ui;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- ════ Desktop ════ -->
+<div class="page page--desktop">
+  <div class="lbl">Desktop — „Inne sklepy online" (sekcja zamykająca stronę główną)</div>
+  <div class="filler">… koniec pozostałych sekcji home …</div>
+
+  <section class="hbe-shops" aria-labelledby="hbe-shops-title">
+    <div class="container">
+      <header class="hbe-shops__header">
+        <p class="hbe-shops__eyebrow">Rosenthal poleca</p>
+        <h2 id="hbe-shops-title" class="hbe-shops__title">Odwiedź nasze pozostałe sklepy online</h2>
+        <p class="hbe-shops__lead">Porcelana, rzeźba i domowe zapachy — trzy światy, ta sama dbałość o piękno. Poznaj sklepy, które prowadzimy z myślą o miłośnikach dobrego stylu.</p>
+      </header>
+      <ul class="hbe-shops__grid">
+
+        <li class="hbe-shops__card">
+          <a href="https://karenski.pl" class="hbe-shops__gallery hbe-shops__gallery--n3" tabindex="-1" aria-hidden="true" target="_blank" rel="noopener">
+            <span class="hbe-shops__tile hbe-shops__tile--0"><picture><source type="image/webp" srcset="../images/shops/shops_karenski_1.webp"><img class="hbe-shops__img" src="../images/shops/shops_karenski_1.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--1"><picture><source type="image/webp" srcset="../images/shops/shops_karenski_2.webp"><img class="hbe-shops__img" src="../images/shops/shops_karenski_2.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--2"><picture><source type="image/webp" srcset="../images/shops/shops_karenski_3.webp"><img class="hbe-shops__img" src="../images/shops/shops_karenski_3.jpg" alt="" loading="lazy"></picture></span>
+          </a>
+          <div class="hbe-shops__body">
+            <h3 class="hbe-shops__name"><a href="https://karenski.pl" target="_blank" rel="noopener">Karenski</a></h3>
+            <p class="hbe-shops__desc">Luksusowa porcelana i wyposażenie stołu — od klasyki Meissen po współczesny design najlepszych światowych manufaktur.</p>
+            <a href="https://karenski.pl" class="hbe-shops__link" target="_blank" rel="noopener" aria-label="Odwiedź sklep — Karenski">
+              Odwiedź sklep
+              <svg class="hbe-shops__link-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 11L11 3M11 3H4.5M11 3V9.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </li>
+
+        <li class="hbe-shops__card">
+          <a href="https://lladro.pl" class="hbe-shops__gallery hbe-shops__gallery--n3" tabindex="-1" aria-hidden="true" target="_blank" rel="noopener">
+            <span class="hbe-shops__tile hbe-shops__tile--0"><picture><source type="image/webp" srcset="../images/shops/shops_lladro_1.webp"><img class="hbe-shops__img" src="../images/shops/shops_lladro_1.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--1"><picture><source type="image/webp" srcset="../images/shops/shops_lladro_2.webp"><img class="hbe-shops__img" src="../images/shops/shops_lladro_2.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--2"><picture><source type="image/webp" srcset="../images/shops/shops_lladro_3.webp"><img class="hbe-shops__img" src="../images/shops/shops_lladro_3.jpg" alt="" loading="lazy"></picture></span>
+          </a>
+          <div class="hbe-shops__body">
+            <h3 class="hbe-shops__name"><a href="https://lladro.pl" target="_blank" rel="noopener">Lladró</a></h3>
+            <p class="hbe-shops__desc">Hiszpańskie rzeźby z porcelany, od 1953 roku tworzone ręcznie w Walencji. Figury pełne detali, które opowiadają historie.</p>
+            <a href="https://lladro.pl" class="hbe-shops__link" target="_blank" rel="noopener" aria-label="Odwiedź sklep — Lladró">
+              Odwiedź sklep
+              <svg class="hbe-shops__link-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 11L11 3M11 3H4.5M11 3V9.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </li>
+
+        <li class="hbe-shops__card">
+          <a href="https://maisonberger.pl" class="hbe-shops__gallery hbe-shops__gallery--n3" tabindex="-1" aria-hidden="true" target="_blank" rel="noopener">
+            <span class="hbe-shops__tile hbe-shops__tile--0"><picture><source type="image/webp" srcset="../images/shops/shops_maison_berger_1.webp"><img class="hbe-shops__img" src="../images/shops/shops_maison_berger_1.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--1"><picture><source type="image/webp" srcset="../images/shops/shops_maison_berger_2.webp"><img class="hbe-shops__img" src="../images/shops/shops_maison_berger_2.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--2"><picture><source type="image/webp" srcset="../images/shops/shops_maison_berger_3.webp"><img class="hbe-shops__img" src="../images/shops/shops_maison_berger_3.jpg" alt="" loading="lazy"></picture></span>
+          </a>
+          <div class="hbe-shops__body">
+            <h3 class="hbe-shops__name"><a href="https://maisonberger.pl" target="_blank" rel="noopener">Maison Berger Paris</a></h3>
+            <p class="hbe-shops__desc">Francuskie lampy zapachowe i perfumy do wnętrz z tradycją sięgającą 1898 roku. Zapach, który nadaje domowi nastrój.</p>
+            <a href="https://maisonberger.pl" class="hbe-shops__link" target="_blank" rel="noopener" aria-label="Odwiedź sklep — Maison Berger Paris">
+              Odwiedź sklep
+              <svg class="hbe-shops__link-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 11L11 3M11 3H4.5M11 3V9.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </li>
+
+      </ul>
+    </div>
+  </section>
+</div>
+
+<!-- ════ Mobile 360px ════ -->
+<div class="page page--mobile">
+  <div class="lbl">Mobile 360px — pasek przesuwany palcem (scroll-snap)</div>
+  <div class="filler">… koniec pozostałych sekcji home …</div>
+
+  <section class="hbe-shops" aria-labelledby="hbe-shops-title-m">
+    <div class="container">
+      <header class="hbe-shops__header">
+        <p class="hbe-shops__eyebrow">Rosenthal poleca</p>
+        <h2 id="hbe-shops-title-m" class="hbe-shops__title">Odwiedź nasze pozostałe sklepy online</h2>
+        <p class="hbe-shops__lead">Porcelana, rzeźba i domowe zapachy — trzy światy, ta sama dbałość o piękno.</p>
+      </header>
+      <ul class="hbe-shops__grid">
+
+        <li class="hbe-shops__card">
+          <a href="https://karenski.pl" class="hbe-shops__gallery hbe-shops__gallery--n3" tabindex="-1" aria-hidden="true" target="_blank" rel="noopener">
+            <span class="hbe-shops__tile hbe-shops__tile--0"><picture><source type="image/webp" srcset="../images/shops/shops_karenski_1.webp"><img class="hbe-shops__img" src="../images/shops/shops_karenski_1.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--1"><picture><source type="image/webp" srcset="../images/shops/shops_karenski_2.webp"><img class="hbe-shops__img" src="../images/shops/shops_karenski_2.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--2"><picture><source type="image/webp" srcset="../images/shops/shops_karenski_3.webp"><img class="hbe-shops__img" src="../images/shops/shops_karenski_3.jpg" alt="" loading="lazy"></picture></span>
+          </a>
+          <div class="hbe-shops__body">
+            <h3 class="hbe-shops__name"><a href="https://karenski.pl" target="_blank" rel="noopener">Karenski</a></h3>
+            <p class="hbe-shops__desc">Luksusowa porcelana i wyposażenie stołu — od klasyki Meissen po współczesny design.</p>
+            <a href="https://karenski.pl" class="hbe-shops__link" target="_blank" rel="noopener">Odwiedź sklep
+              <svg class="hbe-shops__link-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 11L11 3M11 3H4.5M11 3V9.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </li>
+
+        <li class="hbe-shops__card">
+          <a href="https://lladro.pl" class="hbe-shops__gallery hbe-shops__gallery--n3" tabindex="-1" aria-hidden="true" target="_blank" rel="noopener">
+            <span class="hbe-shops__tile hbe-shops__tile--0"><picture><source type="image/webp" srcset="../images/shops/shops_lladro_1.webp"><img class="hbe-shops__img" src="../images/shops/shops_lladro_1.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--1"><picture><source type="image/webp" srcset="../images/shops/shops_lladro_2.webp"><img class="hbe-shops__img" src="../images/shops/shops_lladro_2.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--2"><picture><source type="image/webp" srcset="../images/shops/shops_lladro_3.webp"><img class="hbe-shops__img" src="../images/shops/shops_lladro_3.jpg" alt="" loading="lazy"></picture></span>
+          </a>
+          <div class="hbe-shops__body">
+            <h3 class="hbe-shops__name"><a href="https://lladro.pl" target="_blank" rel="noopener">Lladró</a></h3>
+            <p class="hbe-shops__desc">Hiszpańskie rzeźby z porcelany, tworzone ręcznie w Walencji.</p>
+            <a href="https://lladro.pl" class="hbe-shops__link" target="_blank" rel="noopener">Odwiedź sklep
+              <svg class="hbe-shops__link-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 11L11 3M11 3H4.5M11 3V9.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </li>
+
+        <li class="hbe-shops__card">
+          <a href="https://maisonberger.pl" class="hbe-shops__gallery hbe-shops__gallery--n3" tabindex="-1" aria-hidden="true" target="_blank" rel="noopener">
+            <span class="hbe-shops__tile hbe-shops__tile--0"><picture><source type="image/webp" srcset="../images/shops/shops_maison_berger_1.webp"><img class="hbe-shops__img" src="../images/shops/shops_maison_berger_1.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--1"><picture><source type="image/webp" srcset="../images/shops/shops_maison_berger_2.webp"><img class="hbe-shops__img" src="../images/shops/shops_maison_berger_2.jpg" alt="" loading="lazy"></picture></span>
+            <span class="hbe-shops__tile hbe-shops__tile--2"><picture><source type="image/webp" srcset="../images/shops/shops_maison_berger_3.webp"><img class="hbe-shops__img" src="../images/shops/shops_maison_berger_3.jpg" alt="" loading="lazy"></picture></span>
+          </a>
+          <div class="hbe-shops__body">
+            <h3 class="hbe-shops__name"><a href="https://maisonberger.pl" target="_blank" rel="noopener">Maison Berger Paris</a></h3>
+            <p class="hbe-shops__desc">Francuskie lampy zapachowe i perfumy do wnętrz od 1898 roku.</p>
+            <a href="https://maisonberger.pl" class="hbe-shops__link" target="_blank" rel="noopener">Odwiedź sklep
+              <svg class="hbe-shops__link-arrow" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 11L11 3M11 3H4.5M11 3V9.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+        </li>
+
+      </ul>
+    </div>
+  </section>
+</div>
+
+</body>
+</html>

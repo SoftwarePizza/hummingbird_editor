@@ -697,6 +697,62 @@ $(function () {
         });
     });
 
+    /* ── Inne sklepy online: save ────────────────────────────────────────── */
+    $(document).on('submit', '#hbe-shops-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var fd = new FormData($form[0]);
+        if (!$form.find('[name=enabled]').is(':checked')) {
+            fd.set('enabled', '0');
+        }
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveShops&ajax=1',
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                    for (var i = 1; i <= 3; i++) {
+                        for (var j = 1; j <= 3; j++) {
+                            if (resp['img_url_' + i + '_' + j]) {
+                                $('#hbe-shops-img-' + i + '-' + j + '-preview').attr('src', resp['img_url_' + i + '_' + j]);
+                                $('#hbe-shops-img-' + i + '-' + j + '-wrap').show();
+                                $form.find('[name=img_' + i + '_' + j + ']').val('');
+                            }
+                        }
+                    }
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    /* ── Inne sklepy online: delete gallery image ────────────────────────── */
+    $(document).on('click', '.hbe-shops-del-img', function (e) {
+        e.preventDefault();
+        if (!confirm('Usunąć zdjęcie?')) { return; }
+        var store = $(this).data('store');
+        var idx = $(this).data('idx');
+        $.ajax({
+            url: hbeAjaxUrl + 'action=DeleteShopsImage&ajax=1',
+            type: 'POST',
+            data: { token: hbeToken, store: store, idx: idx },
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    $('#hbe-shops-img-' + store + '-' + idx + '-wrap').hide();
+                    $('#hbe-shops-img-' + store + '-' + idx + '-preview').attr('src', '');
+                }
+            }
+        });
+    });
+
     /* ── Icons 4 columns: delete icon ───────────────────────────────────── */
     $(document).on('click', '.hbe-icons4-del-img', function (e) {
         e.preventDefault();
@@ -1086,6 +1142,36 @@ $(function () {
         });
     });
 
+    /* ── Menu flat layout: save ───────────────────────────────────────────── */
+    $(document).on('submit', '#hbe-menuflat-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = [
+            { name: 'token', value: $form.find('[name=token]').val() }
+        ];
+        $form.find('input[name="flat_items[]"]:checked').each(function () {
+            data.push({ name: 'flat_items[]', value: $(this).val() });
+        });
+        $form.find('input[name="flat_items_mobile[]"]:checked').each(function () {
+            data.push({ name: 'flat_items_mobile[]', value: $(this).val() });
+        });
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveMenuFlat&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     /* ── Cart preview: save ───────────────────────────────────────────────── */
     $(document).on('submit', '#hbe-cart-form', function (e) {
         e.preventDefault();
@@ -1098,6 +1184,61 @@ $(function () {
         ];
         $.ajax({
             url: hbeAjaxUrl + 'action=SaveCartSettings&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    /* ── Karta produktu: save ─────────────────────────────────────────────── */
+    $(document).on('submit', '#hbe-productcard-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = [
+            { name: 'token', value: $form.find('[name=token]').val() },
+            { name: 'product_summary_source', value: $form.find('[name=product_summary_source]').val() }
+        ];
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveProductCardSettings&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    /* ── Rosenthal Care (cart block): save ────────────────────────────────── */
+    $(document).on('submit', '#hbe-care-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = [
+            { name: 'token', value: $form.find('[name=token]').val() },
+            { name: 'care_enabled',        value: $form.find('[name=care_enabled]').is(':checked')        ? 1 : 0 },
+            { name: 'care_product_id',     value: $form.find('[name=care_product_id]').val() },
+            { name: 'care_heading',        value: $form.find('[name=care_heading]').val() },
+            { name: 'care_text',           value: $form.find('[name=care_text]').val() },
+            { name: 'care_button',         value: $form.find('[name=care_button]').val() },
+            { name: 'care_login_required', value: $form.find('[name=care_login_required]').is(':checked') ? 1 : 0 }
+        ];
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveCareSettings&ajax=1',
             type: 'POST',
             data: data,
             dataType: 'json',
@@ -1388,9 +1529,17 @@ $(function () {
     /* ── Slider tab: open from URL hash + drag-to-reorder slides ───────────── */
     (function () {
         // Activate the correct main tab when the page is loaded with a hash
-        // (e.g. after add/edit/save redirects to #hbe-tab-slider).
+        // (e.g. after add/edit/save redirects to #hbe-tab-slider). The hash may
+        // point at a section nested inside a tab (slider lives in the
+        // "Strona główna" tab) — fall back to the enclosing tab-pane.
         if (window.location.hash) {
             var $tabLink = $('.hbe-main-tabs a[href="' + window.location.hash + '"]');
+            if (!$tabLink.length) {
+                var $pane = $(window.location.hash).closest('.hbe-tab-content > .tab-pane');
+                if ($pane.length) {
+                    $tabLink = $('.hbe-main-tabs a[href="#' + $pane.attr('id') + '"]');
+                }
+            }
             if ($tabLink.length) {
                 $tabLink.tab('show');
             }

@@ -20,11 +20,17 @@ class Hummingbird_editor extends Module
 {
     const IMG_DIR = 'hb_editor/';
 
+    /** Configuration key: page identifiers (CSV) of menu items using the flat submenu layout on desktop. */
+    const MENU_FLAT_ITEMS_KEY = 'HBE_MENU_FLAT_ITEMS';
+
+    /** Configuration key: same as MENU_FLAT_ITEMS_KEY but for the mobile drawer. */
+    const MENU_FLAT_ITEMS_MOBILE_KEY = 'HBE_MENU_FLAT_ITEMS_MOBILE';
+
     public function __construct()
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.6.0';
+        $this->version = '1.8.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -230,6 +236,24 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // "Inne sklepy online" — 3 promoted sister shops with mini galleries
+        if (Configuration::get('HBE_SHOPS_ENABLED') === false) {
+            Configuration::updateValue('HBE_SHOPS_ENABLED', 0);
+        }
+        foreach (['HBE_SHOPS_EYEBROW', 'HBE_SHOPS_TITLE', 'HBE_SHOPS_TEXT', 'HBE_SHOPS_CTA'] as $k) {
+            if (Configuration::get($k) === false) {
+                Configuration::updateValue($k, '');
+            }
+        }
+        foreach ([1, 2, 3] as $i) {
+            foreach (['HBE_SHOPS_NAME_' . $i, 'HBE_SHOPS_DESC_' . $i, 'HBE_SHOPS_URL_' . $i,
+                      'HBE_SHOPS_IMG_' . $i . '_1', 'HBE_SHOPS_IMG_' . $i . '_2', 'HBE_SHOPS_IMG_' . $i . '_3'] as $k) {
+                if (Configuration::get($k) === false) {
+                    Configuration::updateValue($k, '');
+                }
+            }
+        }
+
         // Brands logo strip
         if (Configuration::get('HBE_BRANDS_ENABLED') === false) {
             Configuration::updateValue('HBE_BRANDS_ENABLED', 0);
@@ -324,6 +348,26 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // Rosenthal Care promo block (cart) — off by default; enabled in BO.
+        if (Configuration::get('HBE_CARE_ENABLED') === false) {
+            Configuration::updateValue('HBE_CARE_ENABLED', 0);
+        }
+        if (Configuration::get('HBE_CARE_PRODUCT_ID') === false) {
+            Configuration::updateValue('HBE_CARE_PRODUCT_ID', 4682);
+        }
+        if (Configuration::get('HBE_CARE_HEADING') === false) {
+            Configuration::updateValue('HBE_CARE_HEADING', 'Czy chcesz objąć produkty Rosenthal Care?');
+        }
+        if (Configuration::get('HBE_CARE_TEXT') === false) {
+            Configuration::updateValue('HBE_CARE_TEXT', "Tylko za 10 zł możesz skorzystać z wymiany uszkodzonego / stłuczonego produktu na nowy za 50% jego wartości.\nDo rozliczenia na podstawie zachowanego paragonu przyjmujemy ceny aktualne w dniu wymiany.\nWymiany można dokonać w okresie 12 miesięcy od dokonania zakupu pod warunkiem, że uszkodzony produkt znajduje się w aktualnej ofercie.");
+        }
+        if (Configuration::get('HBE_CARE_BUTTON') === false) {
+            Configuration::updateValue('HBE_CARE_BUTTON', 'Dodaj Rosenthal Care');
+        }
+        if (Configuration::get('HBE_CARE_LOGIN_REQUIRED') === false) {
+            Configuration::updateValue('HBE_CARE_LOGIN_REQUIRED', 1);
+        }
+
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
@@ -333,6 +377,8 @@ class Hummingbird_editor extends Module
             && $this->registerHook('displayProductSections')
             && $this->registerHook('displayFooterProduct')
             && $this->registerHook('displayListingBanner')
+            && $this->registerHook('displayShoppingCartFooter')
+            && $this->registerHook('actionMainMenuModifier')
             && $this->installTab();
     }
 
@@ -407,6 +453,17 @@ class Hummingbird_editor extends Module
             Configuration::deleteByName('HBE_ICONS4_TITLE_' . $i);
             Configuration::deleteByName('HBE_ICONS4_DESC_' . $i);
         }
+        foreach (['HBE_SHOPS_ENABLED', 'HBE_SHOPS_EYEBROW', 'HBE_SHOPS_TITLE', 'HBE_SHOPS_TEXT', 'HBE_SHOPS_CTA'] as $k) {
+            Configuration::deleteByName($k);
+        }
+        foreach ([1, 2, 3] as $i) {
+            Configuration::deleteByName('HBE_SHOPS_NAME_' . $i);
+            Configuration::deleteByName('HBE_SHOPS_DESC_' . $i);
+            Configuration::deleteByName('HBE_SHOPS_URL_' . $i);
+            foreach ([1, 2, 3] as $j) {
+                Configuration::deleteByName('HBE_SHOPS_IMG_' . $i . '_' . $j);
+            }
+        }
         foreach (['HBE_SLIDER_SPEED', 'HBE_SLIDER_AUTOPLAY', 'HBE_SLIDER_PAUSE_ON_HOVER',
                   'HBE_SLIDER_SHOW_ARROWS', 'HBE_SLIDER_ARROW_STYLE', 'HBE_SLIDER_SHOW_DOTS'] as $k) {
             Configuration::deleteByName($k);
@@ -439,6 +496,11 @@ class Hummingbird_editor extends Module
                 Configuration::deleteByName('HBE_LISTBAN_' . $i . $suffix);
             }
         }
+        foreach (['HBE_CARE_ENABLED', 'HBE_CARE_PRODUCT_ID', 'HBE_CARE_HEADING',
+                  'HBE_CARE_TEXT', 'HBE_CARE_BUTTON', 'HBE_CARE_LOGIN_REQUIRED'] as $k) {
+            Configuration::deleteByName($k);
+        }
+        Configuration::deleteByName('HBE_PRODUCT_SUMMARY_SOURCE');
 
         return parent::uninstall()
             && $this->dropTables()
@@ -636,6 +698,53 @@ class Hummingbird_editor extends Module
         return true;
     }
 
+    /* ── Main menu: flat submenu layout (no left tabs) ───────────────────── */
+
+    /**
+     * Page identifiers (e.g. "category-3") of the top-level menu items that
+     * should use the flat submenu layout (no tabs / drill-down; sub-categories
+     * shown directly as image tiles) for the given device.
+     *
+     * @param string $device 'desktop' or 'mobile'
+     *
+     * @return string[]
+     */
+    public function getMenuFlatItems(string $device = 'desktop'): array
+    {
+        $key = ($device === 'mobile') ? self::MENU_FLAT_ITEMS_MOBILE_KEY : self::MENU_FLAT_ITEMS_KEY;
+        $raw = (string) Configuration::get($key);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    /**
+     * Flag the configured top-level menu items so the theme renders them with
+     * the flat layout, independently per device. Hooked into ps_mainmenu's
+     * actionMainMenuModifier, which passes the built menu tree by reference —
+     * so no core module edit is required.
+     */
+    public function hookActionMainMenuModifier(array $params): void
+    {
+        if (empty($params['menu']['children']) || !is_array($params['menu']['children'])) {
+            return;
+        }
+
+        $flatDesktop = $this->getMenuFlatItems('desktop');
+        $flatMobile  = $this->getMenuFlatItems('mobile');
+
+        foreach ($params['menu']['children'] as &$node) {
+            if (!empty($node['page_identifier'])) {
+                $node['flat_desktop'] = in_array($node['page_identifier'], $flatDesktop, true);
+                $node['flat_mobile']  = in_array($node['page_identifier'], $flatMobile, true);
+            }
+        }
+        unset($node);
+    }
+
     /* ── Magic method — handles every custom hook via __call() ───────────── */
 
     /**
@@ -691,6 +800,13 @@ class Hummingbird_editor extends Module
                 'hb-editor-product',
                 'modules/' . $this->name . '/views/css/product.css',
                 ['media' => 'all', 'priority' => 200]
+            );
+            // Karta produktu: which description feeds the summary slot under
+            // the price ('' = theme standard, 'short' or 'full'). Read by the
+            // theme's catalog/product.tpl.
+            $this->context->smarty->assign(
+                'hbe_product_summary_source',
+                (string) HbEditorConfig::get('HBE_PRODUCT_SUMMARY_SOURCE')
             );
             if ((int) Configuration::get('HBE_FAQ_ENABLED')) {
                 $this->context->controller->registerJavascript(
@@ -889,6 +1005,73 @@ class Hummingbird_editor extends Module
     public function hookDisplayTop(): string
     {
         return '';
+    }
+
+    /**
+     * Rosenthal Care promo block, rendered in the cart below the product list
+     * (theme cart.tpl runs displayShoppingCartFooter there). Recreates the old
+     * cart.tpl block: a short pitch plus a button that adds the configured care
+     * product to the cart via the theme's native ajax add-to-cart.
+     *
+     * Off by default; everything is configurable in BO → Hummingbird → Koszyk.
+     */
+    public function hookDisplayShoppingCartFooter(array $params = []): string
+    {
+        if (!(int) Configuration::get('HBE_CARE_ENABLED')) {
+            return '';
+        }
+
+        $idProduct = (int) Configuration::get('HBE_CARE_PRODUCT_ID');
+        if ($idProduct <= 0) {
+            return '';
+        }
+
+        // Skip a missing/disabled product so the cart never shows a dead button.
+        $product = new Product($idProduct, false, (int) $this->context->language->id);
+        if (!Validate::isLoadedObject($product) || !$product->active) {
+            return '';
+        }
+
+        $cart = $this->context->cart;
+        if (!Validate::isLoadedObject($cart)) {
+            return '';
+        }
+
+        // Already covered — no point promoting it again (and avoids double-adds).
+        if ($this->cartContainsProduct($cart, $idProduct)) {
+            return '';
+        }
+
+        $textRaw = (string) Configuration::get('HBE_CARE_TEXT');
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $textRaw))));
+
+        $cartShowUrl = $this->context->link->getPageLink('cart', true, null, ['action' => 'show']);
+
+        $this->context->smarty->assign('hbe_care', [
+            'heading'        => (string) Configuration::get('HBE_CARE_HEADING'),
+            'lines'          => $lines,
+            'button'         => (string) Configuration::get('HBE_CARE_BUTTON'),
+            'id_product'     => $idProduct,
+            'login_required' => (int) Configuration::get('HBE_CARE_LOGIN_REQUIRED') === 1,
+            'is_logged'      => (bool) $this->context->customer->isLogged(),
+            'login_url'      => $this->context->link->getPageLink('authentication', true, null, ['back' => $cartShowUrl]),
+            'cart_url'       => $this->context->link->getPageLink('cart', true),
+            'static_token'   => Tools::getToken(false),
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/rosenthal-care.tpl');
+    }
+
+    /** True when the cart already holds the given product id. */
+    private function cartContainsProduct(Cart $cart, int $idProduct): bool
+    {
+        foreach ($cart->getProducts() as $product) {
+            if ((int) $product['id_product'] === $idProduct) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1203,6 +1386,8 @@ class Hummingbird_editor extends Module
                 $output .= $this->renderIcons4();
             } elseif ($component === 'brands') {
                 $output .= $this->renderBrands();
+            } elseif ($component === 'shops') {
+                $output .= $this->renderShops();
             } elseif ($component === 'slider') {
                 $output .= $this->renderSlider();
             } elseif (ctype_digit($component) && isset($blockMap[(int) $component])) {
@@ -1558,6 +1743,60 @@ class Hummingbird_editor extends Module
             'hbe_brands'       => $brands,
         ]);
         return $this->display(__FILE__, 'views/templates/hook/brands.tpl');
+    }
+
+    /**
+     * "Inne sklepy online" — an editorial closing section promoting up to
+     * three sister shops, each with a 3-image mosaic gallery, name,
+     * description and an outbound CTA link.
+     */
+    private function renderShops(): string
+    {
+        if (!(int) Configuration::get('HBE_SHOPS_ENABLED')) {
+            return '';
+        }
+        $shops = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $name = trim($this->hbeLocConfig('HBE_SHOPS_NAME_' . $i));
+            $url  = trim($this->hbeLocConfig('HBE_SHOPS_URL_' . $i));
+            if ($url !== '' && !preg_match('#^https?://#i', $url) && strpos($url, '/') !== 0) {
+                $url = 'https://' . $url;
+            }
+            $images = [];
+            for ($j = 1; $j <= 3; $j++) {
+                $file = trim((string) Configuration::get('HBE_SHOPS_IMG_' . $i . '_' . $j));
+                if ($file === '') {
+                    continue;
+                }
+                $sources = $this->resolveHbEditorImageSources($file);
+                if ($sources['url'] === '') {
+                    continue;
+                }
+                $images[] = $sources;
+            }
+            if ($name === '' && !$images) {
+                continue;
+            }
+            $shops[] = [
+                'name'     => $name,
+                'desc'     => trim($this->hbeLocConfig('HBE_SHOPS_DESC_' . $i)),
+                'url'      => $url,
+                // Sister shops live on their own domains — open in a new tab.
+                'external' => (bool) preg_match('#^https?://#i', $url),
+                'images'   => $images,
+            ];
+        }
+        if (!$shops) {
+            return '';
+        }
+        $this->context->smarty->assign([
+            'hbe_shops_eyebrow' => trim($this->hbeLocConfig('HBE_SHOPS_EYEBROW')),
+            'hbe_shops_title'   => trim($this->hbeLocConfig('HBE_SHOPS_TITLE')),
+            'hbe_shops_text'    => trim($this->hbeLocConfig('HBE_SHOPS_TEXT')),
+            'hbe_shops_cta'     => trim($this->hbeLocConfig('HBE_SHOPS_CTA')),
+            'hbe_shops'         => $shops,
+        ]);
+        return $this->display(__FILE__, 'views/templates/hook/shops.tpl');
     }
 
     /* ── Slider (ported from bemo_slider) ──────────────────────────────────── */

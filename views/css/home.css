@@ -9,7 +9,7 @@
   font-family: var(--font-heading);
   font-weight: 400;
   font-size: var(--fs-h4);
-  line-height: 1;
+  line-height: normal;
   margin-bottom: 1.5rem;
   color: var(--bs-body-color);
 }
@@ -110,7 +110,7 @@
     font-weight: 400;
     font-style: normal;
     font-size: var(--fs-h2);
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
     color: var(--hbe-white);
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
@@ -138,7 +138,7 @@
     font-weight: 500;
     font-style: normal;
     font-size: var(--fs-body-s);
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
     border-radius: 0px;
     text-decoration: none;
@@ -226,7 +226,7 @@
     font-weight: 400;
     font-style: normal;
     font-size: var(--fs-h3);
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
     color: var(--c-black);
     flex: 1;
@@ -247,6 +247,28 @@
 
 .hbe-cols3__divider {
     display: none;
+}
+
+/* Tablet / small desktop: the fixed 328px columns need ~1112px, which only
+   fits the container from 1200px up. In between, keep the columns at full
+   size and let the row scroll horizontally (swipe strip) instead of
+   overflowing and breaking the page. */
+@media (min-width: 768px) and (max-width: 1199px) {
+    .hbe-cols3__row {
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+    }
+
+    .hbe-cols3__row::-webkit-scrollbar {
+        display: none;
+    }
+
+    .hbe-cols3__col {
+        scroll-snap-align: start;
+    }
 }
 
 @media (max-width: 767px) {
@@ -290,7 +312,7 @@
     font-weight: 400;
     font-style: normal;
     font-size: var(--fs-h2);
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
     margin: 0 0 1.25rem;
     color: var(--hbe-black);
@@ -304,7 +326,7 @@
     font-weight: 400;
     font-style: normal;
     font-size: var(--fs-body-s);
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
     text-decoration: underline;
     text-decoration-style: solid;
@@ -513,34 +535,11 @@
     background: var(--hbe-black);
     color: var(--hbe-white);
 }
+/* Mobile/tablet (Figma "Zainspiruj się"): title, desc, both images, then CTA
+   last. Flatten the wrappers with display:contents and reorder the flattened
+   children. The desktop 3-column split needs the full width, so the stacked
+   layout applies all the way up to 991px. */
 @media (max-width: 991px) {
-    .hbe-splitblock__inner {
-        flex-direction: column;
-    }
-    .hbe-splitblock__left-half,
-    .hbe-splitblock__right-half {
-        flex: 0 0 100%;
-        max-width: 100%;
-    }
-    .hbe-splitblock__left-half {
-        flex-direction: column;
-    }
-    .hbe-splitblock__col--text,
-    .hbe-splitblock__col--mid {
-        flex: 0 0 100%;
-        max-width: 100%;
-    }
-    .hbe-splitblock__mid-img {
-        width: 100%;
-    }
-    .hbe-splitblock__right-half {
-        min-height: 260px;
-    }
-}
-
-/* Mobile (Figma "Zainspiruj się"): title, desc, both images, then CTA last.
-   Flatten the wrappers with display:contents and reorder the flattened children. */
-@media (max-width: 767px) {
     .hbe-splitblock__inner {
         flex-direction: column;
         gap: 16px;
@@ -549,10 +548,15 @@
     .hbe-splitblock__col--text {
         display: contents;
     }
+    .hbe-splitblock__col--mid,
+    .hbe-splitblock__right-half {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
     .hbe-splitblock__title { order: 1; }
     .hbe-splitblock__desc { order: 2; }
     .hbe-splitblock__col--mid { order: 3; padding: 0; }
-    .hbe-splitblock__right-half { order: 4; min-height: 0; }
+    .hbe-splitblock__right-half { order: 4; }
     .hbe-splitblock__cta { order: 5; }
     .hbe-splitblock__right-img { height: auto; }
 }
@@ -593,21 +597,32 @@
     color: inherit;
 }
 
-/* Salon photo above the link text. Square by default (square or portrait per
-   Figma); 3-in-row on desktop (the row is already flex), stacked on mobile. */
-.hbe-cols3desc__media {
-    display: block;
-    width: 100%;
-    margin-bottom: 1rem;
-    overflow: hidden;
+/* Brand logo shown in place of the text title. Logos vary in aspect ratio
+   (wide wordmarks vs. squarish crest), so render them all at one fixed
+   height — equalized to the biggest — in a fixed-height band aligned left.
+   Never crop, no background box; the band keeps the desc row aligned
+   across columns. */
+.hbe-cols3desc__logo {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 64px;
 }
 .hbe-cols3desc__img {
     display: block;
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1 / 1;
-    object-fit: cover;
-    background: var(--c-grey-1);
+    width: auto;
+    height: 64px;
+    max-width: 100%;
+    object-fit: contain;
+    background: transparent;
+}
+
+/* Middle column (Maison Berger crest): much narrower than the wordmarks,
+   so center it in its column instead of hugging the left edge. */
+.hbe-cols3desc__col:nth-child(2) .hbe-cols3desc__logo {
+    justify-content: center;
 }
 
 /* Text body: title + desc on the left, arrow on the right (was on the link). */
@@ -871,7 +886,7 @@
     font-size: var(--fs-h1);
     font-weight: 400;
     font-style: normal;
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
     text-transform: uppercase;
     margin: 0 0 0.5rem;
@@ -884,7 +899,7 @@
     font-size: var(--fs-body-l);
     font-weight: 400;
     font-style: normal;
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
     text-transform: uppercase;
     margin: 0;
@@ -1063,7 +1078,7 @@
     /* Sharp corners + opacity hover, identical to the imghero CTA. */
     border-radius: 0;
     transition: opacity 0.2s ease;
-    line-height: 1;
+    line-height: normal;
     cursor: pointer;
 }
 
@@ -1239,6 +1254,242 @@
 }
 
 
+/* ── Inne sklepy online (3 promoted sister shops) ────────────────────────────
+   Editorial closing section at the very bottom of the homepage: warm beige
+   full-width band, serif header, three cards with a 3-image mosaic gallery
+   (large tile + two stacked), shop name, description and outbound CTA link. */
+.hbe-shops {
+    width: 100%;
+    margin-top: 24px;
+    padding: 64px 0 72px;
+    /* background: var(--c-beige, #f5f1ea); */
+}
+
+.hbe-shops__header {
+    max-width: 620px;
+    margin-bottom: 40px;
+}
+
+.hbe-shops__eyebrow {
+    font-family: var(--font-body);
+    font-size: var(--fs-body-xs, 0.75rem);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #8a8378;
+    margin: 0 0 0.75rem;
+}
+
+.hbe-shops__title {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-style: normal;
+    font-size: var(--fs-h2);
+    line-height: 1.15;
+    letter-spacing: 0;
+    color: var(--c-black);
+    margin: 0;
+}
+
+.hbe-shops__lead {
+    font-size: var(--fs-body-m);
+    line-height: 1.6;
+    color: #555;
+    margin: 1rem 0 0;
+}
+
+.hbe-shops__grid {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px 24px;
+    margin: 0;
+    padding: 0;
+}
+
+.hbe-shops__card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* Mosaic gallery: one large tile (2/3 width, full height) + two stacked small
+   tiles. The large tile's aspect-ratio drives the whole mosaic height; the
+   small tiles just fill their grid rows (object-fit: cover crops them). */
+.hbe-shops__gallery {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.hbe-shops__tile {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    line-height: 0;
+    min-height: 0;
+    background: var(--c-grey-1);
+}
+
+.hbe-shops__tile--0 {
+    grid-row: 1 / span 2;
+    aspect-ratio: 4 / 5;
+}
+
+.hbe-shops__tile picture {
+    display: block;
+    height: 100%;
+}
+
+.hbe-shops__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.35s ease;
+}
+
+.hbe-shops__gallery:hover .hbe-shops__img,
+.hbe-shops__gallery:focus .hbe-shops__img {
+    transform: scale(1.03);
+}
+
+/* Fallbacks when fewer than 3 photos are configured */
+.hbe-shops__gallery--n2 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+}
+.hbe-shops__gallery--n2 .hbe-shops__tile--0 {
+    grid-row: auto;
+    aspect-ratio: auto;
+}
+.hbe-shops__gallery--n2 .hbe-shops__tile {
+    aspect-ratio: 4 / 5;
+}
+.hbe-shops__gallery--n1 {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+.hbe-shops__gallery--n1 .hbe-shops__tile--0 {
+    grid-row: auto;
+    aspect-ratio: 4 / 5;
+}
+
+.hbe-shops__body {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 0.5rem;
+    padding-top: 1.25rem;
+}
+
+.hbe-shops__name {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-style: normal;
+    font-size: var(--fs-h4);
+    line-height: 1.3;
+    letter-spacing: 0;
+    color: var(--c-black);
+    margin: 0;
+}
+
+.hbe-shops__name a {
+    color: var(--c-black);
+    text-decoration: none;
+    transition: opacity 0.15s;
+}
+
+.hbe-shops__name a:hover,
+.hbe-shops__name a:focus {
+    color: var(--c-black);
+    text-decoration: underline;
+    text-decoration-thickness: from-font;
+    text-underline-offset: 3px;
+}
+
+.hbe-shops__desc {
+    font-size: var(--fs-body-s);
+    line-height: 1.6;
+    color: #555;
+    margin: 0;
+    flex-grow: 1;
+}
+
+.hbe-shops__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    align-self: flex-start;
+    margin-top: 0.35rem;
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: var(--fs-body-s);
+    line-height: normal;
+    letter-spacing: 0;
+    color: var(--hbe-black);
+    text-decoration: underline;
+    text-decoration-thickness: from-font;
+    text-underline-offset: 3px;
+    transition: opacity 0.15s;
+}
+
+.hbe-shops__link:hover,
+.hbe-shops__link:focus {
+    color: var(--hbe-black);
+    text-decoration: underline;
+    opacity: 0.65;
+}
+
+.hbe-shops__link-arrow {
+    flex-shrink: 0;
+    transition: transform 0.15s;
+}
+
+.hbe-shops__link:hover .hbe-shops__link-arrow,
+.hbe-shops__link:focus .hbe-shops__link-arrow {
+    transform: translate(2px, -2px);
+}
+
+/* Tablet: keep 3 columns, tighten the gutters */
+@media (min-width: 768px) and (max-width: 991px) {
+    .hbe-shops__grid {
+        gap: 32px 16px;
+    }
+}
+
+/* Mobile: swipeable strip with scroll-snap (like the homepage link strips) */
+@media (max-width: 767px) {
+    .hbe-shops {
+        padding: 48px 0 56px;
+    }
+
+    .hbe-shops__header {
+        margin-bottom: 28px;
+    }
+
+    .hbe-shops__grid {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        gap: 16px;
+        padding-bottom: 4px;
+    }
+
+    .hbe-shops__grid::-webkit-scrollbar {
+        display: none;
+    }
+
+    .hbe-shops__card {
+        flex: 0 0 84%;
+        scroll-snap-align: start;
+    }
+}
+
+
 /* ── Anti-flicker: reserve image space (aspect-ratio) + grey placeholder ─────
    Images had no intrinsic dimensions, so they collapsed to 0 height and the page
    jumped when each one finished loading. Each section now reserves its box from
@@ -1277,4 +1528,7 @@
     .hbe-slider__media img { aspect-ratio: 1 / 1; }
 }
 
+section.ps-customtext {
+    margin: 1rem 0;
+}
 

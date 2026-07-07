@@ -59,6 +59,8 @@
   {if isset($hbe_brands_items) && $hbe_brands_items|count && ($hbe_brands_items[0].img_url neq '' || $hbe_brands_items[0].id_manufacturer > 0)}{assign var=hbe_s_brands value=1}{/if}
   {assign var=hbe_s_carousel  value=0}
   {if isset($hbe_np_title_lang[$hbe_lang_id]) && $hbe_np_title_lang[$hbe_lang_id] neq ''}{assign var=hbe_s_carousel  value=1}{/if}
+  {assign var=hbe_s_shops     value=0}
+  {if (isset($hbe_shops_title_lang[$hbe_lang_id]) && $hbe_shops_title_lang[$hbe_lang_id] neq '') || (isset($hbe_shops_stores[1].img_urls[1]) && $hbe_shops_stores[1].img_urls[1] neq '')}{assign var=hbe_s_shops value=1}{/if}
 
   {* ── Main section tabs ───────────────────────────────────────────────── *}
   <ul class="nav nav-tabs hbe-main-tabs" role="tablist">
@@ -66,31 +68,19 @@
       <a href="#hbe-tab-bars" data-toggle="tab" role="tab"><i class="icon-bullhorn"></i> {l s='Paski info' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
-      <a href="#hbe-tab-banners" data-toggle="tab" role="tab"><i class="icon-picture"></i> {l s='Banery' mod='hummingbird_editor'}</a>
-    </li>
-    <li role="presentation">
-      <a href="#hbe-tab-cols" data-toggle="tab" role="tab"><i class="icon-align-left"></i> {l s='Kolumny tekstowe' mod='hummingbird_editor'}</a>
-    </li>
-    <li role="presentation">
-      <a href="#hbe-tab-sections" data-toggle="tab" role="tab"><i class="icon-th-large"></i> {l s='Sekcje z obrazkami' mod='hummingbird_editor'}</a>
-    </li>
-    <li role="presentation">
-      <a href="#hbe-tab-carousels" data-toggle="tab" role="tab"><i class="icon-repeat"></i> {l s='Karuzele' mod='hummingbird_editor'}</a>
-    </li>
-    <li role="presentation">
-      <a href="#hbe-tab-slider" data-toggle="tab" role="tab"><i class="icon-film"></i> {l s='Slider' mod='hummingbird_editor'}</a>
+      <a href="#hbe-tab-home" data-toggle="tab" role="tab"><i class="icon-home"></i> {l s='Strona główna' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
       <a href="#hbe-tab-cart" data-toggle="tab" role="tab"><i class="icon-shopping-cart"></i> {l s='Koszyk' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
-      <a href="#hbe-tab-faq" data-toggle="tab" role="tab"><i class="icon-question-sign"></i> {l s='FAQ' mod='hummingbird_editor'}</a>
-    </li>
-    <li role="presentation">
-      <a href="#hbe-tab-imgtext" data-toggle="tab" role="tab"><i class="icon-picture"></i> {l s='Obraz + tekst' mod='hummingbird_editor'}</a>
+      <a href="#hbe-tab-productcard" data-toggle="tab" role="tab"><i class="icon-tag"></i> {l s='Karta produktu' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
       <a href="#hbe-tab-listing" data-toggle="tab" role="tab"><i class="icon-th-list"></i> {l s='Listing' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
+      <a href="#hbe-tab-menu" data-toggle="tab" role="tab"><i class="icon-sitemap"></i> {l s='Menu' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
       <a href="#hbe-tab-settings" data-toggle="tab" role="tab"><i class="icon-cogs"></i> {l s='Ustawienia' mod='hummingbird_editor'}</a>
@@ -262,9 +252,13 @@
     </div>{* /tab-bars *}
 
     {* ═══════════════════════════════════════════════════════════════════════
-       Tab 2 — Banery
+       Tab — Strona główna (body: banery, kolumny, sekcje, karuzele, slider,
+       kolejność sekcji displayHome)
     ═══════════════════════════════════════════════════════════════════════ *}
-    <div id="hbe-tab-banners" class="tab-pane" role="tabpanel">
+    <div id="hbe-tab-home" class="tab-pane" role="tabpanel">
+
+    {* ── Banery ── *}
+    <div id="hbe-tab-banners">
 
       {* Baner 1 *}
       <div class="panel panel-default hbe-collapse-panel">
@@ -410,10 +404,8 @@
 
     </div>{* /tab-banners *}
 
-    {* ═══════════════════════════════════════════════════════════════════════
-       Tab 3 — Kolumny tekstowe
-    ═══════════════════════════════════════════════════════════════════════ *}
-    <div id="hbe-tab-cols" class="tab-pane" role="tabpanel">
+    {* ── Kolumny tekstowe ── *}
+    <div id="hbe-tab-cols">
 
       {* 3 kolumny – teksty z linkami *}
       <div class="panel panel-default hbe-collapse-panel">
@@ -569,10 +561,8 @@
 
     </div>{* /tab-cols *}
 
-    {* ═══════════════════════════════════════════════════════════════════════
-       Tab 4 — Sekcje z obrazkami
-    ═══════════════════════════════════════════════════════════════════════ *}
-    <div id="hbe-tab-sections" class="tab-pane" role="tabpanel">
+    {* ── Sekcje z obrazkami ── *}
+    <div id="hbe-tab-sections">
 
       {* Sekcja Kategorie *}
       <div class="panel panel-default hbe-collapse-panel">
@@ -929,12 +919,94 @@
         </div>
       </div>
 
+      {* ── Inne sklepy online ──────────────────────────────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-shops">
+          <h4 class="panel-title clearfix">
+            {l s='Inne sklepy online — 3 sklepy z galeriami (displayHome)' mod='hummingbird_editor'}
+            <span class="pull-right">
+              {if $hbe_shops_enabled}<span class="label label-success hbe-status-badge">{l s='Włączone' mod='hummingbird_editor'}</span>{/if}
+              <i class="icon-chevron-down hbe-chevron{if !$hbe_s_shops} hbe-chevron-open{/if}"></i>
+            </span>
+          </h4>
+        </div>
+        <div id="hbe-c-shops" class="panel-collapse collapse{if !$hbe_s_shops} in{/if}">
+          <div class="panel-body">
+            <p class="text-muted" style="margin-bottom:1rem">{l s='Elegancka sekcja zamykająca stronę główną (beżowe tło): nagłówek + trzy karty sklepów. Każda karta ma mozaikę 3 zdjęć (duże + dwa mniejsze), nazwę, opis i link „Odwiedź sklep". Linki zewnętrzne (http/https) otwierają się w nowej karcie. Na mobile karty przesuwa się palcem.' mod='hummingbird_editor'}</p>
+            <form id="hbe-shops-form" method="post" action="{$hbe_ajax_url nofilter}" enctype="multipart/form-data" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+
+              <div class="row" style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #eee">
+                <div class="col-md-2 form-group">
+                  <label class="control-label">{l s='Włącz' mod='hummingbird_editor'}</label>
+                  <div class="checkbox"><label>
+                    <input type="checkbox" name="enabled" value="1" {if $hbe_shops_enabled}checked{/if}>
+                    {l s='Yes' mod='hummingbird_editor'}
+                  </label></div>
+                </div>
+                <div class="col-md-2 form-group">
+                  <label class="control-label">{l s='Nadtytuł (eyebrow)' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='eyebrow' values=$hbe_shops_eyebrow_lang placeholder="{l s='np. Rosenthal poleca' mod='hummingbird_editor'}"}
+                </div>
+                <div class="col-md-3 form-group">
+                  <label class="control-label">{l s='Tytuł sekcji' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='title' values=$hbe_shops_title_lang placeholder="{l s='np. Odwiedź nasze pozostałe sklepy online' mod='hummingbird_editor'}"}
+                </div>
+                <div class="col-md-3 form-group">
+                  <label class="control-label">{l s='Opis pod tytułem (opcjonalny)' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='text' values=$hbe_shops_text_lang type='textarea' rows=2 placeholder="{l s='Krótki lead sekcji...' mod='hummingbird_editor'}"}
+                </div>
+                <div class="col-md-2 form-group">
+                  <label class="control-label">{l s='Tekst linku (CTA)' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='cta' values=$hbe_shops_cta_lang placeholder="{l s='np. Odwiedź sklep' mod='hummingbird_editor'}"}
+                </div>
+              </div>
+
+              {foreach from=$hbe_shops_stores item=store}
+              <div class="row" style="margin-bottom:1rem;padding-bottom:1rem;{if $store.n < 3}border-bottom:1px solid #eee{/if}">
+                <div class="col-md-12"><strong style="display:block;margin-bottom:0.5rem">{l s='Sklep' mod='hummingbird_editor'} #{$store.n}</strong></div>
+                <div class="col-md-3 form-group">
+                  <label class="control-label">{l s='Nazwa sklepu' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name="name_{$store.n}" values=$store.name_lang placeholder="{l s='np. Karenski' mod='hummingbird_editor'}"}
+                </div>
+                <div class="col-md-5 form-group">
+                  <label class="control-label">{l s='Krótki opis' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name="desc_{$store.n}" values=$store.desc_lang type='textarea' rows=2 placeholder="{l s='1–2 zdania o sklepie...' mod='hummingbird_editor'}"}
+                </div>
+                <div class="col-md-4 form-group">
+                  <label class="control-label">{l s='Adres sklepu (URL)' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name="url_{$store.n}" values=$store.url_lang placeholder='https://example.pl'}
+                </div>
+                <div class="col-md-12">
+                  <label class="control-label">{l s='Galeria — 3 zdjęcia (pierwsze jest największe)' mod='hummingbird_editor'}</label>
+                  <p class="help-block" style="margin-top:0">{l s='Zalecany: JPG/WebP, pion (proporcje ok. 4:5–5:7), min. 800px szerokości.' mod='hummingbird_editor'}</p>
+                </div>
+                {foreach from=$store.img_urls key=imgIdx item=imgUrl}
+                <div class="col-md-4 form-group">
+                  <div id="hbe-shops-img-{$store.n}-{$imgIdx}-wrap" style="margin-bottom:0.5rem{if !$imgUrl};display:none{/if}">
+                    <img id="hbe-shops-img-{$store.n}-{$imgIdx}-preview" src="{$imgUrl|escape:'html':'UTF-8'}"
+                         style="max-width:100%;max-height:160px;border:1px solid #ddd;border-radius:3px;display:block;margin-bottom:0.5rem" alt="">
+                    <button type="button" class="btn btn-xs btn-danger hbe-shops-del-img" data-store="{$store.n}" data-idx="{$imgIdx}">
+                      <i class="icon-trash"></i> {l s='Usuń zdjęcie' mod='hummingbird_editor'}
+                    </button>
+                  </div>
+                  <input type="file" name="img_{$store.n}_{$imgIdx}" accept="image/*" class="form-control">
+                </div>
+                {/foreach}
+              </div>
+              {/foreach}
+
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz Inne sklepy online' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
     </div>{* /tab-sections *}
 
-    {* ═══════════════════════════════════════════════════════════════════════
-       Tab 5 — Karuzele
-    ═══════════════════════════════════════════════════════════════════════ *}
-    <div id="hbe-tab-carousels" class="tab-pane" role="tabpanel">
+    {* ── Karuzele ── *}
+    <div id="hbe-tab-carousels">
 
       <div class="panel panel-default hbe-collapse-panel">
         <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-carousel">
@@ -1020,16 +1092,108 @@
 
     </div>{* /tab-carousels *}
 
-    {* ═══════════════════════════════════════════════════════════════════════
-       Tab — Slider (ported from bemo_slider)
-    ═══════════════════════════════════════════════════════════════════════ *}
-    <div id="hbe-tab-slider" class="tab-pane" role="tabpanel">
+    {* ── Slider (ported from bemo_slider) ── *}
+    <div id="hbe-tab-slider">
       {if $hbe_slider_mode == 'form'}
         {include file="{$hbe_tpl_dir}slider/add_form.tpl"}
       {else}
         {include file="{$hbe_tpl_dir}slider/list.tpl"}
       {/if}
     </div>{* /tab-slider *}
+
+    {* ── displayHome: combined sortable (static elements + custom blocks) ── *}
+    <div class="hbe-hook-group panel" data-hook="displayHome">
+      <div class="hbe-hook-header panel-heading clearfix">
+        <span class="hbe-hook-name">
+          <i class="icon-plug"></i>
+          {l s='Hook:' mod='hummingbird_editor'} <code>displayHome</code>
+          <small class="text-muted" style="margin-left:8px;font-weight:normal">
+            — {l s='przeciągnij wiersz, aby zmienić kolejność wyświetlania na stronie głównej' mod='hummingbird_editor'}
+          </small>
+        </span>
+        <span class="label label-default pull-right">
+          {$hbe_home_ordered|count} {l s='item(s)' mod='hummingbird_editor'}
+        </span>
+      </div>
+
+      <ul class="hbe-sortable list-unstyled" data-hook="displayHome">
+      {foreach from=$hbe_home_ordered item=hbItem}
+        {if $hbItem.kind === 'static'}
+        <li class="hbe-block-row hbe-static-row" data-id="{$hbItem.id}">
+          <div class="hbe-row-header clearfix">
+            <span class="hbe-handle" title="{l s='Drag to reorder' mod='hummingbird_editor'}">
+              <i class="icon-reorder"></i>
+            </span>
+            <span class="hbe-type-badge" style="background:#e8f4ff;color:#0a5d8a;border-color:#b3d9f5">
+              <i class="icon-home"></i> {l s='Wbudowany:' mod='hummingbird_editor'} <strong>{$hbItem.label}</strong>
+            </span>
+            <span class="text-muted" style="font-size:0.8em;margin-left:8px">
+              {l s='(skonfiguruj w panelu powyżej)' mod='hummingbird_editor'}
+            </span>
+            <div class="hbe-row-actions pull-right">
+              <button class="btn btn-xs btn-default hbe-clone-static"
+                      data-slug="{$hbItem.id|escape:'html':'UTF-8'}"
+                      title="{l s='Duplikuj tę sekcję jako nowy blok' mod='hummingbird_editor'}">
+                <i class="icon-copy"></i> {l s='Duplikuj' mod='hummingbird_editor'}
+              </button>
+            </div>
+          </div>
+        </li>
+        {elseif $hbItem.kind === 'module'}
+        <li class="hbe-block-row hbe-module-row" data-id="{$hbItem.id}">
+          <div class="hbe-row-header clearfix">
+            <span class="hbe-handle" title="{l s='Drag to reorder' mod='hummingbird_editor'}">
+              <i class="icon-reorder"></i>
+            </span>
+            <span class="hbe-type-badge hbe-type-module">
+              <i class="icon-puzzle-piece"></i> {l s='Moduł:' mod='hummingbird_editor'} <strong>{$hbItem.module.display_name|escape:'html':'UTF-8'}</strong>
+            </span>
+            <code class="text-muted" style="font-size:0.75em;margin-left:6px">{$hbItem.module.name|escape:'html':'UTF-8'}</code>
+            {if !$hbItem.module.active}
+              <span class="label label-warning" style="margin-left:6px;font-size:10px">{l s='nieaktywny' mod='hummingbird_editor'}</span>
+            {/if}
+            <div class="hbe-row-actions pull-right">
+              <button class="btn btn-xs btn-default hbe-release-module-btn"
+                      data-module="{$hbItem.module.name|escape:'html':'UTF-8'}"
+                      title="{l s='Zwróć moduł do systemu PS (odepnij od HBE)' mod='hummingbird_editor'}">
+                <i class="icon-sign-out"></i> {l s='Zwolnij' mod='hummingbird_editor'}
+              </button>
+            </div>
+          </div>
+        </li>
+        {else}
+        {assign var=block value=$hbItem.block}
+        {include file=$hbe_tpl_dir|cat:'_block_row.tpl'}
+        {/if}
+      {/foreach}
+      </ul>
+
+      {* ── Available modules on displayHome (not yet managed by HBE) ────── *}
+      {if $hbe_available_modules|count > 0}
+      <div class="hbe-available-modules">
+        <strong><i class="icon-puzzle-piece"></i> {l s='Moduły na hooku displayHome (dostępne do zarządzania):' mod='hummingbird_editor'}</strong>
+        <div class="hbe-available-modules-list">
+          {foreach from=$hbe_available_modules item=avMod}
+          <div class="hbe-available-module-item{if !$avMod.active} inactive{/if}">
+            <i class="icon-puzzle-piece text-muted"></i>
+            <span><strong>{$avMod.display_name|escape:'html':'UTF-8'}</strong> <code style="font-size:10px">{$avMod.name|escape:'html':'UTF-8'}</code></span>
+            {if !$avMod.active}<span class="text-muted">{l s='(nieaktywny)' mod='hummingbird_editor'}</span>{/if}
+            <button class="btn btn-xs btn-primary hbe-add-module-btn"
+                    data-module="{$avMod.name|escape:'html':'UTF-8'}"
+                    title="{l s='Przenieś pod kontrolę HBE i dodaj do listy kolejności' mod='hummingbird_editor'}">
+              <i class="icon-plus"></i> {l s='Zarządzaj' mod='hummingbird_editor'}
+            </button>
+          </div>
+          {/foreach}
+        </div>
+        <p class="text-muted" style="font-size:11px;margin-top:6px">
+          {l s='Kliknij „Zarządzaj" aby odpiąć moduł od hooka PS i włączyć go do listy kolejności powyżej. Można go w każdej chwili zwolnić przyciskiem „Zwolnij".' mod='hummingbird_editor'}
+        </p>
+      </div>
+      {/if}
+    </div>{* /displayHome hook group *}
+
+    </div>{* /hbe-tab-home *}
 
     {* ═══════════════════════════════════════════════════════════════════════
        Tab — Koszyk (podgląd koszyka / darmowa dostawa)
@@ -1088,59 +1252,62 @@
         </div>
       </div>
 
-    </div>{* /tab-cart *}
-
-    {* ═══════════════════════════════════════════════════════════════════════
-       Tab 6 — Ustawienia
-    ═══════════════════════════════════════════════════════════════════════ *}
-    <div id="hbe-tab-settings" class="tab-pane" role="tabpanel">
-
       <div class="panel panel-default hbe-collapse-panel">
-        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-toggles">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-care">
           <h4 class="panel-title clearfix">
-            {l s='Widoczność elementów nagłówka' mod='hummingbird_editor'}
+            {l s='Rosenthal Care (blok w koszyku)' mod='hummingbird_editor'}
             <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
           </h4>
         </div>
-        <div id="hbe-c-toggles" class="panel-collapse collapse in">
+        <div id="hbe-c-care" class="panel-collapse collapse in">
           <div class="panel-body">
-            <form id="hbe-toggles-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+            <p class="help-block">
+              {l s='Blok promujący usługę Rosenthal Care w koszyku (pod listą produktów). Przycisk dodaje wskazany produkt do koszyka. Blok ukrywa się, gdy produkt jest już w koszyku.' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-care-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
               <input type="hidden" name="token" value="{$hbe_token}">
               <table class="table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th>{l s='Desktop' mod='hummingbird_editor'}</th>
-                    <th>{l s='Mobile' mod='hummingbird_editor'}</th>
-                  </tr>
-                </thead>
                 <tbody>
                   <tr>
-                    <td><strong>{l s='Ukryj selektor waluty' mod='hummingbird_editor'}</strong></td>
-                    <td><input type="checkbox" name="hide_currency_desktop" value="1" {if $hbe_hide_currency_desktop}checked{/if}></td>
-                    <td><input type="checkbox" name="hide_currency_mobile" value="1" {if $hbe_hide_currency_mobile}checked{/if}></td>
-                  </tr>
-                  <tr>
-                    <td><strong>{l s='Ukryj selektor języka' mod='hummingbird_editor'}</strong></td>
-                    <td><input type="checkbox" name="hide_language_desktop" value="1" {if $hbe_hide_language_desktop}checked{/if}></td>
-                    <td><input type="checkbox" name="hide_language_mobile" value="1" {if $hbe_hide_language_mobile}checked{/if}></td>
-                  </tr>
-                  <tr>
-                    <td><strong>{l s='Ukryj „Szybki podgląd" na miniaturce produktu' mod='hummingbird_editor'}</strong></td>
-                    <td colspan="2">
-                      <label style="margin:0">
-                        <input type="checkbox" name="hide_quickview" value="1" {if $hbe_hide_quickview}checked{/if}>
-                        {l s='Tak (ukryj wszędzie)' mod='hummingbird_editor'}
-                      </label>
+                    <td><strong>{l s='Włącz blok Rosenthal Care' mod='hummingbird_editor'}</strong></td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="care_enabled" value="1" {if $hbe_care_enabled}checked{/if}>
                     </td>
                   </tr>
                   <tr>
-                    <td><strong>{l s='Podgląd ulubionych (wysuwana szuflada)' mod='hummingbird_editor'}</strong></td>
+                    <td>
+                      <strong>{l s='ID produktu Rosenthal Care' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Produkt dodawany do koszyka po kliknięciu przycisku.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:140px;text-align:right;vertical-align:middle">
+                      <input type="number" step="1" min="0" name="care_product_id" value="{$hbe_care_product_id}" class="form-control text-right">
+                    </td>
+                  </tr>
+                  <tr>
                     <td colspan="2">
-                      <label style="margin:0">
-                        <input type="checkbox" name="wishlist_preview" value="1" {if $hbe_wishlist_preview}checked{/if}>
-                        {l s='Włącz (po kliknięciu serca w nagłówku i po dodaniu produktu do ulubionych)' mod='hummingbird_editor'}
-                      </label>
+                      <strong>{l s='Nagłówek' mod='hummingbird_editor'}</strong>
+                      <input type="text" name="care_heading" value="{$hbe_care_heading|escape:'html':'UTF-8'}" class="form-control">
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      <strong>{l s='Opis (każda linia = osobny akapit)' mod='hummingbird_editor'}</strong>
+                      <textarea name="care_text" rows="4" class="form-control">{$hbe_care_text|escape:'html':'UTF-8'}</textarea>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      <strong>{l s='Tekst przycisku' mod='hummingbird_editor'}</strong>
+                      <input type="text" name="care_button" value="{$hbe_care_button|escape:'html':'UTF-8'}" class="form-control">
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Wymagaj zalogowania' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Gdy włączone, niezalogowani widzą przycisk „Zaloguj się" zamiast dodania do koszyka.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="care_login_required" value="1" {if $hbe_care_login_required}checked{/if}>
                     </td>
                   </tr>
                 </tbody>
@@ -1152,11 +1319,143 @@
         </div>
       </div>
 
-    </div>{* /tab-settings *}
+    </div>{* /tab-cart *}
 
-    {* ══ Image + text (below the description on product page) ════════════ *}
-    <div id="hbe-tab-imgtext" class="tab-pane" role="tabpanel">
+    {* ═══════════════════════════════════════════════════════════════════════
+       Tab — Karta produktu
+    ═══════════════════════════════════════════════════════════════════════ *}
+    <div id="hbe-tab-productcard" class="tab-pane" role="tabpanel">
 
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-productcard">
+          <h4 class="panel-title clearfix">
+            {l s='Opis pod ceną (summary)' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-productcard" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="help-block">
+              {l s='Na karcie produktu, pod ceną, wyświetlany jest opis przycięty do 3 linii z przyciskiem „zobacz pełny opis", który rozwija resztę. Tutaj wybierasz, który opis tam trafia. Pełny opis w sekcji „Opis produktu" na dole strony pozostaje bez zmian.' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-productcard-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <table class="table">
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>{l s='Źródło opisu pod ceną' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='„Standardowo" = zachowanie szablonu (krótki opis). „Pełny opis" przydaje się, gdy produkty nie mają uzupełnionego krótkiego opisu.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <select name="product_summary_source" class="form-control">
+                        <option value="" {if $hbe_product_summary_source === ''}selected{/if}>{l s='Standardowo (z szablonu)' mod='hummingbird_editor'}</option>
+                        <option value="short" {if $hbe_product_summary_source === 'short'}selected{/if}>{l s='Krótki opis produktu' mod='hummingbird_editor'}</option>
+                        <option value="full" {if $hbe_product_summary_source === 'full'}selected{/if}>{l s='Pełny opis produktu' mod='hummingbird_editor'}</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {* ══ FAQ (below add-to-cart on product page) ══════════════════════════ *}
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title"><i class="icon-question-sign"></i> {l s='Sekcja FAQ (karta produktu)' mod='hummingbird_editor'}</h3></div>
+        <div class="panel-body">
+
+          <form id="hbe-faq-form" autocomplete="off">
+
+            <div class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" id="hbe_faq_enabled" name="enabled" value="1"{if $hbe_faq_enabled} checked{/if}>
+                  {l s='Włącz sekcję FAQ na karcie produktu' mod='hummingbird_editor'}
+                </label>
+              </div>
+            </div>
+
+            <hr>
+
+            <div class="row">
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Tło sekcji' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_BG" value="{$hbe_faq_bg|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Kolor pytania' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_QUESTION_COLOR" value="{$hbe_faq_question_color|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Kolor odpowiedzi' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_ANSWER_COLOR" value="{$hbe_faq_answer_color|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+              <div class="col-md-3">
+                <div class="form-group">
+                  <label>{l s='Kolor separatora' mod='hummingbird_editor'}</label>
+                  <input type="color" class="form-control" name="HBE_FAQ_BORDER_COLOR" value="{$hbe_faq_border_color|escape:'html':'UTF-8'}">
+                </div>
+              </div>
+            </div>
+
+            <hr>
+
+            {* Language tabs for FAQ items *}
+            <ul class="nav nav-tabs" role="tablist">
+              {foreach from=$hbe_languages item=lang name=faqLang}
+              <li role="presentation"{if $smarty.foreach.faqLang.first} class="active"{/if}>
+                <a href="#hbe-faq-lang-{$lang.id_lang|intval}" data-toggle="tab" role="tab">{$lang.name|escape:'html':'UTF-8'}</a>
+              </li>
+              {/foreach}
+            </ul>
+            <div class="tab-content" style="padding-top:1rem">
+              {foreach from=$hbe_languages item=lang name=faqLangContent}
+              {assign var=faqLangId value=$lang.id_lang|intval}
+              <div id="hbe-faq-lang-{$faqLangId}" class="tab-pane{if $smarty.foreach.faqLangContent.first} active{/if}" role="tabpanel">
+                <div class="hbe-faq-builder" data-lang="{$faqLangId}">
+                  {foreach from=$hbe_faq_items_lang[$faqLangId] item=faqRow name=faqRows}
+                  <div class="hbe-faq-row">
+                    <div class="form-group">
+                      <label>{l s='Pytanie' mod='hummingbird_editor'}</label>
+                      <input type="text" class="form-control hbe-faq-q" value="{$faqRow.q|escape:'html':'UTF-8'}" placeholder="{l s='Pytanie...' mod='hummingbird_editor'}">
+                    </div>
+                    <div class="form-group">
+                      <label>{l s='Odpowiedź (HTML dozwolony)' mod='hummingbird_editor'}</label>
+                      <textarea class="form-control hbe-faq-a" rows="4" placeholder="{l s='Odpowiedź...' mod='hummingbird_editor'}">{$faqRow.a|escape:'html':'UTF-8'}</textarea>
+                    </div>
+                    <button type="button" class="btn btn-xs btn-danger hbe-faq-remove-btn">{l s='Usuń' mod='hummingbird_editor'}</button>
+                    <hr>
+                  </div>
+                  {/foreach}
+                </div>
+                <button type="button" class="btn btn-default hbe-faq-add-btn" data-lang="{$faqLangId}">
+                  <i class="icon-plus"></i> {l s='Dodaj pytanie' mod='hummingbird_editor'}
+                </button>
+                <input type="hidden" class="hbe-faq-items-input" name="faq_items_{$faqLangId}" value="{$hbe_faq_items_lang_json[$faqLangId]|escape:'html':'UTF-8'}">
+              </div>
+              {/foreach}
+            </div>
+
+            <div class="form-group" style="margin-top:1.5rem">
+              <button type="submit" class="btn btn-primary"><i class="icon-save"></i> {l s='Zapisz FAQ' mod='hummingbird_editor'}</button>
+            </div>
+
+          </form>
+        </div>
+      </div>
+
+      {* ══ Image + text (below the description on product page) ════════════ *}
       <div class="panel panel-default">
         <div class="panel-heading"><h3 class="panel-title"><i class="icon-picture"></i> {l s='Sekcja Obraz + tekst (karta produktu)' mod='hummingbird_editor'}</h3></div>
         <div class="panel-body">
@@ -1221,7 +1520,121 @@
         </div>
       </div>
 
-    </div>{* /hbe-tab-imgtext *}
+    </div>{* /tab-productcard *}
+
+    {* ═══════════════════════════════════════════════════════════════════════
+       Tab — Menu (układ płaski submenu)
+    ═══════════════════════════════════════════════════════════════════════ *}
+    <div id="hbe-tab-menu" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-menuflat">
+          <h4 class="panel-title clearfix">
+            {l s='Menu — układ płaski (bez zakładek)' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-menuflat" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="text-muted" style="margin-bottom:1rem">
+              {l s='Zaznaczone pozycje menu nie pokażą lewej kolumny z zakładkami — ich podkategorie wyświetlą się od razu jako kafelki ze zdjęciami.' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-menuflat-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              {if $hbe_menu_top_items}
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>{l s='Pozycja menu' mod='hummingbird_editor'}</th>
+                      <th class="text-center">{l s='Desktop' mod='hummingbird_editor'}</th>
+                      <th class="text-center">{l s='Mobile' mod='hummingbird_editor'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {foreach from=$hbe_menu_top_items item=mi}
+                      <tr>
+                        <td><strong>{$mi.label|escape:'html':'UTF-8'}</strong></td>
+                        <td class="text-center"><input type="checkbox" name="flat_items[]" value="{$mi.id|escape:'html':'UTF-8'}"{if in_array($mi.id, $hbe_menu_flat_items)} checked{/if}></td>
+                        <td class="text-center"><input type="checkbox" name="flat_items_mobile[]" value="{$mi.id|escape:'html':'UTF-8'}"{if in_array($mi.id, $hbe_menu_flat_items_mobile)} checked{/if}></td>
+                      </tr>
+                    {/foreach}
+                  </tbody>
+                </table>
+                <button type="submit" class="btn btn-success" style="margin-top:1rem"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+                <div class="hbe-alerts"></div>
+              {else}
+                <p class="text-warning">{l s='Nie udało się pobrać pozycji menu (moduł ps_mainmenu).' mod='hummingbird_editor'}</p>
+              {/if}
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>{* /hbe-tab-menu *}
+
+    {* ═══════════════════════════════════════════════════════════════════════
+       Tab 6 — Ustawienia
+    ═══════════════════════════════════════════════════════════════════════ *}
+    <div id="hbe-tab-settings" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-toggles">
+          <h4 class="panel-title clearfix">
+            {l s='Widoczność elementów nagłówka' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-toggles" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <form id="hbe-toggles-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>{l s='Desktop' mod='hummingbird_editor'}</th>
+                    <th>{l s='Mobile' mod='hummingbird_editor'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>{l s='Ukryj selektor waluty' mod='hummingbird_editor'}</strong></td>
+                    <td><input type="checkbox" name="hide_currency_desktop" value="1" {if $hbe_hide_currency_desktop}checked{/if}></td>
+                    <td><input type="checkbox" name="hide_currency_mobile" value="1" {if $hbe_hide_currency_mobile}checked{/if}></td>
+                  </tr>
+                  <tr>
+                    <td><strong>{l s='Ukryj selektor języka' mod='hummingbird_editor'}</strong></td>
+                    <td><input type="checkbox" name="hide_language_desktop" value="1" {if $hbe_hide_language_desktop}checked{/if}></td>
+                    <td><input type="checkbox" name="hide_language_mobile" value="1" {if $hbe_hide_language_mobile}checked{/if}></td>
+                  </tr>
+                  <tr>
+                    <td><strong>{l s='Ukryj „Szybki podgląd" na miniaturce produktu' mod='hummingbird_editor'}</strong></td>
+                    <td colspan="2">
+                      <label style="margin:0">
+                        <input type="checkbox" name="hide_quickview" value="1" {if $hbe_hide_quickview}checked{/if}>
+                        {l s='Tak (ukryj wszędzie)' mod='hummingbird_editor'}
+                      </label>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>{l s='Podgląd ulubionych (wysuwana szuflada)' mod='hummingbird_editor'}</strong></td>
+                    <td colspan="2">
+                      <label style="margin:0">
+                        <input type="checkbox" name="wishlist_preview" value="1" {if $hbe_wishlist_preview}checked{/if}>
+                        {l s='Włącz (po kliknięciu serca w nagłówku i po dodaniu produktu do ulubionych)' mod='hummingbird_editor'}
+                      </label>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>{* /tab-settings *}
 
     {* ══ Listing — banery między rzędami produktów na kategoriach ═════════ *}
     <div id="hbe-tab-listing" class="tab-pane" role="tabpanel">
@@ -1313,101 +1726,6 @@
 
     </div>{* /hbe-tab-listing *}
 
-    {* ══ FAQ (below add-to-cart on product page) ══════════════════════════ *}
-    <div id="hbe-tab-faq" class="tab-pane" role="tabpanel">
-
-      <div class="panel panel-default">
-        <div class="panel-heading"><h3 class="panel-title"><i class="icon-question-sign"></i> {l s='Sekcja FAQ (karta produktu)' mod='hummingbird_editor'}</h3></div>
-        <div class="panel-body">
-
-          <form id="hbe-faq-form" autocomplete="off">
-
-            <div class="form-group">
-              <div class="checkbox">
-                <label>
-                  <input type="checkbox" id="hbe_faq_enabled" name="enabled" value="1"{if $hbe_faq_enabled} checked{/if}>
-                  {l s='Włącz sekcję FAQ na karcie produktu' mod='hummingbird_editor'}
-                </label>
-              </div>
-            </div>
-
-            <hr>
-
-            <div class="row">
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>{l s='Tło sekcji' mod='hummingbird_editor'}</label>
-                  <input type="color" class="form-control" name="HBE_FAQ_BG" value="{$hbe_faq_bg|escape:'html':'UTF-8'}">
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>{l s='Kolor pytania' mod='hummingbird_editor'}</label>
-                  <input type="color" class="form-control" name="HBE_FAQ_QUESTION_COLOR" value="{$hbe_faq_question_color|escape:'html':'UTF-8'}">
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>{l s='Kolor odpowiedzi' mod='hummingbird_editor'}</label>
-                  <input type="color" class="form-control" name="HBE_FAQ_ANSWER_COLOR" value="{$hbe_faq_answer_color|escape:'html':'UTF-8'}">
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>{l s='Kolor separatora' mod='hummingbird_editor'}</label>
-                  <input type="color" class="form-control" name="HBE_FAQ_BORDER_COLOR" value="{$hbe_faq_border_color|escape:'html':'UTF-8'}">
-                </div>
-              </div>
-            </div>
-
-            <hr>
-
-            {* Language tabs for FAQ items *}
-            <ul class="nav nav-tabs" role="tablist">
-              {foreach from=$hbe_languages item=lang name=faqLang}
-              <li role="presentation"{if $smarty.foreach.faqLang.first} class="active"{/if}>
-                <a href="#hbe-faq-lang-{$lang.id_lang|intval}" data-toggle="tab" role="tab">{$lang.name|escape:'html':'UTF-8'}</a>
-              </li>
-              {/foreach}
-            </ul>
-            <div class="tab-content" style="padding-top:1rem">
-              {foreach from=$hbe_languages item=lang name=faqLangContent}
-              {assign var=faqLangId value=$lang.id_lang|intval}
-              <div id="hbe-faq-lang-{$faqLangId}" class="tab-pane{if $smarty.foreach.faqLangContent.first} active{/if}" role="tabpanel">
-                <div class="hbe-faq-builder" data-lang="{$faqLangId}">
-                  {foreach from=$hbe_faq_items_lang[$faqLangId] item=faqRow name=faqRows}
-                  <div class="hbe-faq-row">
-                    <div class="form-group">
-                      <label>{l s='Pytanie' mod='hummingbird_editor'}</label>
-                      <input type="text" class="form-control hbe-faq-q" value="{$faqRow.q|escape:'html':'UTF-8'}" placeholder="{l s='Pytanie...' mod='hummingbird_editor'}">
-                    </div>
-                    <div class="form-group">
-                      <label>{l s='Odpowiedź (HTML dozwolony)' mod='hummingbird_editor'}</label>
-                      <textarea class="form-control hbe-faq-a" rows="4" placeholder="{l s='Odpowiedź...' mod='hummingbird_editor'}">{$faqRow.a|escape:'html':'UTF-8'}</textarea>
-                    </div>
-                    <button type="button" class="btn btn-xs btn-danger hbe-faq-remove-btn">{l s='Usuń' mod='hummingbird_editor'}</button>
-                    <hr>
-                  </div>
-                  {/foreach}
-                </div>
-                <button type="button" class="btn btn-default hbe-faq-add-btn" data-lang="{$faqLangId}">
-                  <i class="icon-plus"></i> {l s='Dodaj pytanie' mod='hummingbird_editor'}
-                </button>
-                <input type="hidden" class="hbe-faq-items-input" name="faq_items_{$faqLangId}" value="{$hbe_faq_items_lang_json[$faqLangId]|escape:'html':'UTF-8'}">
-              </div>
-              {/foreach}
-            </div>
-
-            <div class="form-group" style="margin-top:1.5rem">
-              <button type="submit" class="btn btn-primary"><i class="icon-save"></i> {l s='Zapisz FAQ' mod='hummingbird_editor'}</button>
-            </div>
-
-          </form>
-        </div>
-      </div>
-
-    </div>{* /hbe-tab-faq *}
-
   </div>{* /tab-content *}
 
   <div id="hbe-add-panel" class="hbe-panel panel" style="display:none">
@@ -1487,102 +1805,8 @@
   </div>{* /add panel *}
 
   {* ══════════════════════════════════════════════════════════════════════ *}
-  {* displayHome: combined sortable (static elements + custom blocks)      *}
-  {* ══════════════════════════════════════════════════════════════════════ *}
-
-  <div class="hbe-hook-group panel" data-hook="displayHome">
-    <div class="hbe-hook-header panel-heading clearfix">
-      <span class="hbe-hook-name">
-        <i class="icon-plug"></i>
-        {l s='Hook:' mod='hummingbird_editor'} <code>displayHome</code>
-        <small class="text-muted" style="margin-left:8px;font-weight:normal">
-          — {l s='przeciągnij wiersz, aby zmienić kolejność wyświetlania na stronie głównej' mod='hummingbird_editor'}
-        </small>
-      </span>
-      <span class="label label-default pull-right">
-        {$hbe_home_ordered|count} {l s='item(s)' mod='hummingbird_editor'}
-      </span>
-    </div>
-
-    <ul class="hbe-sortable list-unstyled" data-hook="displayHome">
-    {foreach from=$hbe_home_ordered item=hbItem}
-      {if $hbItem.kind === 'static'}
-      <li class="hbe-block-row hbe-static-row" data-id="{$hbItem.id}">
-        <div class="hbe-row-header clearfix">
-          <span class="hbe-handle" title="{l s='Drag to reorder' mod='hummingbird_editor'}">
-            <i class="icon-reorder"></i>
-          </span>
-          <span class="hbe-type-badge" style="background:#e8f4ff;color:#0a5d8a;border-color:#b3d9f5">
-            <i class="icon-home"></i> {l s='Wbudowany:' mod='hummingbird_editor'} <strong>{$hbItem.label}</strong>
-          </span>
-          <span class="text-muted" style="font-size:0.8em;margin-left:8px">
-            {l s='(skonfiguruj w panelu powyżej)' mod='hummingbird_editor'}
-          </span>
-          <div class="hbe-row-actions pull-right">
-            <button class="btn btn-xs btn-default hbe-clone-static"
-                    data-slug="{$hbItem.id|escape:'html':'UTF-8'}"
-                    title="{l s='Duplikuj tę sekcję jako nowy blok' mod='hummingbird_editor'}">
-              <i class="icon-copy"></i> {l s='Duplikuj' mod='hummingbird_editor'}
-            </button>
-          </div>
-        </div>
-      </li>
-      {elseif $hbItem.kind === 'module'}
-      <li class="hbe-block-row hbe-module-row" data-id="{$hbItem.id}">
-        <div class="hbe-row-header clearfix">
-          <span class="hbe-handle" title="{l s='Drag to reorder' mod='hummingbird_editor'}">
-            <i class="icon-reorder"></i>
-          </span>
-          <span class="hbe-type-badge hbe-type-module">
-            <i class="icon-puzzle-piece"></i> {l s='Moduł:' mod='hummingbird_editor'} <strong>{$hbItem.module.display_name|escape:'html':'UTF-8'}</strong>
-          </span>
-          <code class="text-muted" style="font-size:0.75em;margin-left:6px">{$hbItem.module.name|escape:'html':'UTF-8'}</code>
-          {if !$hbItem.module.active}
-            <span class="label label-warning" style="margin-left:6px;font-size:10px">{l s='nieaktywny' mod='hummingbird_editor'}</span>
-          {/if}
-          <div class="hbe-row-actions pull-right">
-            <button class="btn btn-xs btn-default hbe-release-module-btn"
-                    data-module="{$hbItem.module.name|escape:'html':'UTF-8'}"
-                    title="{l s='Zwróć moduł do systemu PS (odepnij od HBE)' mod='hummingbird_editor'}">
-              <i class="icon-sign-out"></i> {l s='Zwolnij' mod='hummingbird_editor'}
-            </button>
-          </div>
-        </div>
-      </li>
-      {else}
-      {assign var=block value=$hbItem.block}
-      {include file=$hbe_tpl_dir|cat:'_block_row.tpl'}
-      {/if}
-    {/foreach}
-    </ul>
-
-    {* ── Available modules on displayHome (not yet managed by HBE) ────── *}
-    {if $hbe_available_modules|count > 0}
-    <div class="hbe-available-modules">
-      <strong><i class="icon-puzzle-piece"></i> {l s='Moduły na hooku displayHome (dostępne do zarządzania):' mod='hummingbird_editor'}</strong>
-      <div class="hbe-available-modules-list">
-        {foreach from=$hbe_available_modules item=avMod}
-        <div class="hbe-available-module-item{if !$avMod.active} inactive{/if}">
-          <i class="icon-puzzle-piece text-muted"></i>
-          <span><strong>{$avMod.display_name|escape:'html':'UTF-8'}</strong> <code style="font-size:10px">{$avMod.name|escape:'html':'UTF-8'}</code></span>
-          {if !$avMod.active}<span class="text-muted">{l s='(nieaktywny)' mod='hummingbird_editor'}</span>{/if}
-          <button class="btn btn-xs btn-primary hbe-add-module-btn"
-                  data-module="{$avMod.name|escape:'html':'UTF-8'}"
-                  title="{l s='Przenieś pod kontrolę HBE i dodaj do listy kolejności' mod='hummingbird_editor'}">
-            <i class="icon-plus"></i> {l s='Zarządzaj' mod='hummingbird_editor'}
-          </button>
-        </div>
-        {/foreach}
-      </div>
-      <p class="text-muted" style="font-size:11px;margin-top:6px">
-        {l s='Kliknij „Zarządzaj" aby odpiąć moduł od hooka PS i włączyć go do listy kolejności powyżej. Można go w każdej chwili zwolnić przyciskiem „Zwolnij".' mod='hummingbird_editor'}
-      </p>
-    </div>
-    {/if}
-  </div>{* /displayHome hook group *}
-
-  {* ══════════════════════════════════════════════════════════════════════ *}
   {* BLOCK LIST for all other hooks                                        *}
+  {* (displayHome group moved into the "Strona główna" tab above)          *}
   {* ══════════════════════════════════════════════════════════════════════ *}
 
   {foreach from=$hbe_grouped key=hookName item=hookBlocks}

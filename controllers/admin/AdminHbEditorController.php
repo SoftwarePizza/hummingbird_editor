@@ -62,6 +62,21 @@ class AdminHbEditorController extends ModuleAdminController
 
         parent::initContent();
 
+        // Self-heal: ensure the flat-submenu hook is registered on setups where
+        // this module was installed before the feature was added.
+        if (method_exists($this->module, 'ensureHookRegistered')) {
+            $this->module->ensureHookRegistered('actionMainMenuModifier');
+        }
+
+        // Flat submenu picker data
+        $menuTopItems           = $this->getMenuTopLevelItems();
+        $menuFlatSelected       = method_exists($this->module, 'getMenuFlatItems')
+            ? $this->module->getMenuFlatItems('desktop')
+            : [];
+        $menuFlatSelectedMobile = method_exists($this->module, 'getMenuFlatItems')
+            ? $this->module->getMenuFlatItems('mobile')
+            : [];
+
         $languages = Language::getLanguages(true);
         $blocks    = HbEditorBlock::getAllForAdmin();
 
@@ -97,6 +112,7 @@ class AdminHbEditorController extends ModuleAdminController
             'splitblock' => $this->module->l('Sekcja 3 kolumn (tekst+obraz+obraz)'),
             'icons4'     => $this->module->l('Blok 4 kolumn z ikonami'),
             'brands'     => $this->module->l('Pasek marek (logotypy)'),
+            'shops'      => $this->module->l('Inne sklepy online'),
             'slider'     => $this->module->l('Slider (banery)'),
         ];
         $homeOrderRaw = (string)(Configuration::get('HBE_HOME_ORDER') ?: 'infobar,imghero,cols3,tagline');
@@ -277,6 +293,9 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_hide_language_desktop' => (int) Configuration::get('HBE_HIDE_LANGUAGE_DESKTOP'),
             'hbe_hide_language_mobile'  => (int) Configuration::get('HBE_HIDE_LANGUAGE_MOBILE'),
             'hbe_hide_quickview'        => (int) Configuration::get('HBE_HIDE_QUICKVIEW'),
+            'hbe_menu_top_items'         => $menuTopItems,
+            'hbe_menu_flat_items'        => $menuFlatSelected,
+            'hbe_menu_flat_items_mobile' => $menuFlatSelectedMobile,
             // Wishlist preview drawer — unset means "on" (matches isWishlistPreviewEnabled()).
             'hbe_wishlist_preview'      => Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED') === false
                 ? 1 : (int) Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED'),
@@ -284,6 +303,16 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_cart_hover'             => (int) Configuration::get('PS_BLOCK_CART_HOVER'),
             'hbe_cart_preview_modal'     => (int) Configuration::get('PS_BLOCK_CART_PREVIEW_MODAL'),
             'hbe_cart_free_ship_manual'  => (float) Configuration::get('HBE_CART_FREE_SHIPPING_THRESHOLD'),
+            // Karta produktu: source of the summary under the price
+            // ('' = theme standard, 'short', 'full')
+            'hbe_product_summary_source' => (string) HbEditorConfig::get('HBE_PRODUCT_SUMMARY_SOURCE'),
+            // Rosenthal Care promo block (cart)
+            'hbe_care_enabled'           => (int) Configuration::get('HBE_CARE_ENABLED'),
+            'hbe_care_product_id'        => (int) Configuration::get('HBE_CARE_PRODUCT_ID'),
+            'hbe_care_heading'           => (string) Configuration::get('HBE_CARE_HEADING'),
+            'hbe_care_text'              => (string) Configuration::get('HBE_CARE_TEXT'),
+            'hbe_care_button'            => (string) Configuration::get('HBE_CARE_BUTTON'),
+            'hbe_care_login_required'    => (int) Configuration::get('HBE_CARE_LOGIN_REQUIRED'),
             // Image hero banner
             'hbe_imghero_enabled'  => (int) Configuration::get('HBE_IMGHERO_ENABLED'),
             'hbe_imghero_image'    => (string) Configuration::get('HBE_IMGHERO_IMAGE'),
@@ -385,6 +414,12 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_katcols_ml_images'      => (int) Configuration::get('HBE_KATCOLS_IMAGE_ML'),
             'hbe_katcols_r_caption'      => (string) Configuration::get('HBE_KATCOLS_R_CAPTION'),
             'hbe_katcols_r_url'          => (string) Configuration::get('HBE_KATCOLS_R_URL'),
+            'hbe_shops_enabled'      => (int) Configuration::get('HBE_SHOPS_ENABLED'),
+            'hbe_shops_eyebrow_lang' => $this->getConfigPerLang('HBE_SHOPS_EYEBROW', $languages),
+            'hbe_shops_title_lang'   => $this->getConfigPerLang('HBE_SHOPS_TITLE', $languages),
+            'hbe_shops_text_lang'    => $this->getConfigPerLang('HBE_SHOPS_TEXT', $languages),
+            'hbe_shops_cta_lang'     => $this->getConfigPerLang('HBE_SHOPS_CTA', $languages),
+            'hbe_shops_stores'       => $this->getShopsStoresForAdmin($languages),
             'hbe_katcols_title_lang'         => $this->getConfigPerLang('HBE_KATCOLS_TITLE', $languages),
             'hbe_katcols_hdr_text_lang'      => $this->getConfigPerLang('HBE_KATCOLS_HDR_TEXT', $languages),
             'hbe_katcols_hdr_link_text_lang' => $this->getConfigPerLang('HBE_KATCOLS_HDR_LINK_TEXT', $languages),
@@ -1599,6 +1634,64 @@ class AdminHbEditorController extends ModuleAdminController
     }
 
     /**
+     * Saves which top-level menu items use the flat submenu layout (no left
+     * tabs). The hummingbird_editor module applies the flag at render time via
+     * the actionMainMenuModifier hook, so ps_mainmenu itself is never modified.
+     */
+    public function ajaxProcessSaveMenuFlat(): void
+    {
+        Configuration::updateValue('HBE_MENU_FLAT_ITEMS',        $this->cleanFlatItems(Tools::getValue('flat_items', [])));
+        Configuration::updateValue('HBE_MENU_FLAT_ITEMS_MOBILE', $this->cleanFlatItems(Tools::getValue('flat_items_mobile', [])));
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    /** Sanitise a posted list of page identifiers into a clean CSV string. */
+    private function cleanFlatItems($raw): string
+    {
+        $items = is_array($raw) ? $raw : [];
+        $clean = [];
+        foreach ($items as $id) {
+            $id = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $id);
+            if ($id !== '') {
+                $clean[] = $id;
+            }
+        }
+
+        return implode(',', array_values(array_unique($clean)));
+    }
+
+    /**
+     * Top-level menu items (from ps_mainmenu) used to populate the flat-submenu
+     * picker. Returns [['id' => page_identifier, 'label' => name], …].
+     */
+    private function getMenuTopLevelItems(): array
+    {
+        $items = [];
+
+        try {
+            $mainmenu = Module::getInstanceByName('ps_mainmenu');
+            if (!$mainmenu || !method_exists($mainmenu, 'getWidgetVariables')) {
+                return [];
+            }
+
+            $menu = $mainmenu->getWidgetVariables('displayTop', []);
+            foreach (($menu['children'] ?? []) as $node) {
+                if (empty($node['page_identifier'])) {
+                    continue;
+                }
+                $items[] = [
+                    'id'    => $node['page_identifier'],
+                    'label' => $node['label'] ?? $node['page_identifier'],
+                ];
+            }
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        return $items;
+    }
+
+    /**
      * Saves the cart-preview toggles. These write the same configuration keys
      * the ps_shoppingcart module reads to render the hover preview and the
      * add-to-cart modal replacement.
@@ -1611,6 +1704,41 @@ class AdminHbEditorController extends ModuleAdminController
         // Manual free-shipping threshold override (0 = use the shop setting). Accept comma decimals.
         $threshold = (float) str_replace(',', '.', (string) Tools::getValue('cart_free_shipping_threshold', 0));
         Configuration::updateValue('HBE_CART_FREE_SHIPPING_THRESHOLD', $threshold > 0 ? $threshold : 0);
+
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Saves the Rosenthal Care cart-block settings (hummingbird_editor reads
+     * these in hookDisplayShoppingCartFooter).
+     */
+    public function ajaxProcessSaveCareSettings(): void
+    {
+        Configuration::updateValue('HBE_CARE_ENABLED', (int) Tools::getValue('care_enabled', 0));
+
+        $idProduct = (int) Tools::getValue('care_product_id', 0);
+        Configuration::updateValue('HBE_CARE_PRODUCT_ID', $idProduct > 0 ? $idProduct : 0);
+
+        Configuration::updateValue('HBE_CARE_HEADING', trim((string) Tools::getValue('care_heading', '')));
+        // Plain multi-line text (HTML not allowed); newlines become paragraphs on the front.
+        Configuration::updateValue('HBE_CARE_TEXT', (string) Tools::getValue('care_text', ''));
+        Configuration::updateValue('HBE_CARE_BUTTON', trim((string) Tools::getValue('care_button', '')));
+        Configuration::updateValue('HBE_CARE_LOGIN_REQUIRED', (int) Tools::getValue('care_login_required', 0));
+
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Saves the "Karta produktu" settings (hummingbird_editor assigns these
+     * to Smarty on product pages; the theme's product.tpl reads them).
+     */
+    public function ajaxProcessSaveProductCardSettings(): void
+    {
+        $source = (string) Tools::getValue('product_summary_source', '');
+        if (!in_array($source, ['', 'short', 'full'], true)) {
+            $source = '';
+        }
+        HbEditorConfig::set('HBE_PRODUCT_SUMMARY_SOURCE', $source);
 
         $this->ajaxDie(json_encode(['success' => true]));
     }
@@ -2094,6 +2222,67 @@ class AdminHbEditorController extends ModuleAdminController
         if (Tools::getValue('variant') === 'mobile') { $key .= '_MOBILE'; }
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $this->deleteLocalizedImage($key, $idLang);
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    /* ── "Inne sklepy online" section ────────────────────────────────────── */
+
+    /**
+     * Admin data for the 3 promoted shops: per-lang texts + gallery image URLs.
+     *
+     * @param array<int,array<string,mixed>> $languages
+     * @return array<int,array<string,mixed>> indexed 1..3
+     */
+    private function getShopsStoresForAdmin(array $languages): array
+    {
+        $stores = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $imgUrls = [];
+            for ($j = 1; $j <= 3; $j++) {
+                $file = (string) Configuration::get('HBE_SHOPS_IMG_' . $i . '_' . $j);
+                $imgUrls[$j] = $file !== '' ? __PS_BASE_URI__ . 'img/hb_editor/' . $file : '';
+            }
+            $stores[$i] = [
+                'n'         => $i,
+                'name_lang' => $this->getConfigPerLang('HBE_SHOPS_NAME_' . $i, $languages),
+                'desc_lang' => $this->getConfigPerLang('HBE_SHOPS_DESC_' . $i, $languages),
+                'url_lang'  => $this->getConfigPerLang('HBE_SHOPS_URL_' . $i, $languages),
+                'img_urls'  => $imgUrls,
+            ];
+        }
+        return $stores;
+    }
+
+    public function ajaxProcessSaveShops(): void
+    {
+        Configuration::updateValue('HBE_SHOPS_ENABLED', (int) Tools::getValue('enabled', 0));
+        $this->saveLocalizedFromForm('HBE_SHOPS_EYEBROW', Tools::getValue('eyebrow', ''));
+        $this->saveLocalizedFromForm('HBE_SHOPS_TITLE',   Tools::getValue('title', ''));
+        $this->saveLocalizedFromForm('HBE_SHOPS_TEXT',    Tools::getValue('text', ''));
+        $this->saveLocalizedFromForm('HBE_SHOPS_CTA',     Tools::getValue('cta', ''));
+
+        $response = ['success' => true];
+        for ($i = 1; $i <= 3; $i++) {
+            $this->saveLocalizedFromForm('HBE_SHOPS_NAME_' . $i, Tools::getValue('name_' . $i, ''));
+            $this->saveLocalizedFromForm('HBE_SHOPS_DESC_' . $i, Tools::getValue('desc_' . $i, ''));
+            $this->saveLocalizedFromForm('HBE_SHOPS_URL_'  . $i, Tools::getValue('url_'  . $i, ''), true);
+            for ($j = 1; $j <= 3; $j++) {
+                $key = 'HBE_SHOPS_IMG_' . $i . '_' . $j;
+                $this->saveLocalizedImage($key, 'img_' . $i . '_' . $j, 'shops_' . $i . '_' . $j, false);
+                $img = (string) Configuration::get($key);
+                if ($img) {
+                    $response['img_url_' . $i . '_' . $j] = __PS_BASE_URI__ . 'img/hb_editor/' . $img;
+                }
+            }
+        }
+        $this->ajaxDie(json_encode($response));
+    }
+
+    public function ajaxProcessDeleteShopsImage(): void
+    {
+        $store = max(1, min(3, (int) Tools::getValue('store', 1)));
+        $idx   = max(1, min(3, (int) Tools::getValue('idx', 1)));
+        $this->deleteLocalizedImage('HBE_SHOPS_IMG_' . $store . '_' . $idx, 0);
         $this->ajaxDie(json_encode(['success' => true]));
     }
 

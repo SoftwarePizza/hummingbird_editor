@@ -8,20 +8,21 @@
           {else}
             <div class="hbe-cols3desc__link">
           {/if}
-          {if isset($col.img_url) && $col.img_url}
-            <span class="hbe-cols3desc__media">
-              {if isset($col.img_webp_url) && $col.img_webp_url}
-              <picture>
-                <source srcset="{$col.img_webp_url|escape:'html':'UTF-8'}" type="image/webp">
-                <img class="hbe-cols3desc__img" src="{$col.img_url|escape:'html':'UTF-8'}" alt="{$col.title|escape:'html':'UTF-8'}" loading="lazy">
-              </picture>
-              {else}
-              <img class="hbe-cols3desc__img" src="{$col.img_url|escape:'html':'UTF-8'}" alt="{$col.title|escape:'html':'UTF-8'}" loading="lazy">
-              {/if}
-            </span>
-          {/if}
           <span class="hbe-cols3desc__body">
-            {if $col.title}
+            {* Logo replaces the text title when an image is set; the title
+               text is kept as the image alt. *}
+            {if isset($col.img_url) && $col.img_url}
+              <span class="hbe-cols3desc__logo">
+                {if isset($col.img_webp_url) && $col.img_webp_url}
+                <picture>
+                  <source srcset="{$col.img_webp_url|escape:'html':'UTF-8'}" type="image/webp">
+                  <img class="hbe-cols3desc__img" src="{$col.img_url|escape:'html':'UTF-8'}" alt="{$col.title|escape:'html':'UTF-8'}" loading="lazy">
+                </picture>
+                {else}
+                <img class="hbe-cols3desc__img" src="{$col.img_url|escape:'html':'UTF-8'}" alt="{$col.title|escape:'html':'UTF-8'}" loading="lazy">
+                {/if}
+              </span>
+            {elseif $col.title}
               <span class="hbe-cols3desc__title">{$col.title|escape:'html':'UTF-8'}</span>
             {/if}
             {if $col.desc}

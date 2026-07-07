@@ -121,7 +121,7 @@
 
 .btn-search-open,
 .btn-search-close {
-  line-height: 1;
+  line-height: normal;
   padding: 0;
   cursor: pointer !important;
   color: inherit;
@@ -210,3 +210,64 @@
   outline: none;
 }
 
+
+/* ── Rosenthal Care promo (cart, displayShoppingCartFooter) ──────────────── */
+/* Figma: plain text block below the cart — no card, no boxed button. */
+.hbe-care {
+  margin-top: 2.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.hbe-care__body {
+  margin-bottom: 0.75rem;
+}
+
+.hbe-care__heading {
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.hbe-care__text {
+  margin: 0;
+  max-width: 64ch;
+}
+
+.hbe-care__line {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--c-grey-5, #5a5a5a);
+}
+
+.hbe-care__line:last-child {
+  margin-bottom: 0;
+}
+
+.hbe-care__actions {
+  margin-top: 0.5rem;
+}
+
+.hbe-care__form {
+  margin: 0;
+}
+
+/* Login variant ("zaloguj się") reads as an inline text link, not a button. */
+.hbe-care__btn.btn-outline-primary {
+  display: inline;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--c-black, #242424);
+  text-decoration: underline;
+  background: transparent;
+  border: 0;
+}
+
+.hbe-care__btn.btn-outline-primary:hover {
+  color: var(--c-grey-5, #5a5a5a);
+  background: transparent;
+}
