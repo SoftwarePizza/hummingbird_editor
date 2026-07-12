@@ -1421,8 +1421,10 @@ class AdminHbEditorController extends ModuleAdminController
         }
 
         if ($hookName === 'displayHome') {
-            // Mixed IDs: static slugs (infobar, imghero, cols3, tagline, katcols) + numeric block IDs + module_NAME
-            $staticSlugs = ['infobar', 'infobar2', 'imghero', 'imghero2', 'cols3', 'cols3desc', 'tagline', 'katcols', 'splitblock', 'icons4', 'brands'];
+            // Mixed IDs: static slugs (infobar, imghero, cols3, tagline, katcols) + numeric block IDs + module_NAME.
+            // Must list EVERY slug rendered by hookDisplayHome — anything missing
+            // here is silently dropped from HBE_HOME_ORDER on the first drag.
+            $staticSlugs = ['infobar', 'infobar2', 'imghero', 'imghero2', 'cols3', 'cols3desc', 'tagline', 'katcols', 'splitblock', 'icons4', 'brands', 'shops', 'slider'];
             $order = [];
             $blockPositions = [];
             $blockPos = 0;
