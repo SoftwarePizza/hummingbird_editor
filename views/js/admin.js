@@ -1142,6 +1142,27 @@ $(function () {
         });
     });
 
+    /* ── Footer social links: save ────────────────────────────────────────── */
+    $(document).on('submit', '#hbe-social-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveSocial&ajax=1',
+            type: 'POST',
+            data: $form.serialize(),
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     /* ── Menu flat layout: save ───────────────────────────────────────────── */
     $(document).on('submit', '#hbe-menuflat-form', function (e) {
         e.preventDefault();

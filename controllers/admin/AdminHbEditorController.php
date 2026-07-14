@@ -293,6 +293,8 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_hide_language_desktop' => (int) Configuration::get('HBE_HIDE_LANGUAGE_DESKTOP'),
             'hbe_hide_language_mobile'  => (int) Configuration::get('HBE_HIDE_LANGUAGE_MOBILE'),
             'hbe_hide_quickview'        => (int) Configuration::get('HBE_HIDE_QUICKVIEW'),
+            // Footer social icons: [key => ['label' => ..., 'url' => ...]]
+            'hbe_social'                => $this->getSocialForForm(),
             'hbe_menu_top_items'         => $menuTopItems,
             'hbe_menu_flat_items'        => $menuFlatSelected,
             'hbe_menu_flat_items_mobile' => $menuFlatSelectedMobile,
@@ -1632,6 +1634,55 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_HIDE_LANGUAGE_MOBILE',  (int) Tools::getValue('hide_language_mobile', 0));
         Configuration::updateValue('HBE_HIDE_QUICKVIEW',         (int) Tools::getValue('hide_quickview', 0));
         Configuration::updateValue('HBE_WISHLIST_PREVIEW_ENABLED', (int) Tools::getValue('wishlist_preview', 0));
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Footer social icons, shaped for the form: every supported network in
+     * display order, with its currently stored profile URL (may be empty).
+     *
+     * @return array<string,array{label:string,url:string}>
+     */
+    private function getSocialForForm(): array
+    {
+        $out = [];
+        foreach (Hummingbird_editor::SOCIAL_NETWORKS as $key => $label) {
+            $out[$key] = [
+                'label' => $label,
+                'url'   => (string) HbEditorConfig::get(Hummingbird_editor::socialConfigKey($key)),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Saves the footer social profile URLs. An empty URL simply hides that
+     * icon, so a blank field is a valid way to remove a network.
+     */
+    public function ajaxProcessSaveSocial(): void
+    {
+        $errors = [];
+
+        foreach (array_keys(Hummingbird_editor::SOCIAL_NETWORKS) as $key) {
+            $url = trim((string) Tools::getValue('social_' . $key, ''));
+
+            // Social profiles always live off-site, so require a full http(s) URL.
+            if ($url !== '' && !Validate::isAbsoluteUrl($url)) {
+                $errors[] = Hummingbird_editor::SOCIAL_NETWORKS[$key];
+                continue;
+            }
+
+            HbEditorConfig::set(Hummingbird_editor::socialConfigKey($key), $url);
+        }
+
+        if ($errors) {
+            $this->ajaxDie(json_encode([
+                'success' => false,
+                'error'   => 'Adres musi zaczynać się od http:// lub https:// — popraw: ' . implode(', ', $errors),
+            ]));
+        }
+
         $this->ajaxDie(json_encode(['success' => true]));
     }
 

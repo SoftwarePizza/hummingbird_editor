@@ -1634,6 +1634,43 @@
         </div>
       </div>
 
+      {* ── Ikony social media w stopce (kolumna „Kontakt") ─────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-social">
+          <h4 class="panel-title clearfix">
+            {l s='Social media (stopka)' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-social" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="text-muted" style="margin-bottom:1rem">
+              {l s='Ikony pokazują się w stopce, pod danymi kontaktowymi. Pusty adres = ikona ukryta. Adres musi być pełny, np. https://www.instagram.com/rosenthal_polska' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-social-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              {foreach from=$hbe_social key=hbeSocialKey item=hbeSocial}
+                <div class="form-group">
+                  <label class="control-label col-lg-2" for="hbe-social-{$hbeSocialKey}">{$hbeSocial.label}</label>
+                  <div class="col-lg-8">
+                    <input
+                      type="url"
+                      class="form-control"
+                      id="hbe-social-{$hbeSocialKey}"
+                      name="social_{$hbeSocialKey}"
+                      value="{$hbeSocial.url|escape:'html':'UTF-8'}"
+                      placeholder="https://">
+                  </div>
+                </div>
+              {/foreach}
+              <div class="clearfix"></div>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
     </div>{* /tab-settings *}
 
     {* ══ Listing — banery między rzędami produktów na kategoriach ═════════ *}

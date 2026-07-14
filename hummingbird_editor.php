@@ -26,11 +26,32 @@ class Hummingbird_editor extends Module
     /** Configuration key: same as MENU_FLAT_ITEMS_KEY but for the mobile drawer. */
     const MENU_FLAT_ITEMS_MOBILE_KEY = 'HBE_MENU_FLAT_ITEMS_MOBILE';
 
+    /**
+     * Social networks offered in the footer "Kontakt" column, in display order.
+     * Key -> label; the profile URL lives in `HBE_SOCIAL_<KEY>` and an empty URL
+     * hides that icon. The theme owns the matching SVG per key.
+     */
+    const SOCIAL_NETWORKS = [
+        'instagram' => 'Instagram',
+        'facebook'  => 'Facebook',
+        'youtube'   => 'YouTube',
+        'pinterest' => 'Pinterest',
+        'tiktok'    => 'TikTok',
+        'linkedin'  => 'LinkedIn',
+        'x'         => 'X (Twitter)',
+    ];
+
+    /** Configuration key holding the profile URL for a social network key. */
+    public static function socialConfigKey(string $network): string
+    {
+        return 'HBE_SOCIAL_' . strtoupper($network);
+    }
+
     public function __construct()
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.8.0';
+        $this->version = '1.9.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -76,6 +97,9 @@ class Hummingbird_editor extends Module
         }
         if (Configuration::get('HBE_HIDE_QUICKVIEW') === false) {
             Configuration::updateValue('HBE_HIDE_QUICKVIEW', 0);
+            foreach (array_keys(self::SOCIAL_NETWORKS) as $network) {
+                Configuration::updateValue(self::socialConfigKey($network), '');
+            }
         }
         if (Configuration::get('HBE_INFOBAR_ENABLED') === false) {
             Configuration::updateValue('HBE_INFOBAR_ENABLED', 0);
@@ -393,6 +417,9 @@ class Hummingbird_editor extends Module
         Configuration::deleteByName('HBE_HIDE_LANGUAGE_DESKTOP');
         Configuration::deleteByName('HBE_HIDE_LANGUAGE_MOBILE');
         Configuration::deleteByName('HBE_HIDE_QUICKVIEW');
+        foreach (array_keys(self::SOCIAL_NETWORKS) as $network) {
+            Configuration::deleteByName(self::socialConfigKey($network));
+        }
         Configuration::deleteByName('HBE_INFOBAR_ENABLED');
         Configuration::deleteByName('HBE_INFOBAR_TEXT');
         Configuration::deleteByName('HBE_INFOBAR_URL');
@@ -786,9 +813,37 @@ class Hummingbird_editor extends Module
         return (string) ($this->context->controller->php_self ?? '');
     }
 
+    /**
+     * Configured social profiles, ready to render: only networks with a URL,
+     * in SOCIAL_NETWORKS order.
+     *
+     * @return array<int,array{key:string,label:string,url:string}>
+     */
+    public function getSocialLinks(): array
+    {
+        $links = [];
+
+        foreach (self::SOCIAL_NETWORKS as $key => $label) {
+            $url = trim((string) HbEditorConfig::get(self::socialConfigKey($key)));
+            if ($url === '') {
+                continue;
+            }
+            $links[] = [
+                'key'   => $key,
+                'label' => $label,
+                'url'   => $this->hbeSliderValidateUrl($url),
+            ];
+        }
+
+        return $links;
+    }
+
     public function hookActionFrontControllerSetMedia(): void
     {
         $page = $this->currentPage();
+
+        // Footer social icons — the theme's ps_contactinfo override renders them.
+        $this->context->smarty->assign('hbe_social_links', $this->getSocialLinks());
 
         // Core styles (header: topbar, search overlay, custom blocks) — every page.
         $this->context->controller->registerStylesheet(
@@ -963,6 +1018,7 @@ class Hummingbird_editor extends Module
             'hbe_cart_hover_enabled' => $hoverEnabled,
             'hbe_cart_modal_enabled' => $modalEnabled,
             'hbe_cart_free_shipping' => $this->getCartFreeShippingData(),
+            'hbe_cart_preview_url'   => $this->context->link->getModuleLink($this->name, 'cartpreview'),
         ]);
     }
 
@@ -974,7 +1030,7 @@ class Hummingbird_editor extends Module
      *
      * @return array<string,mixed>
      */
-    private function getCartFreeShippingData(): array
+    public function getCartFreeShippingData(): array
     {
         $default = [
             'enabled'             => false,
