@@ -652,11 +652,26 @@ class Hummingbird_editor extends Module
         $tab->active     = 1;
         $tab->class_name = 'AdminHbEditor';
         $tab->module     = $this->name;
-        $tab->id_parent  = (int) Tab::getIdFromClassName('AdminContent');
+        // Top-level menu entry, pinned right below the Dashboard
+        $tab->id_parent  = 0;
+        $tab->icon       = 'design_services';
         foreach (Language::getLanguages(true) as $lang) {
             $tab->name[$lang['id_lang']] = 'Hummingbird Editor';
         }
-        return (bool) $tab->add();
+        if (!$tab->add()) {
+            return false;
+        }
+        Db::getInstance()->execute('
+            UPDATE `' . _DB_PREFIX_ . 'tab`
+            SET `position` = `position` + 1
+            WHERE `id_parent` = 0 AND `position` >= 2 AND `id_tab` != ' . (int) $tab->id
+        );
+        Db::getInstance()->execute('
+            UPDATE `' . _DB_PREFIX_ . 'tab`
+            SET `position` = 2
+            WHERE `id_tab` = ' . (int) $tab->id
+        );
+        return true;
     }
 
     private function removeTab(): bool
