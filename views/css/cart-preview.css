@@ -205,6 +205,15 @@
   font-weight: 400;
 }
 
+/* Quantity change in flight: the new quantity is already shown, the amounts it
+   drives are dimmed until the server render brings them back in sync. */
+.cart-preview[data-ps-state="loading"] .cart-preview-product__price,
+.cart-preview[data-ps-state="loading"] .cart-preview__shipping,
+.cart-preview[data-ps-state="loading"] .cart-preview__footer {
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out;
+}
+
 .cart-preview-product__remove {
   font-size: var(--fs-body-s);
   color: var(--bs-secondary-color, #6b6b6b);
