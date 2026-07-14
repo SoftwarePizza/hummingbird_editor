@@ -1210,7 +1210,7 @@
         <div id="hbe-c-cart" class="panel-collapse collapse in">
           <div class="panel-body">
             <p class="help-block">
-              {l s='Nowy modal koszyka z paskiem „do darmowej dostawy". Próg darmowej dostawy ustawiasz w: Sprzedaż → Dostawa → Preferencje (PS_SHIPPING_FREE_PRICE).' mod='hummingbird_editor'}
+              {l s='Nowy modal koszyka z paskiem „do darmowej dostawy”. Kwotę na pasku ustawiasz niżej — domyślnie jest czytana z progów przewoźników (Sprzedaż → Przewoźnicy → Koszty wysyłki), więc nie rozjedzie się z tym, co naliczy kasa.' mod='hummingbird_editor'}
             </p>
             <form id="hbe-cart-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
               <input type="hidden" name="token" value="{$hbe_token}">
@@ -1236,11 +1236,58 @@
                   </tr>
                   <tr>
                     <td>
-                      <strong>{l s='Próg darmowej dostawy (ręczny)' mod='hummingbird_editor'}</strong>
-                      <div class="help-block">{l s='Wartość w walucie domyślnej sklepu. Jeśli większa od 0, nadpisuje próg ze sklepu (Dostawa → Preferencje). Wpisz 0, aby użyć ustawienia sklepu.' mod='hummingbird_editor'}</div>
+                      <strong>{l s='Próg darmowej dostawy — skąd brać kwotę' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">
+                        {l s='Kwota pokazywana na pasku „do darmowej dostawy”. Zalecane: z przewoźników — pasek trzyma się wtedy kwoty, którą naprawdę nalicza kasa.' mod='hummingbird_editor'}
+                      </div>
                     </td>
-                    <td style="width:140px;text-align:right;vertical-align:middle">
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <select name="cart_free_shipping_mode" id="hbe-free-ship-mode" class="form-control">
+                        <option value="auto"{if $hbe_cart_free_ship_mode == 'auto'} selected{/if}>
+                          {l s='Automatycznie z przewoźników' mod='hummingbird_editor'}
+                          {if $hbe_cart_free_ship_detected > 0}({$hbe_cart_free_ship_detected|string_format:"%.2f"}){/if}
+                        </option>
+                        <option value="manual"{if $hbe_cart_free_ship_mode == 'manual'} selected{/if}>
+                          {l s='Ręcznie — kwota poniżej' mod='hummingbird_editor'}
+                        </option>
+                        <option value="shop"{if $hbe_cart_free_ship_mode == 'shop'} selected{/if}>
+                          {l s='Z ustawień sklepu' mod='hummingbird_editor'}
+                          ({$hbe_cart_free_ship_shop|string_format:"%.2f"})
+                        </option>
+                        <option value="off"{if $hbe_cart_free_ship_mode == 'off'} selected{/if}>
+                          {l s='Nie pokazuj paska' mod='hummingbird_editor'}
+                        </option>
+                      </select>
+                    </td>
+                  </tr>
+                  <tr id="hbe-free-ship-manual-row"{if $hbe_cart_free_ship_mode != 'manual'} style="display:none"{/if}>
+                    <td>
+                      <strong>{l s='Próg darmowej dostawy (ręczny)' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Wartość w walucie domyślnej sklepu. Używana tylko w trybie „Ręcznie”.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
                       <input type="number" step="0.01" min="0" name="cart_free_shipping_threshold" value="{$hbe_cart_free_ship_manual}" class="form-control text-right">
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      {if $hbe_cart_free_ship_effective > 0}
+                        <div class="alert alert-info" style="margin-bottom:0">
+                          {l s='Pasek pokazuje teraz: darmowa dostawa od' mod='hummingbird_editor'}
+                          <strong>{$hbe_cart_free_ship_effective|string_format:"%.2f"}</strong>
+                          {if $hbe_cart_free_ship_detected > 0 && $hbe_cart_free_ship_effective != $hbe_cart_free_ship_detected}
+                            <br>
+                            <i class="icon-warning-sign"></i>
+                            {l s='Uwaga: przewoźnicy wożą za darmo dopiero od' mod='hummingbird_editor'}
+                            <strong>{$hbe_cart_free_ship_detected|string_format:"%.2f"}</strong>
+                            — {l s='pasek obiecuje klientowi inną kwotę niż naliczy kasa.' mod='hummingbird_editor'}
+                          {/if}
+                        </div>
+                      {else}
+                        <div class="alert alert-warning" style="margin-bottom:0">
+                          {l s='Pasek darmowej dostawy jest ukryty (brak progu do pokazania).' mod='hummingbird_editor'}
+                        </div>
+                      {/if}
                     </td>
                   </tr>
                 </tbody>

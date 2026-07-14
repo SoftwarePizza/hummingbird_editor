@@ -1194,6 +1194,11 @@ $(function () {
     });
 
     /* ── Cart preview: save ───────────────────────────────────────────────── */
+    /* Manual amount only matters in "manual" mode — keep the row out of the way otherwise. */
+    $(document).on('change', '#hbe-free-ship-mode', function () {
+        $('#hbe-free-ship-manual-row').toggle($(this).val() === 'manual');
+    });
+
     $(document).on('submit', '#hbe-cart-form', function (e) {
         e.preventDefault();
         var $form = $(this);
@@ -1201,6 +1206,7 @@ $(function () {
             { name: 'token', value: $form.find('[name=token]').val() },
             { name: 'cart_hover',         value: $form.find('[name=cart_hover]').is(':checked')         ? 1 : 0 },
             { name: 'cart_preview_modal', value: $form.find('[name=cart_preview_modal]').is(':checked') ? 1 : 0 },
+            { name: 'cart_free_shipping_mode',      value: $form.find('[name=cart_free_shipping_mode]').val() },
             { name: 'cart_free_shipping_threshold', value: $form.find('[name=cart_free_shipping_threshold]').val() }
         ];
         $.ajax({

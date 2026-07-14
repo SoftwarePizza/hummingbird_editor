@@ -305,6 +305,12 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_cart_hover'             => (int) Configuration::get('PS_BLOCK_CART_HOVER'),
             'hbe_cart_preview_modal'     => (int) Configuration::get('PS_BLOCK_CART_PREVIEW_MODAL'),
             'hbe_cart_free_ship_manual'  => (float) Configuration::get('HBE_CART_FREE_SHIPPING_THRESHOLD'),
+            // Free-shipping bar: how the threshold is resolved, plus what each
+            // source currently yields — so the shop owner sees the real numbers.
+            'hbe_cart_free_ship_mode'      => $this->getFreeShippingMode(),
+            'hbe_cart_free_ship_detected'  => $this->module->detectCarrierFreeShippingThreshold(),
+            'hbe_cart_free_ship_shop'      => (float) Configuration::get('PS_SHIPPING_FREE_PRICE'),
+            'hbe_cart_free_ship_effective' => $this->module->getFreeShippingThreshold(),
             // Karta produktu: source of the summary under the price
             // ('' = theme standard, 'short', 'full')
             'hbe_product_summary_source' => (string) HbEditorConfig::get('HBE_PRODUCT_SUMMARY_SOURCE'),
@@ -1745,6 +1751,30 @@ class AdminHbEditorController extends ModuleAdminController
     }
 
     /**
+     * The free-shipping mode currently in effect. Mirrors the module's fallback
+     * for shops upgraded from before the mode existed, so the form preselects
+     * what the front is really doing rather than a nominal default.
+     */
+    private function getFreeShippingMode(): string
+    {
+        $mode  = (string) Configuration::get('HBE_CART_FREE_SHIPPING_MODE');
+        $modes = [
+            Hummingbird_editor::FREE_SHIPPING_MODE_AUTO,
+            Hummingbird_editor::FREE_SHIPPING_MODE_MANUAL,
+            Hummingbird_editor::FREE_SHIPPING_MODE_SHOP,
+            Hummingbird_editor::FREE_SHIPPING_MODE_OFF,
+        ];
+
+        if (in_array($mode, $modes, true)) {
+            return $mode;
+        }
+
+        return (float) Configuration::get('HBE_CART_FREE_SHIPPING_THRESHOLD') > 0
+            ? Hummingbird_editor::FREE_SHIPPING_MODE_MANUAL
+            : Hummingbird_editor::FREE_SHIPPING_MODE_AUTO;
+    }
+
+    /**
      * Saves the cart-preview toggles. These write the same configuration keys
      * the ps_shoppingcart module reads to render the hover preview and the
      * add-to-cart modal replacement.
@@ -1754,9 +1784,31 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('PS_BLOCK_CART_HOVER',         (int) Tools::getValue('cart_hover', 0));
         Configuration::updateValue('PS_BLOCK_CART_PREVIEW_MODAL', (int) Tools::getValue('cart_preview_modal', 0));
 
-        // Manual free-shipping threshold override (0 = use the shop setting). Accept comma decimals.
+        // How the free-shipping bar picks its threshold: carriers / manual / shop setting / off.
+        $mode  = (string) Tools::getValue('cart_free_shipping_mode', Hummingbird_editor::FREE_SHIPPING_MODE_AUTO);
+        $modes = [
+            Hummingbird_editor::FREE_SHIPPING_MODE_AUTO,
+            Hummingbird_editor::FREE_SHIPPING_MODE_MANUAL,
+            Hummingbird_editor::FREE_SHIPPING_MODE_SHOP,
+            Hummingbird_editor::FREE_SHIPPING_MODE_OFF,
+        ];
+        if (!in_array($mode, $modes, true)) {
+            $mode = Hummingbird_editor::FREE_SHIPPING_MODE_AUTO;
+        }
+
+        // Manual amount, kept even when another mode is active so switching back doesn't lose it.
         $threshold = (float) str_replace(',', '.', (string) Tools::getValue('cart_free_shipping_threshold', 0));
-        Configuration::updateValue('HBE_CART_FREE_SHIPPING_THRESHOLD', $threshold > 0 ? $threshold : 0);
+        $threshold = $threshold > 0 ? $threshold : 0;
+
+        if ($mode === Hummingbird_editor::FREE_SHIPPING_MODE_MANUAL && $threshold <= 0) {
+            $this->ajaxDie(json_encode([
+                'success' => false,
+                'error'   => $this->module->l('Podaj próg darmowej dostawy większy od 0 lub wybierz inny tryb.'),
+            ]));
+        }
+
+        Configuration::updateValue('HBE_CART_FREE_SHIPPING_MODE', $mode);
+        Configuration::updateValue('HBE_CART_FREE_SHIPPING_THRESHOLD', $threshold);
 
         $this->ajaxDie(json_encode(['success' => true]));
     }
