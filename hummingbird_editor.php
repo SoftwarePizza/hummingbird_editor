@@ -47,11 +47,17 @@ class Hummingbird_editor extends Module
         return 'HBE_SOCIAL_' . strtoupper($network);
     }
 
+    /** How the free-shipping threshold shown on the cart progress bar is resolved. */
+    public const FREE_SHIPPING_MODE_AUTO   = 'auto';
+    public const FREE_SHIPPING_MODE_MANUAL = 'manual';
+    public const FREE_SHIPPING_MODE_SHOP   = 'shop';
+    public const FREE_SHIPPING_MODE_OFF    = 'off';
+
     public function __construct()
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.9.0';
+        $this->version = '1.10.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -372,6 +378,14 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // Free-shipping bar: read the threshold from the carriers unless told otherwise.
+        if (Configuration::get('HBE_CART_FREE_SHIPPING_MODE') === false) {
+            Configuration::updateValue('HBE_CART_FREE_SHIPPING_MODE', self::FREE_SHIPPING_MODE_AUTO);
+        }
+        if (Configuration::get('HBE_CART_FREE_SHIPPING_THRESHOLD') === false) {
+            Configuration::updateValue('HBE_CART_FREE_SHIPPING_THRESHOLD', 0);
+        }
+
         // Rosenthal Care promo block (cart) — off by default; enabled in BO.
         if (Configuration::get('HBE_CARE_ENABLED') === false) {
             Configuration::updateValue('HBE_CARE_ENABLED', 0);
@@ -525,6 +539,9 @@ class Hummingbird_editor extends Module
         }
         foreach (['HBE_CARE_ENABLED', 'HBE_CARE_PRODUCT_ID', 'HBE_CARE_HEADING',
                   'HBE_CARE_TEXT', 'HBE_CARE_BUTTON', 'HBE_CARE_LOGIN_REQUIRED'] as $k) {
+            Configuration::deleteByName($k);
+        }
+        foreach (['HBE_CART_FREE_SHIPPING_MODE', 'HBE_CART_FREE_SHIPPING_THRESHOLD'] as $k) {
             Configuration::deleteByName($k);
         }
         Configuration::deleteByName('HBE_PRODUCT_SUMMARY_SOURCE');
@@ -845,6 +862,12 @@ class Hummingbird_editor extends Module
         // Footer social icons — the theme's ps_contactinfo override renders them.
         $this->context->smarty->assign('hbe_social_links', $this->getSocialLinks());
 
+        // Single source of truth for the "free shipping from X" copy (product page perk).
+        $this->context->smarty->assign(
+            'hbe_free_shipping_threshold',
+            $this->getFreeShippingThresholdFormatted()
+        );
+
         // Core styles (header: topbar, search overlay, custom blocks) — every page.
         $this->context->controller->registerStylesheet(
             'hb-editor-front',
@@ -1006,12 +1029,12 @@ class Hummingbird_editor extends Module
         $this->context->controller->registerStylesheet(
             'hb-editor-cart-preview',
             'modules/' . $this->name . '/views/css/cart-preview.css',
-            ['media' => 'all', 'priority' => 200]
+            ['media' => 'all', 'priority' => 200, 'version' => $this->assetVersion('views/css/cart-preview.css')]
         );
         $this->context->controller->registerJavascript(
             'hb-editor-cart-preview',
             'modules/' . $this->name . '/views/js/cart-preview.js',
-            ['position' => 'bottom', 'priority' => 200]
+            ['position' => 'bottom', 'priority' => 200, 'version' => $this->assetVersion('views/js/cart-preview.js')]
         );
 
         $this->context->smarty->assign([
@@ -1023,10 +1046,131 @@ class Hummingbird_editor extends Module
     }
 
     /**
+     * Cache-busting stamp appended to an asset URL (PS turns it into "?<stamp>").
+     *
+     * Module assets are served straight from disk, with no Cache-Control header
+     * and no version in the URL, so after a deploy browsers happily keep running
+     * the previous file. Keying on the file's mtime means every change to the
+     * asset produces a new URL on its own — nobody has to remember to bump it.
+     */
+    private function assetVersion(string $relativeFile): string
+    {
+        $mtime = @filemtime(_PS_MODULE_DIR_ . $this->name . '/' . $relativeFile);
+
+        return $mtime ? (string) $mtime : $this->version;
+    }
+
+    /**
+     * Free-shipping threshold in the shop's default currency, resolved from the
+     * mode set in BO → Hummingbird → Koszyk. 0 disables the progress bar.
+     *
+     * - auto   → read back from the carrier price ranges (see detectCarrierFreeShippingThreshold)
+     * - manual → the amount typed in the BO field
+     * - shop   → Dostawa → Preferencje (PS_SHIPPING_FREE_PRICE)
+     * - off    → no bar
+     */
+    public function getFreeShippingThreshold(): float
+    {
+        $manual = (float) Configuration::get('HBE_CART_FREE_SHIPPING_THRESHOLD');
+
+        switch ((string) Configuration::get('HBE_CART_FREE_SHIPPING_MODE')) {
+            case self::FREE_SHIPPING_MODE_OFF:
+                return 0.0;
+
+            case self::FREE_SHIPPING_MODE_MANUAL:
+                return max(0.0, $manual);
+
+            case self::FREE_SHIPPING_MODE_SHOP:
+                return max(0.0, (float) Configuration::get('PS_SHIPPING_FREE_PRICE'));
+
+            case self::FREE_SHIPPING_MODE_AUTO:
+                return $this->detectCarrierFreeShippingThreshold();
+
+            default:
+                // Mode never saved (fresh install, or an upgrade that predates it):
+                // honour a manual amount if one was set, otherwise read the carriers.
+                return $manual > 0 ? $manual : $this->detectCarrierFreeShippingThreshold();
+        }
+    }
+
+    /**
+     * Lowest cart total from which a real carrier ships for free, read straight
+     * from the carrier price ranges (Sprzedaż → Przewoźnicy → Koszty wysyłki).
+     * This keeps the bar honest: it tracks the number the checkout actually
+     * charges on, instead of a shop setting that drifts out of sync.
+     *
+     * Only carriers that charge for at least one range are considered. A carrier
+     * that is free across its whole range is a pickup point ("Odbiór osobisty"),
+     * not a free-shipping offer, and would otherwise drag the threshold to ~0.
+     *
+     * Limited to price-based carriers: a weight-based carrier's ranges answer
+     * "from how many kg", which is not the question the bar asks.
+     *
+     * @return float 0.0 when no carrier offers a free range
+     */
+    public function detectCarrierFreeShippingThreshold(): float
+    {
+        static $cache = null;
+
+        if ($cache !== null) {
+            return $cache;
+        }
+
+        // delivery.id_shop is nullable — NULL means "every shop", which is how the
+        // rows actually look here. Matching it with `= id_shop` silently finds nothing.
+        $idShop = (int) $this->context->shop->id;
+        $shopScope = '(d.id_shop IS NULL OR d.id_shop = ' . $idShop . ')';
+
+        $sql = new DbQuery();
+        $sql->select('MIN(rp.delimiter1)');
+        $sql->from('delivery', 'd');
+        $sql->innerJoin('range_price', 'rp', 'rp.id_range_price = d.id_range_price');
+        $sql->innerJoin('carrier', 'c', 'c.id_carrier = d.id_carrier');
+        $sql->where('c.active = 1 AND c.deleted = 0 AND c.is_free = 0');
+        $sql->where('c.shipping_method = ' . (int) Carrier::SHIPPING_METHOD_PRICE);
+        $sql->where($shopScope);
+        $sql->where('d.price = 0 AND rp.delimiter1 > 0');
+        $sql->where(
+            'd.id_carrier IN (SELECT paid.id_carrier FROM ' . _DB_PREFIX_ . 'delivery paid
+                WHERE paid.price > 0
+                  AND (paid.id_shop IS NULL OR paid.id_shop = ' . $idShop . '))'
+        );
+
+        $value = Db::getInstance()->getValue($sql);
+
+        return $cache = ($value === false || $value === null) ? 0.0 : (float) $value;
+    }
+
+    /**
+     * The resolved threshold converted to the customer's currency and formatted
+     * ("250,00 zł"), for the copy that only announces the amount (the product
+     * page perk). Empty string when the bar is off, so templates can test it.
+     */
+    public function getFreeShippingThresholdFormatted(): string
+    {
+        $threshold = $this->getFreeShippingThreshold();
+        if ($threshold <= 0) {
+            return '';
+        }
+
+        // No locale outside a front-office request (CLI, some ajax entry points):
+        // drop the copy rather than fatal the page that embeds it.
+        $locale   = $this->context->getCurrentLocale();
+        $currency = $this->context->currency;
+        if ($locale === null || !Validate::isLoadedObject($currency)) {
+            return '';
+        }
+
+        return $locale->formatPrice(
+            (float) Tools::convertPrice($threshold, $currency),
+            $currency->iso_code
+        );
+    }
+
+    /**
      * Remaining amount to reach free shipping plus a progress value (0-100) for
-     * the progress bar. Derived from the cart and the PS_SHIPPING_FREE_PRICE
-     * shop setting; the actual free-shipping decision stays in the core
-     * (Cart::getPackageShippingCost).
+     * the progress bar. The actual free-shipping decision stays in the core
+     * (Cart::getPackageShippingCost) — this only mirrors it for the customer.
      *
      * @return array<string,mixed>
      */
@@ -1045,11 +1189,7 @@ class Hummingbird_editor extends Module
             return $default;
         }
 
-        // Manual threshold (set in the BO "Koszyk" tab) overrides the shop setting when > 0.
-        $threshold = (float) Configuration::get('HBE_CART_FREE_SHIPPING_THRESHOLD');
-        if ($threshold <= 0) {
-            $threshold = (float) Configuration::get('PS_SHIPPING_FREE_PRICE');
-        }
+        $threshold = $this->getFreeShippingThreshold();
         if ($threshold <= 0) {
             return $default;
         }
