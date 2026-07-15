@@ -57,7 +57,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.10.0';
+        $this->version = '1.11.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -405,6 +405,23 @@ class Hummingbird_editor extends Module
         if (Configuration::get('HBE_CARE_LOGIN_REQUIRED') === false) {
             Configuration::updateValue('HBE_CARE_LOGIN_REQUIRED', 1);
         }
+        // Karta podarunkowa — placements off by default; URL falls back to the
+        // giftcard purchase page (giftcard/choicegiftcard) at render time.
+        foreach ([
+            'HBE_GIFTCARD_MENU_ENABLED'   => 0,
+            'HBE_GIFTCARD_FOOTER_ENABLED' => 0,
+            'HBE_GIFTCARD_FLOAT_ENABLED'  => 0,
+            'HBE_GIFTCARD_FLOAT_POSITION' => 'right',
+            'HBE_GIFTCARD_MENU_LABEL'     => 'Karta podarunkowa',
+            'HBE_GIFTCARD_FOOTER_LABEL'   => 'Karta podarunkowa',
+            'HBE_GIFTCARD_FOOTER_DESC'    => 'Zawsze trafiony prezent — obdarowany sam wybierze, co pokocha.',
+            'HBE_GIFTCARD_FLOAT_LABEL'    => 'Karta podarunkowa',
+            'HBE_GIFTCARD_URL'            => '',
+        ] as $gcKey => $gcDefault) {
+            if (Configuration::get($gcKey) === false) {
+                Configuration::updateValue($gcKey, $gcDefault);
+            }
+        }
 
         return parent::install()
             && $this->createTables()
@@ -416,6 +433,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('displayFooterProduct')
             && $this->registerHook('displayListingBanner')
             && $this->registerHook('displayShoppingCartFooter')
+            && $this->registerHook('displayFooter')
             && $this->registerHook('actionMainMenuModifier')
             && $this->installTab();
     }
@@ -545,6 +563,14 @@ class Hummingbird_editor extends Module
             Configuration::deleteByName($k);
         }
         Configuration::deleteByName('HBE_PRODUCT_SUMMARY_SOURCE');
+        foreach ([
+            'HBE_GIFTCARD_MENU_ENABLED', 'HBE_GIFTCARD_MENU_LABEL',
+            'HBE_GIFTCARD_FOOTER_ENABLED', 'HBE_GIFTCARD_FOOTER_LABEL', 'HBE_GIFTCARD_FOOTER_DESC',
+            'HBE_GIFTCARD_FLOAT_ENABLED', 'HBE_GIFTCARD_FLOAT_LABEL', 'HBE_GIFTCARD_FLOAT_POSITION',
+            'HBE_GIFTCARD_URL',
+        ] as $k) {
+            Configuration::deleteByName($k);
+        }
 
         return parent::uninstall()
             && $this->dropTables()
@@ -802,6 +828,69 @@ class Hummingbird_editor extends Module
             }
         }
         unset($node);
+
+        // Karta podarunkowa — append a top-level leaf item to the main menu.
+        // ($params['menu'] is passed by reference by ps_mainmenu, and PHP keeps
+        // that binding through the by-value method arg, so appending sticks.)
+        if ((int) Configuration::get('HBE_GIFTCARD_MENU_ENABLED')) {
+            $label = trim($this->hbeLocConfig('HBE_GIFTCARD_MENU_LABEL'));
+            if ($label !== '') {
+                $params['menu']['children'][] = [
+                    'type'               => 'giftcard',
+                    'page_identifier'    => 'hbe-giftcard',
+                    'label'              => $label,
+                    'url'                => $this->getGiftcardUrl(),
+                    'depth'              => 1,
+                    'current'            => false,
+                    'open_in_new_window' => false,
+                    'children'           => [],
+                    'image_urls'         => [],
+                ];
+            }
+        }
+    }
+
+    /**
+     * Shared target for every Karta-podarunkowa placement: the configured URL,
+     * or — when blank — the gift-card purchase page (the entry point that used
+     * to live in the giftcard module's left-column block).
+     */
+    public function getGiftcardUrl(?int $idLang = null): string
+    {
+        $url = trim($this->hbeLocConfig('HBE_GIFTCARD_URL', $idLang));
+
+        if ($url === '') {
+            return $this->context->link->getModuleLink('giftcard', 'choicegiftcard');
+        }
+        if (!preg_match('#^https?://#i', $url) && strpos($url, '/') !== 0) {
+            $url = 'https://' . $url;
+        }
+
+        return $url;
+    }
+
+    /**
+     * Karta podarunkowa — footer promo block (own footer column, styled to sit
+     * next to the ps_linklist columns). Rendered via displayFooter.
+     */
+    public function hookDisplayFooter(array $params = []): string
+    {
+        if (!(int) Configuration::get('HBE_GIFTCARD_FOOTER_ENABLED')) {
+            return '';
+        }
+
+        $label = trim($this->hbeLocConfig('HBE_GIFTCARD_FOOTER_LABEL'));
+        if ($label === '') {
+            return '';
+        }
+
+        $this->context->smarty->assign([
+            'hbe_giftcard_footer_label' => $label,
+            'hbe_giftcard_footer_desc'  => trim($this->hbeLocConfig('HBE_GIFTCARD_FOOTER_DESC')),
+            'hbe_giftcard_url'          => $this->getGiftcardUrl(),
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/giftcard-footer.tpl');
     }
 
     /* ── Magic method — handles every custom hook via __call() ───────────── */
@@ -1522,6 +1611,21 @@ class Hummingbird_editor extends Module
                 'hbe_wishlist_lists_url' => $this->context->link->getModuleLink('blockwishlist', 'lists'),
             ]);
             $output .= $this->display(__FILE__, 'views/templates/hook/wishlist-preview.tpl');
+        }
+
+        // Karta podarunkowa — floating pill button (position:fixed, so the DOM
+        // spot at the top of <body> is irrelevant). Dismissible per session.
+        if ((int) Configuration::get('HBE_GIFTCARD_FLOAT_ENABLED')) {
+            $floatLabel = trim($this->hbeLocConfig('HBE_GIFTCARD_FLOAT_LABEL'));
+            if ($floatLabel !== '') {
+                $pos = Configuration::get('HBE_GIFTCARD_FLOAT_POSITION') === 'left' ? 'left' : 'right';
+                $this->context->smarty->assign([
+                    'hbe_giftcard_float_label'    => $floatLabel,
+                    'hbe_giftcard_float_position' => $pos,
+                    'hbe_giftcard_url'            => $this->getGiftcardUrl(),
+                ]);
+                $output .= $this->display(__FILE__, 'views/templates/hook/giftcard-float.tpl');
+            }
         }
 
         if (!(int) Configuration::get('HBE_TOPBAR_ENABLED')) {

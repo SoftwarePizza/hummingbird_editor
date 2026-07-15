@@ -288,6 +288,18 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_cp_text_lang'      => $this->getConfigPerLang('HBE_CP_TEXT',      $languages),
             'hbe_cp_link_text_lang' => $this->getConfigPerLang('HBE_CP_LINK_TEXT', $languages),
             'hbe_cp_link_url_lang'  => $this->getConfigPerLang('HBE_CP_LINK_URL',  $languages),
+            // Karta podarunkowa — placements (menu / footer / floating pill)
+            'hbe_giftcard_menu_enabled'   => (int) Configuration::get('HBE_GIFTCARD_MENU_ENABLED'),
+            'hbe_giftcard_footer_enabled' => (int) Configuration::get('HBE_GIFTCARD_FOOTER_ENABLED'),
+            'hbe_giftcard_float_enabled'  => (int) Configuration::get('HBE_GIFTCARD_FLOAT_ENABLED'),
+            'hbe_giftcard_float_position' => Configuration::get('HBE_GIFTCARD_FLOAT_POSITION') === 'left' ? 'left' : 'right',
+            'hbe_giftcard_menu_label_lang'   => $this->getConfigPerLang('HBE_GIFTCARD_MENU_LABEL',   $languages),
+            'hbe_giftcard_footer_label_lang' => $this->getConfigPerLang('HBE_GIFTCARD_FOOTER_LABEL', $languages),
+            'hbe_giftcard_footer_desc_lang'  => $this->getConfigPerLang('HBE_GIFTCARD_FOOTER_DESC',  $languages),
+            'hbe_giftcard_float_label_lang'  => $this->getConfigPerLang('HBE_GIFTCARD_FLOAT_LABEL',  $languages),
+            'hbe_giftcard_url_lang'          => $this->getConfigPerLang('HBE_GIFTCARD_URL',          $languages),
+            'hbe_giftcard_url_default'       => $this->context->link->getModuleLink('giftcard', 'choicegiftcard'),
+            'hbe_giftcard_cms_url'           => $this->context->link->getCMSLink(53),
             'hbe_hide_currency_desktop' => (int) Configuration::get('HBE_HIDE_CURRENCY_DESKTOP'),
             'hbe_hide_currency_mobile'  => (int) Configuration::get('HBE_HIDE_CURRENCY_MOBILE'),
             'hbe_hide_language_desktop' => (int) Configuration::get('HBE_HIDE_LANGUAGE_DESKTOP'),
@@ -1640,6 +1652,29 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_HIDE_LANGUAGE_MOBILE',  (int) Tools::getValue('hide_language_mobile', 0));
         Configuration::updateValue('HBE_HIDE_QUICKVIEW',         (int) Tools::getValue('hide_quickview', 0));
         Configuration::updateValue('HBE_WISHLIST_PREVIEW_ENABLED', (int) Tools::getValue('wishlist_preview', 0));
+        $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Karta podarunkowa — saves the three placement toggles, their labels and
+     * the shared target URL (blank = giftcard purchase page at render time).
+     */
+    public function ajaxProcessSaveGiftcard(): void
+    {
+        Configuration::updateValue('HBE_GIFTCARD_MENU_ENABLED',   (int) Tools::getValue('menu_enabled', 0));
+        Configuration::updateValue('HBE_GIFTCARD_FOOTER_ENABLED', (int) Tools::getValue('footer_enabled', 0));
+        Configuration::updateValue('HBE_GIFTCARD_FLOAT_ENABLED',  (int) Tools::getValue('float_enabled', 0));
+        Configuration::updateValue(
+            'HBE_GIFTCARD_FLOAT_POSITION',
+            Tools::getValue('float_position') === 'left' ? 'left' : 'right'
+        );
+
+        $this->saveLocalizedFromForm('HBE_GIFTCARD_URL',          Tools::getValue('url', ''), true);
+        $this->saveLocalizedFromForm('HBE_GIFTCARD_MENU_LABEL',   Tools::getValue('menu_label', ''));
+        $this->saveLocalizedFromForm('HBE_GIFTCARD_FOOTER_LABEL', Tools::getValue('footer_label', ''));
+        $this->saveLocalizedFromForm('HBE_GIFTCARD_FOOTER_DESC',  Tools::getValue('footer_desc', ''));
+        $this->saveLocalizedFromForm('HBE_GIFTCARD_FLOAT_LABEL',  Tools::getValue('float_label', ''));
+
         $this->ajaxDie(json_encode(['success' => true]));
     }
 

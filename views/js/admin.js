@@ -179,6 +179,35 @@ $(function () {
         });
     });
 
+    /* ── Karta podarunkowa: save ───────────────────────────────────────────── */
+    $(document).on('submit', '#hbe-giftcard-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = $form.serializeArray();
+        // Unchecked checkboxes are absent from serializeArray — send explicit 0.
+        ['menu_enabled', 'footer_enabled', 'float_enabled'].forEach(function (name) {
+            if (!$form.find('[name=' + name + ']').is(':checked')) {
+                data.push({ name: name, value: '0' });
+            }
+        });
+
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveGiftcard&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     /* ── Info bar (below slider): save ────────────────────────────────────── */
     $(document).on('submit', '#hbe-infobar-form', function (e) {
         console.log('[HBE-DIAG] infobar handler ENTERED');

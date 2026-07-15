@@ -83,6 +83,9 @@
       <a href="#hbe-tab-menu" data-toggle="tab" role="tab"><i class="icon-sitemap"></i> {l s='Menu' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-giftcard" data-toggle="tab" role="tab"><i class="icon-gift"></i> {l s='Karta podarunkowa' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-settings" data-toggle="tab" role="tab"><i class="icon-cogs"></i> {l s='Ustawienia' mod='hummingbird_editor'}</a>
     </li>
   </ul>
@@ -1622,6 +1625,143 @@
     {* ═══════════════════════════════════════════════════════════════════════
        Tab 6 — Ustawienia
     ═══════════════════════════════════════════════════════════════════════ *}
+    {* ═══════════════════════════════════════════════════════════════════════
+       Tab — Karta podarunkowa (placements: menu / footer / floating pill)
+    ═══════════════════════════════════════════════════════════════════════ *}
+    <div id="hbe-tab-giftcard" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default">
+        <div class="panel-heading"><h3 class="panel-title"><i class="icon-gift"></i> {l s='Karta podarunkowa — gdzie pokazać link' mod='hummingbird_editor'}</h3></div>
+        <div class="panel-body">
+          <p class="text-muted" style="margin-bottom:1rem">
+            {l s='Włącz wybrane miejsca, w których pojawi się link do karty podarunkowej. Każde miejsce działa niezależnie. Wspólny adres docelowy poniżej — puste pole = strona zakupu karty (giftcard/choicegiftcard).' mod='hummingbird_editor'}
+          </p>
+
+          <form id="hbe-giftcard-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+            <input type="hidden" name="token" value="{$hbe_token}">
+
+            {* Wspólny adres docelowy *}
+            <div class="form-group">
+              <label class="control-label">{l s='Adres docelowy (wspólny)' mod='hummingbird_editor'}</label>
+              {include file="{$hbe_tpl_dir}_ml_input.tpl" name='url' type='url' values=$hbe_giftcard_url_lang placeholder=$hbe_giftcard_url_default}
+              <p class="help-block" style="margin-top:4px">
+                {l s='Domyślnie (pole puste): strona zakupu karty' mod='hummingbird_editor'} — <code>{$hbe_giftcard_url_default|escape:'html':'UTF-8'}</code>.
+                {l s='Alternatywnie strona opisowa CMS „Karta upominkowa”:' mod='hummingbird_editor'} <code>{$hbe_giftcard_cms_url|escape:'html':'UTF-8'}</code>
+              </p>
+            </div>
+
+            <hr>
+
+            {* 1) Menu główne *}
+            <div class="panel panel-default hbe-collapse-panel">
+              <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-gc-menu">
+                <h4 class="panel-title clearfix">
+                  {l s='Link w menu głównym' mod='hummingbird_editor'}
+                  <span class="pull-right">
+                    {if $hbe_giftcard_menu_enabled}<span class="label label-success hbe-status-badge">{l s='Włączone' mod='hummingbird_editor'}</span>{/if}
+                    <i class="icon-chevron-down hbe-chevron{if $hbe_giftcard_menu_enabled} hbe-chevron-open{/if}"></i>
+                  </span>
+                </h4>
+              </div>
+              <div id="hbe-c-gc-menu" class="panel-collapse collapse{if $hbe_giftcard_menu_enabled} in{/if}">
+                <div class="panel-body">
+                  <div class="row">
+                    <div class="col-md-3 form-group">
+                      <label class="control-label">{l s='Włącz' mod='hummingbird_editor'}</label>
+                      <div class="checkbox"><label>
+                        <input type="checkbox" name="menu_enabled" value="1" {if $hbe_giftcard_menu_enabled}checked{/if}>
+                        {l s='Tak — jako ostatnia pozycja w menu' mod='hummingbird_editor'}
+                      </label></div>
+                    </div>
+                    <div class="col-md-6 form-group">
+                      <label class="control-label">{l s='Etykieta' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='menu_label' values=$hbe_giftcard_menu_label_lang placeholder='Karta podarunkowa'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {* 2) Stopka *}
+            <div class="panel panel-default hbe-collapse-panel">
+              <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-gc-footer">
+                <h4 class="panel-title clearfix">
+                  {l s='Blok w stopce' mod='hummingbird_editor'}
+                  <span class="pull-right">
+                    {if $hbe_giftcard_footer_enabled}<span class="label label-success hbe-status-badge">{l s='Włączone' mod='hummingbird_editor'}</span>{/if}
+                    <i class="icon-chevron-down hbe-chevron{if $hbe_giftcard_footer_enabled} hbe-chevron-open{/if}"></i>
+                  </span>
+                </h4>
+              </div>
+              <div id="hbe-c-gc-footer" class="panel-collapse collapse{if $hbe_giftcard_footer_enabled} in{/if}">
+                <div class="panel-body">
+                  <div class="row">
+                    <div class="col-md-3 form-group">
+                      <label class="control-label">{l s='Włącz' mod='hummingbird_editor'}</label>
+                      <div class="checkbox"><label>
+                        <input type="checkbox" name="footer_enabled" value="1" {if $hbe_giftcard_footer_enabled}checked{/if}>
+                        {l s='Tak — kolumna promocyjna w stopce' mod='hummingbird_editor'}
+                      </label></div>
+                    </div>
+                    <div class="col-md-4 form-group">
+                      <label class="control-label">{l s='Tytuł' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='footer_label' values=$hbe_giftcard_footer_label_lang placeholder='Karta podarunkowa'}
+                    </div>
+                    <div class="col-md-5 form-group">
+                      <label class="control-label">{l s='Opis (jedno zdanie, opcjonalny)' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='footer_desc' type='textarea' rows=2 values=$hbe_giftcard_footer_desc_lang placeholder='Zawsze trafiony prezent — obdarowany sam wybierze, co pokocha.'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {* 3) Pływający przycisk *}
+            <div class="panel panel-default hbe-collapse-panel">
+              <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-gc-float">
+                <h4 class="panel-title clearfix">
+                  {l s='Pływający przycisk (róg ekranu)' mod='hummingbird_editor'}
+                  <span class="pull-right">
+                    {if $hbe_giftcard_float_enabled}<span class="label label-success hbe-status-badge">{l s='Włączone' mod='hummingbird_editor'}</span>{/if}
+                    <i class="icon-chevron-down hbe-chevron{if $hbe_giftcard_float_enabled} hbe-chevron-open{/if}"></i>
+                  </span>
+                </h4>
+              </div>
+              <div id="hbe-c-gc-float" class="panel-collapse collapse{if $hbe_giftcard_float_enabled} in{/if}">
+                <div class="panel-body">
+                  <div class="row">
+                    <div class="col-md-3 form-group">
+                      <label class="control-label">{l s='Włącz' mod='hummingbird_editor'}</label>
+                      <div class="checkbox"><label>
+                        <input type="checkbox" name="float_enabled" value="1" {if $hbe_giftcard_float_enabled}checked{/if}>
+                        {l s='Tak — przypięty przycisk na każdej stronie' mod='hummingbird_editor'}
+                      </label></div>
+                    </div>
+                    <div class="col-md-5 form-group">
+                      <label class="control-label">{l s='Etykieta' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='float_label' values=$hbe_giftcard_float_label_lang placeholder='Karta podarunkowa'}
+                    </div>
+                    <div class="col-md-4 form-group">
+                      <label class="control-label">{l s='Pozycja' mod='hummingbird_editor'}</label>
+                      <select name="float_position" class="form-control">
+                        <option value="right" {if $hbe_giftcard_float_position != 'left'}selected{/if}>{l s='Prawy dolny róg' mod='hummingbird_editor'}</option>
+                        <option value="left" {if $hbe_giftcard_float_position == 'left'}selected{/if}>{l s='Lewy dolny róg' mod='hummingbird_editor'}</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p class="help-block">{l s='Klient może zamknąć przycisk — wróci przy kolejnej wizycie.' mod='hummingbird_editor'}</p>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+            <div class="hbe-alerts"></div>
+          </form>
+        </div>
+      </div>
+
+    </div>{* /tab-giftcard *}
+
     <div id="hbe-tab-settings" class="tab-pane" role="tabpanel">
 
       <div class="panel panel-default hbe-collapse-panel">

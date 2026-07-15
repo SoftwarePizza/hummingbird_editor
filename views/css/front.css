@@ -271,3 +271,110 @@
   color: var(--c-grey-5, #5a5a5a);
   background: transparent;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Karta podarunkowa — footer promo block + floating pill button
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Footer column: small description + CTA button (sits next to link columns). */
+.hbe-giftcard-footer__desc {
+  margin: 0 0 0.75rem;
+  font-size: var(--fs-body-xs, 0.8125rem);
+  color: var(--bs-secondary-color, #6c757d);
+  line-height: 1.4;
+}
+
+.hbe-giftcard-footer__cta {
+  display: inline-block;
+  padding: 0.5rem 1.25rem;
+  font-size: var(--fs-body-xs, 0.8125rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--hbe-white, #fff);
+  background: var(--bs-primary, #242424);
+  border: 1px solid var(--bs-primary, #242424);
+  border-radius: 999px;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.hbe-giftcard-footer__cta:hover,
+.hbe-giftcard-footer__cta:focus {
+  color: var(--hbe-white, #fff);
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+/* Floating pill — fixed to a bottom corner, dismissible. */
+.hbe-giftcard-float {
+  position: fixed;
+  bottom: 1.25rem;
+  z-index: 1040;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  color: var(--hbe-white, #fff);
+  background: var(--bs-primary, #242424);
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  animation: hbe-giftcard-float-in 0.35s ease both;
+}
+
+.hbe-giftcard-float[hidden] { display: none; }
+
+.hbe-giftcard-float--right { right: 1.25rem; }
+.hbe-giftcard-float--left  { left: 1.25rem; }
+
+.hbe-giftcard-float__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0.35rem 0.15rem 0.25rem;
+  color: var(--hbe-white, #fff);
+  text-decoration: none;
+}
+
+.hbe-giftcard-float__link:hover,
+.hbe-giftcard-float__link:focus { color: var(--hbe-white, #fff); text-decoration: none; }
+
+.hbe-giftcard-float__icon { flex: 0 0 auto; }
+
+.hbe-giftcard-float__label {
+  font-size: var(--fs-body-s, 0.875rem);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hbe-giftcard-float__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 0.35rem;
+  padding: 0;
+  color: var(--hbe-white, #fff);
+  background: rgba(255, 255, 255, 0.18);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.hbe-giftcard-float__close:hover { background: rgba(255, 255, 255, 0.32); }
+
+@keyframes hbe-giftcard-float-in {
+  from { opacity: 0; transform: translateY(0.75rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  .hbe-giftcard-float { bottom: 0.85rem; }
+  .hbe-giftcard-float--right { right: 0.85rem; }
+  .hbe-giftcard-float--left  { left: 0.85rem; }
+  .hbe-giftcard-float__label { font-size: var(--fs-body-xs, 0.8125rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hbe-giftcard-float { animation: none; }
+}
