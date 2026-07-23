@@ -1566,6 +1566,14 @@ class Hummingbird_editor extends Module
 
         // Inline CSS for header element visibility toggles
         $css = '';
+
+        // Anti-FOUC: the desktop header icons (account, wishlist, cart) carry no
+        // mobile-hiding class, so on phones they render near the logo for a frame
+        // until the theme's responsive-toggler empties them (innerHTML swap into
+        // the #_mobile_* placeholders) on DOMContentLoaded. Injected here (right
+        // after <body>, before the header) they never paint on mobile.
+        $css .= '@media (max-width:767.98px){#_desktop_ps_customersignin,#_desktop_ps_shoppingcart,#_desktop_blockwishlist{display:none!important}}';
+
         if ((int) Configuration::get('HBE_HIDE_CURRENCY_DESKTOP')) {
             $css .= '@media (min-width:768px){#_desktop_ps_currencyselector{display:none!important}}';
         }
