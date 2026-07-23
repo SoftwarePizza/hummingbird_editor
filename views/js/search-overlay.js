@@ -213,9 +213,103 @@
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initSearchOverlay);
-  } else {
+  /* ── Mobile offcanvas search ──────────────────────────────────────────────
+     On mobile the theme's responsive-toggler moves the collapsed
+     `.btn-search-open` button into the offcanvas header (#_mobile_ps_searchbar)
+     via innerHTML — which drops its click listener and never brings in the
+     real text input (that lives in #ps-search-overlay). Result: the offcanvas
+     shows a dead "Szukaj" button instead of a typeable field.
+
+     Fix: when the offcanvas opens, MOVE the real, already-wired search widget
+     (#ps_searchbar) into the offcanvas header as a live node (appendChild, so
+     the autocomplete listeners survive); move it back to the overlay on close.
+     This restores the stock behaviour where the input — with autocomplete
+     dropdown right below it — sits inside the offcanvas.                       */
+  function initMobileOffcanvasSearch() {
+    var offcanvasEl = document.getElementById('searchCanvas');
+    var overlay     = document.getElementById('ps-search-overlay');
+    var widget      = document.getElementById('ps_searchbar');
+    var container   = document.getElementById('_mobile_ps_searchbar');
+
+    if (!offcanvasEl || !overlay || !widget || !container) return;
+
+    // Hide/show the leftover open-button placeholder without destroying it
+    // (the responsive-toggler swap-back on desktop resize still needs it).
+    function togglePlaceholder(hidden) {
+      Array.prototype.forEach.call(container.children, function (child) {
+        if (child !== widget) {
+          child.style.display = hidden ? 'none' : '';
+        }
+      });
+    }
+
+    // The in-form "X" closes the desktop overlay; inside the offcanvas the
+    // header already has an "Anuluj" (Cancel) button, so hide the X there.
+    function toggleFormClose(hidden) {
+      var closeBtn = widget.querySelector('.btn-search-close');
+      if (closeBtn) { closeBtn.style.display = hidden ? 'none' : ''; }
+    }
+
+    offcanvasEl.addEventListener('show.bs.offcanvas', function () {
+      togglePlaceholder(true);
+      container.appendChild(widget);   // live move — keeps autocomplete wiring
+      widget.style.display = '';
+      toggleFormClose(true);
+    });
+
+    offcanvasEl.addEventListener('shown.bs.offcanvas', function () {
+      var input = widget.querySelector('.js-search-input');
+      if (input) {
+        input.focus();
+        // place caret at end if a previous query lingered
+        var v = input.value;
+        input.value = '';
+        input.value = v;
+      }
+    });
+
+    offcanvasEl.addEventListener('hidden.bs.offcanvas', function () {
+      // Return the widget to the desktop overlay so it keeps working there,
+      // and restore the placeholder button in the offcanvas header.
+      overlay.appendChild(widget);
+      togglePlaceholder(false);
+      toggleFormClose(false);
+
+      var input = widget.querySelector('.js-search-input');
+      if (input) { input.value = ''; }
+      var dropdown = widget.querySelector('.js-search-dropdown');
+      if (dropdown) { dropdown.classList.add('d-none'); }
+    });
+
+    // Safeguard: if the viewport crosses to desktop while the widget is still
+    // parked in the offcanvas, the theme's responsive-toggler would serialise
+    // it via innerHTML and break the autocomplete wiring. Pull it back to the
+    // overlay first (real-phone users never hit this; browser resize does).
+    if (window.matchMedia) {
+      var desktopMq = window.matchMedia('(min-width: 768px)');
+      var onBreakpoint = function () {
+        if (desktopMq.matches && container.contains(widget)) {
+          overlay.appendChild(widget);
+          togglePlaceholder(false);
+          toggleFormClose(false);
+        }
+      };
+      if (desktopMq.addEventListener) {
+        desktopMq.addEventListener('change', onBreakpoint);
+      } else if (desktopMq.addListener) {
+        desktopMq.addListener(onBreakpoint); // Safari < 14
+      }
+    }
+  }
+
+  function init() {
     initSearchOverlay();
+    initMobileOffcanvasSearch();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();

@@ -1588,20 +1588,29 @@ class Hummingbird_editor extends Module
 
         $page = $this->currentPage();
         $jsBase = $this->context->link->getBaseLink() . 'modules/' . $this->name . '/views/js/';
+        $jsDir = _PS_MODULE_DIR_ . $this->name . '/views/js/';
+
+        // Cache-bust each script by its file mtime so browsers always fetch the
+        // latest version after a deploy (these are injected as plain <script>,
+        // not through the versioned asset pipeline).
+        $jsTag = function (string $file) use ($jsBase, $jsDir): string {
+            $ver = @filemtime($jsDir . $file) ?: '';
+            return '<script src="' . htmlspecialchars($jsBase . $file . ($ver ? '?v=' . $ver : '')) . '" defer></script>';
+        };
 
         // Search overlay lives in the header — every page.
         // (Injected directly: registerJavascript is unreliable in PS8.)
-        $output .= '<script src="' . htmlspecialchars($jsBase . 'search-overlay.js') . '" defer></script>';
+        $output .= $jsTag('search-overlay.js');
 
         // Expand/collapse for .ps-customtext blocks — rendered on home/listing/CMS only.
         if (in_array($page, ['index', 'category', 'cms'], true)) {
-            $output .= '<script src="' . htmlspecialchars($jsBase . 'expand-text.js') . '" defer></script>';
+            $output .= $jsTag('expand-text.js');
         }
 
         // Drag-scroll + arrow nav for product carousels (featured/bestsellers on
         // home, categoryproducts/accessories on product).
         if (in_array($page, ['index', 'product'], true)) {
-            $output .= '<script src="' . htmlspecialchars($jsBase . 'carousel-drag.js') . '" defer></script>';
+            $output .= $jsTag('carousel-drag.js');
         }
 
         // Wishlist preview drawer shell (Figma: Ulubione) — every page; rows
