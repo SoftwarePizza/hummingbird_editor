@@ -288,6 +288,17 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_cp_text_lang'      => $this->getConfigPerLang('HBE_CP_TEXT',      $languages),
             'hbe_cp_link_text_lang' => $this->getConfigPerLang('HBE_CP_LINK_TEXT', $languages),
             'hbe_cp_link_url_lang'  => $this->getConfigPerLang('HBE_CP_LINK_URL',  $languages),
+            // Links to the native modules' own config pages (shown next to each header block)
+            'hbe_cfg_url_newproducts'      => $this->moduleConfigureLink('ps_newproducts'),
+            'hbe_cfg_url_bestsellers'      => $this->moduleConfigureLink('ps_bestsellers'),
+            'hbe_cfg_url_categoryproducts' => $this->moduleConfigureLink('ps_categoryproducts'),
+            // Carousel-source override: chosen category per slot (0 = native module)
+            'hbe_np_category_id'    => (int) Configuration::get('HBE_NP_CATEGORY_ID'),
+            'hbe_bs_category_id'    => (int) Configuration::get('HBE_BS_CATEGORY_ID'),
+            'hbe_cp_category_id'    => (int) Configuration::get('HBE_CP_CATEGORY_ID'),
+            'hbe_np_category_label' => $this->categoryLabel((int) Configuration::get('HBE_NP_CATEGORY_ID')),
+            'hbe_bs_category_label' => $this->categoryLabel((int) Configuration::get('HBE_BS_CATEGORY_ID')),
+            'hbe_cp_category_label' => $this->categoryLabel((int) Configuration::get('HBE_CP_CATEGORY_ID')),
             // Karta podarunkowa — placements (menu / footer / floating pill)
             'hbe_giftcard_menu_enabled'   => (int) Configuration::get('HBE_GIFTCARD_MENU_ENABLED'),
             'hbe_giftcard_footer_enabled' => (int) Configuration::get('HBE_GIFTCARD_FOOTER_ENABLED'),
@@ -1892,8 +1903,53 @@ class AdminHbEditorController extends ModuleAdminController
             $this->saveLocalizedFromForm($prefix . '_TEXT',      Tools::getValue($key . '_text', ''));
             $this->saveLocalizedFromForm($prefix . '_LINK_TEXT', Tools::getValue($key . '_link_text', ''));
             $this->saveLocalizedFromForm($prefix . '_LINK_URL',  Tools::getValue($key . '_link_url', ''), true);
+            // Carousel-source override: 0 (or blank) keeps the native module's list.
+            Configuration::updateValue($prefix . '_CATEGORY_ID', max(0, (int) Tools::getValue($key . '_category_id', 0)));
         }
         $this->ajaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Typeahead for the carousel-source category picker. Returns active
+     * categories whose name matches ?q, scoped to the current shop + language,
+     * with the parent name for disambiguation.
+     */
+    public function ajaxProcessSearchCategories(): void
+    {
+        $q = trim((string) Tools::getValue('q', ''));
+        $results = [];
+
+        if (Tools::strlen($q) >= 1) {
+            $idLang = (int) $this->context->language->id;
+            $idShop = (int) $this->context->shop->id;
+
+            $sql = new DbQuery();
+            $sql->select('c.id_category, cl.name, pl.name AS parent_name');
+            $sql->from('category', 'c');
+            $sql->innerJoin('category_lang', 'cl', 'cl.id_category = c.id_category AND cl.id_lang = ' . $idLang . ' AND cl.id_shop = ' . $idShop);
+            $sql->leftJoin('category_lang', 'pl', 'pl.id_category = c.id_parent AND pl.id_lang = ' . $idLang . ' AND pl.id_shop = ' . $idShop);
+            $sql->where('c.active = 1');
+            $sql->where('c.is_root_category = 0');
+            $sql->where('cl.name LIKE \'%' . pSQL($q) . '%\'');
+            $sql->orderBy('cl.name ASC');
+            $sql->limit(25);
+
+            $rows = Db::getInstance()->executeS($sql);
+            if (is_array($rows)) {
+                foreach ($rows as $row) {
+                    $label = (string) $row['name'];
+                    if (!empty($row['parent_name'])) {
+                        $label = $row['parent_name'] . ' › ' . $label;
+                    }
+                    $results[] = [
+                        'id'    => (int) $row['id_category'],
+                        'label' => $label,
+                    ];
+                }
+            }
+        }
+
+        $this->ajaxDie(json_encode(['categories' => $results]));
     }
 
     public function ajaxProcessSaveImgHero(): void
@@ -2454,6 +2510,48 @@ class AdminHbEditorController extends ModuleAdminController
      * @param array<int,array<string,mixed>> $languages
      * @return array<int,string>
      */
+    /**
+     * BO link to a native module's own configuration page (AdminModules&configure=...).
+     * Returns '' when the module is not installed, so the template can hide the link
+     * instead of pointing at a dead page.
+     */
+    private function moduleConfigureLink(string $name): string
+    {
+        if (!Module::isInstalled($name)) {
+            return '';
+        }
+
+        return $this->context->link->getAdminLink('AdminModules', true, [], ['configure' => $name]);
+    }
+
+    /**
+     * Human label for a stored carousel-source category id, shown in the picker
+     * when the form loads. Prefixes the parent name (e.g. "Porcelana › Talerze")
+     * to disambiguate same-named categories. Empty for 0 / missing categories.
+     */
+    private function categoryLabel(int $idCategory): string
+    {
+        if ($idCategory <= 0) {
+            return '';
+        }
+
+        $idLang = (int) $this->context->language->id;
+        $category = new Category($idCategory, $idLang);
+        if (!Validate::isLoadedObject($category)) {
+            return '';
+        }
+
+        $name = (string) $category->name;
+        if ((int) $category->id_parent > 0) {
+            $parent = new Category((int) $category->id_parent, $idLang);
+            if (Validate::isLoadedObject($parent) && !$parent->is_root_category && (string) $parent->name !== '') {
+                $name = $parent->name . ' › ' . $name;
+            }
+        }
+
+        return $name;
+    }
+
     private function getConfigPerLang(string $key, array $languages): array
     {
         // No fallback to base row: admin form must show the *actual* per-language value

@@ -305,6 +305,62 @@ $(function () {
         });
     });
 
+    /* ── Carousel source: category typeahead picker ───────────────────────── */
+    (function () {
+        var searchUrl = hbeAjaxUrl + 'action=SearchCategories&ajax=1';
+        var timer = null;
+
+        function menuFor($pick) { return $pick.find('[data-hbe-catpick-menu]'); }
+        function closeAll() { $('[data-hbe-catpick-menu]').empty().hide(); }
+
+        function render($pick, items) {
+            var $menu = menuFor($pick).empty();
+            if (!items.length) { $menu.hide(); return; }
+            items.forEach(function (it) {
+                $('<li/>', { 'class': 'hbe-catpick-item', text: it.label })
+                    .attr('data-id', it.id)
+                    .appendTo($menu);
+            });
+            $menu.show();
+        }
+
+        // Typing searches; every keystroke drops any previously chosen id until a
+        // suggestion is clicked, so a hand-edited label can't keep a stale id.
+        $(document).on('input', '[data-hbe-catpick-search]', function () {
+            var $input = $(this);
+            var $pick = $input.closest('[data-hbe-catpick]');
+            var q = $.trim($input.val());
+            $pick.find('[data-hbe-catpick-id]').val('0');
+            if (timer) { clearTimeout(timer); }
+            if (q.length < 1) { menuFor($pick).empty().hide(); return; }
+            timer = setTimeout(function () {
+                $.ajax({ url: searchUrl, type: 'POST', data: { q: q }, dataType: 'json' })
+                    .done(function (resp) {
+                        render($pick, (resp && resp.categories) ? resp.categories : []);
+                    });
+            }, 220);
+        });
+
+        $(document).on('click', '.hbe-catpick-item', function () {
+            var $item = $(this);
+            var $pick = $item.closest('[data-hbe-catpick]');
+            $pick.find('[data-hbe-catpick-id]').val($item.attr('data-id'));
+            $pick.find('[data-hbe-catpick-search]').val($item.text());
+            menuFor($pick).empty().hide();
+        });
+
+        $(document).on('click', '[data-hbe-catpick-clear]', function () {
+            var $pick = $(this).closest('[data-hbe-catpick]');
+            $pick.find('[data-hbe-catpick-id]').val('0');
+            $pick.find('[data-hbe-catpick-search]').val('');
+            menuFor($pick).empty().hide();
+        });
+
+        $(document).on('click', function (e) {
+            if (!$(e.target).closest('[data-hbe-catpick]').length) { closeAll(); }
+        });
+    })();
+
     /* ── Image hero banner: save ──────────────────────────────────────────── */
     $(document).on('submit', '#hbe-imghero-form', function (e) {
         e.preventDefault();

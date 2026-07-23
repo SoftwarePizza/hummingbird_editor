@@ -1031,10 +1031,92 @@ class Hummingbird_editor extends Module
                 'hbe_cp_link_text' => $this->hbeLocConfig('HBE_CP_LINK_TEXT'),
                 'hbe_cp_link_url'  => $this->hbeLocConfig('HBE_CP_LINK_URL'),
             ]);
+
+            // Carousel-source override: when a slot has a category configured,
+            // fetch that category's products and hand them to the theme carousel
+            // template, which shows them in place of the native module's list.
+            // The non-empty guard means an empty/inactive category falls back to
+            // the native list instead of rendering an empty carousel.
+            if ($page === 'index') {
+                $npCat = (int) Configuration::get('HBE_NP_CATEGORY_ID');
+                if ($npCat > 0 && ($np = $this->getCategoryCarouselProducts($npCat))) {
+                    $this->context->smarty->assign('hbe_np_override_products', $np);
+                }
+                $bsCat = (int) Configuration::get('HBE_BS_CATEGORY_ID');
+                if ($bsCat > 0 && ($bs = $this->getCategoryCarouselProducts($bsCat))) {
+                    $this->context->smarty->assign('hbe_bs_override_products', $bs);
+                }
+            }
+            if ($page === 'product') {
+                $cpCat = (int) Configuration::get('HBE_CP_CATEGORY_ID');
+                if ($cpCat > 0 && ($cp = $this->getCategoryCarouselProducts($cpCat))) {
+                    $this->context->smarty->assign('hbe_cp_override_products', $cp);
+                }
+            }
         }
 
         $this->setupCartPreview();
         $this->setupWishlistPreview();
+    }
+
+    /**
+     * Present a category's products as a listing array, ready for the theme's
+     * productlist.tpl — same recipe ps_categoryproducts uses, so cards render
+     * identically. Returns [] for an invalid, inactive or empty category.
+     * Used by the carousel-source override (index + product carousels).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function getCategoryCarouselProducts(int $idCategory, int $limit = 12): array
+    {
+        if ($idCategory <= 0 || $limit <= 0) {
+            return [];
+        }
+
+        $category = new Category($idCategory, (int) $this->context->language->id);
+        if (!Validate::isLoadedObject($category) || !$category->active) {
+            return [];
+        }
+
+        $searchProvider = new \PrestaShop\PrestaShop\Adapter\Category\CategoryProductSearchProvider(
+            $this->getTranslator(),
+            $category
+        );
+        $searchContext = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchContext($this->context);
+        $query = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchQuery();
+        $query->setResultsPerPage($limit)
+            ->setPage(1)
+            ->setSortOrder(\PrestaShop\PrestaShop\Core\Product\Search\SortOrder::random());
+
+        $result = $searchProvider->runQuery($searchContext, $query);
+
+        $assembler = new ProductAssembler($this->context);
+        $presenterFactory = new ProductPresenterFactory($this->context);
+        $presentationSettings = $presenterFactory->getPresentationSettings();
+        $presentationSettings->showPrices = (bool) Configuration::showPrices();
+        $presenter = new \PrestaShop\PrestaShop\Adapter\Presenter\Product\ProductListingPresenter(
+            new \PrestaShop\PrestaShop\Adapter\Image\ImageRetriever($this->context->link),
+            $this->context->link,
+            new \PrestaShop\PrestaShop\Adapter\Product\PriceFormatter(),
+            new \PrestaShop\PrestaShop\Adapter\Product\ProductColorsRetriever(),
+            $this->context->getTranslator()
+        );
+
+        $out = [];
+        $rawProducts = $result->getProducts();
+        $bulk = method_exists($assembler, 'assembleProducts');
+        if ($bulk) {
+            $rawProducts = $assembler->assembleProducts($rawProducts);
+        }
+        foreach ($rawProducts as $rawProduct) {
+            $out[] = $presenter->present(
+                $presentationSettings,
+                $bulk ? $rawProduct : $assembler->assembleProduct($rawProduct),
+                $this->context->language
+            );
+        }
+
+        return $out;
     }
 
     /**

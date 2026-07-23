@@ -407,3 +407,48 @@
 .hbe-chevron-open {
   transform: rotate(180deg);
 }
+
+/* "Konfiguruj moduł" link next to each carousel-header section title */
+.hbe-cfg-link {
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  margin-top: 2px;
+}
+.hbe-cfg-link .icon-cog {
+  margin-right: 3px;
+}
+
+/* Carousel-source category picker (typeahead) */
+.hbe-source-group .hbe-catpick {
+  position: relative;
+  max-width: 560px;
+}
+.hbe-catpick-menu {
+  display: none;
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  position: absolute;
+  z-index: 60;
+  left: 0;
+  right: 0;
+  max-width: 560px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ccd0d6;
+  border-radius: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+}
+.hbe-catpick-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hbe-catpick-item:hover {
+  background: #f3f6f9;
+}

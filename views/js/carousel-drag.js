@@ -15,39 +15,47 @@
         var btnPrev = nav ? nav.querySelector('[data-hbe-carousel-prev]') : null;
         var btnNext = nav ? nav.querySelector('[data-hbe-carousel-next]') : null;
 
-        // Drag-to-scroll
+        // Drag-to-scroll (desktop).
         var isDown = false;
         var startX = 0;
         var startScroll = 0;
         var moved = false;
 
+        // Grabbing a product photo/link would otherwise trigger the browser's
+        // native image/anchor ghost-drag, which swallows mousemove and blocks
+        // scrolling. Cancelling dragstart on the whole track kills that so the
+        // grab-and-scroll works no matter where inside a card you press.
+        track.addEventListener('dragstart', function (e) {
+            e.preventDefault();
+        });
+
         track.addEventListener('mousedown', function (e) {
+            if (e.button !== 0) { return; }
             isDown = true;
             moved = false;
             startX = e.pageX - track.offsetLeft;
             startScroll = track.scrollLeft;
             track.classList.add('is-dragging');
+            // Suppress text selection + native drag initiation; click still fires,
+            // so product links keep working (unless the click-suppressor below trips).
+            e.preventDefault();
         });
 
-        window.addEventListener('mouseup', function () {
-            if (!isDown) { return; }
-            isDown = false;
-            track.classList.remove('is-dragging');
-        });
-
-        track.addEventListener('mouseleave', function () {
-            if (!isDown) { return; }
-            isDown = false;
-            track.classList.remove('is-dragging');
-        });
-
-        track.addEventListener('mousemove', function (e) {
+        // Track on window, not the track element: the drag must keep following the
+        // cursor even when it drifts above/below the row, and release anywhere ends it.
+        window.addEventListener('mousemove', function (e) {
             if (!isDown) { return; }
             e.preventDefault();
             var x = e.pageX - track.offsetLeft;
             var walk = x - startX;
             if (Math.abs(walk) > 4) { moved = true; }
             track.scrollLeft = startScroll - walk;
+        });
+
+        window.addEventListener('mouseup', function () {
+            if (!isDown) { return; }
+            isDown = false;
+            track.classList.remove('is-dragging');
         });
 
         // Suppress click on miniature anchors when dragging

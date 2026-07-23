@@ -1026,7 +1026,7 @@
             <form id="hbe-carousel-headers-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
               <input type="hidden" name="token" value="{$hbe_token}">
 
-              <h4 style="margin:0 0 .75rem;border-bottom:1px solid #eee;padding-bottom:.5rem">{l s='Karuzela nowości (ps_newproducts)' mod='hummingbird_editor'}</h4>
+              <h4 class="clearfix" style="margin:0 0 .75rem;border-bottom:1px solid #eee;padding-bottom:.5rem">{l s='Karuzela nowości (ps_newproducts)' mod='hummingbird_editor'}{if $hbe_cfg_url_newproducts}<a class="hbe-cfg-link pull-right" href="{$hbe_cfg_url_newproducts|escape:'html':'UTF-8'}" target="_blank" rel="noopener"><i class="icon-cog"></i> {l s='Konfiguruj moduł' mod='hummingbird_editor'}</a>{/if}</h4>
               <div class="row">
                 <div class="col-md-3 form-group">
                   <label class="control-label">{l s='Tytuł' mod='hummingbird_editor'}</label>
@@ -1045,8 +1045,26 @@
                   {include file="{$hbe_tpl_dir}_ml_input.tpl" name='np_link_url' values=$hbe_np_link_url_lang placeholder='https://...'}
                 </div>
               </div>
+              <div class="row">
+                <div class="col-md-12 form-group hbe-source-group">
+                  <label class="control-label">{l s='Źródło produktów' mod='hummingbird_editor'}</label>
+                  <div class="hbe-catpick" data-hbe-catpick>
+                    <input type="hidden" name="np_category_id" value="{$hbe_np_category_id|intval}" data-hbe-catpick-id>
+                    <div class="input-group hbe-catpick-input">
+                      <input type="text" class="form-control" data-hbe-catpick-search autocomplete="off"
+                             placeholder="{l s='Domyślnie: produkty modułu — wpisz nazwę kategorii, aby je podmienić' mod='hummingbird_editor'}"
+                             value="{$hbe_np_category_label|escape:'html':'UTF-8'}">
+                      <span class="input-group-btn">
+                        <button type="button" class="btn btn-default" data-hbe-catpick-clear title="{l s='Wróć do domyślnych produktów modułu' mod='hummingbird_editor'}"><i class="icon-remove"></i></button>
+                      </span>
+                    </div>
+                    <ul class="hbe-catpick-menu" data-hbe-catpick-menu></ul>
+                  </div>
+                  <p class="help-block">{l s='Puste = domyślne produkty modułu. Wybór kategorii podmienia produkty tej karuzeli na produkty z niej (kolejność losowa).' mod='hummingbird_editor'}</p>
+                </div>
+              </div>
 
-              <h4 style="margin:.75rem 0;border-bottom:1px solid #eee;padding-bottom:.5rem">{l s='Karuzela bestsellerów (ps_bestsellers)' mod='hummingbird_editor'}</h4>
+              <h4 class="clearfix" style="margin:.75rem 0;border-bottom:1px solid #eee;padding-bottom:.5rem">{l s='Karuzela bestsellerów (ps_bestsellers)' mod='hummingbird_editor'}{if $hbe_cfg_url_bestsellers}<a class="hbe-cfg-link pull-right" href="{$hbe_cfg_url_bestsellers|escape:'html':'UTF-8'}" target="_blank" rel="noopener"><i class="icon-cog"></i> {l s='Konfiguruj moduł' mod='hummingbird_editor'}</a>{/if}</h4>
               <div class="row">
                 <div class="col-md-3 form-group">
                   <label class="control-label">{l s='Tytuł' mod='hummingbird_editor'}</label>
@@ -1065,8 +1083,26 @@
                   {include file="{$hbe_tpl_dir}_ml_input.tpl" name='bs_link_url' values=$hbe_bs_link_url_lang placeholder='https://...'}
                 </div>
               </div>
+              <div class="row">
+                <div class="col-md-12 form-group hbe-source-group">
+                  <label class="control-label">{l s='Źródło produktów' mod='hummingbird_editor'}</label>
+                  <div class="hbe-catpick" data-hbe-catpick>
+                    <input type="hidden" name="bs_category_id" value="{$hbe_bs_category_id|intval}" data-hbe-catpick-id>
+                    <div class="input-group hbe-catpick-input">
+                      <input type="text" class="form-control" data-hbe-catpick-search autocomplete="off"
+                             placeholder="{l s='Domyślnie: produkty modułu — wpisz nazwę kategorii, aby je podmienić' mod='hummingbird_editor'}"
+                             value="{$hbe_bs_category_label|escape:'html':'UTF-8'}">
+                      <span class="input-group-btn">
+                        <button type="button" class="btn btn-default" data-hbe-catpick-clear title="{l s='Wróć do domyślnych produktów modułu' mod='hummingbird_editor'}"><i class="icon-remove"></i></button>
+                      </span>
+                    </div>
+                    <ul class="hbe-catpick-menu" data-hbe-catpick-menu></ul>
+                  </div>
+                  <p class="help-block">{l s='Puste = domyślne produkty modułu. Wybór kategorii podmienia produkty tej karuzeli na produkty z niej (kolejność losowa).' mod='hummingbird_editor'}</p>
+                </div>
+              </div>
 
-              <h4 style="margin:.75rem 0;border-bottom:1px solid #eee;padding-bottom:.5rem">{l s='Karuzela wybranej kategorii (ps_categoryproducts)' mod='hummingbird_editor'}</h4>
+              <h4 class="clearfix" style="margin:.75rem 0;border-bottom:1px solid #eee;padding-bottom:.5rem">{l s='Karuzela wybranej kategorii (ps_categoryproducts)' mod='hummingbird_editor'}{if $hbe_cfg_url_categoryproducts}<a class="hbe-cfg-link pull-right" href="{$hbe_cfg_url_categoryproducts|escape:'html':'UTF-8'}" target="_blank" rel="noopener"><i class="icon-cog"></i> {l s='Konfiguruj moduł' mod='hummingbird_editor'}</a>{/if}</h4>
               <div class="row">
                 <div class="col-md-3 form-group">
                   <label class="control-label">{l s='Tytuł' mod='hummingbird_editor'}</label>
@@ -1083,6 +1119,24 @@
                 <div class="col-md-3 form-group">
                   <label class="control-label">{l s='URL linku' mod='hummingbird_editor'}</label>
                   {include file="{$hbe_tpl_dir}_ml_input.tpl" name='cp_link_url' values=$hbe_cp_link_url_lang placeholder='https://...'}
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-12 form-group hbe-source-group">
+                  <label class="control-label">{l s='Źródło produktów' mod='hummingbird_editor'}</label>
+                  <div class="hbe-catpick" data-hbe-catpick>
+                    <input type="hidden" name="cp_category_id" value="{$hbe_cp_category_id|intval}" data-hbe-catpick-id>
+                    <div class="input-group hbe-catpick-input">
+                      <input type="text" class="form-control" data-hbe-catpick-search autocomplete="off"
+                             placeholder="{l s='Domyślnie: kategoria oglądanego produktu — wpisz nazwę kategorii, aby ustawić stałą' mod='hummingbird_editor'}"
+                             value="{$hbe_cp_category_label|escape:'html':'UTF-8'}">
+                      <span class="input-group-btn">
+                        <button type="button" class="btn btn-default" data-hbe-catpick-clear title="{l s='Wróć do kategorii oglądanego produktu' mod='hummingbird_editor'}"><i class="icon-remove"></i></button>
+                      </span>
+                    </div>
+                    <ul class="hbe-catpick-menu" data-hbe-catpick-menu></ul>
+                  </div>
+                  <p class="help-block">{l s='Puste = produkty z kategorii oglądanego produktu (domyślne działanie modułu). Wybór kategorii ustawia stałą kategorię na każdej karcie produktu.' mod='hummingbird_editor'}</p>
                 </div>
               </div>
 
