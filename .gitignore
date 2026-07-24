@@ -1,0 +1,2 @@
+# PrestaShop auto-generuje te per-jezyk cache; nie sledzic (rozjezdza sie miedzy srodowiskami)
+config_*.xml
