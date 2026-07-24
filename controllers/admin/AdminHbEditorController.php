@@ -47,7 +47,24 @@ class AdminHbEditorController extends ModuleAdminController
 
     public function initContent(): void
     {
-        // Direct-download endpoint for the XML export (plain GET, no AJAX wrapping).
+        // Direct-download endpoint for the full ZIP backup (plain GET, no AJAX wrapping).
+        if (Tools::getValue('action') === 'ExportBackup') {
+            $exportOptions = ['hooks' => (int) Tools::getValue('opt_hooks', 0) === 1];
+            $res = HbEditorTransfer::exportZip($exportOptions);
+            if (empty($res['success']) || empty($res['path']) || !is_file($res['path'])) {
+                $this->errors[] = $this->module->l('Nie udało się utworzyć backupu: ') . ($res['error'] ?? '');
+            } else {
+                if (ob_get_level()) { @ob_end_clean(); }
+                header('Content-Type: application/zip');
+                header('Content-Disposition: attachment; filename="' . $res['filename'] . '"');
+                header('Content-Length: ' . (int) @filesize($res['path']));
+                header('Cache-Control: no-store, no-cache, must-revalidate');
+                readfile($res['path']);
+                exit;
+            }
+        }
+
+        // Legacy XML export (kept for backward compatibility).
         if (Tools::getValue('action') === 'ExportSettings') {
             $xml = HbEditorTransfer::exportXml();
             $filename = 'hbe-settings-' . date('Y-m-d_His') . '.xml';
@@ -237,6 +254,8 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_used_hooks'     => HbEditorBlock::getUsedHookNames(),
             'hbe_ajax_url'       => $this->context->link->getAdminLink($this->controller_name),
             'hbe_token'          => Tools::getAdminTokenLite($this->controller_name),
+            'hbe_server_backups' => HbEditorTransfer::listServerBackups(),
+            'hbe_backup_dir'     => 'img/hb_editor_backups/',
             'hbe_img_url'        => __PS_BASE_URI__ . 'img/hb_editor/',
             'hbe_module_uri'     => __PS_BASE_URI__ . 'modules/hummingbird_editor/',
             'hbe_tpl_dir'        => _PS_MODULE_DIR_ . 'hummingbird_editor/views/templates/admin/',
@@ -2937,26 +2956,56 @@ class AdminHbEditorController extends ModuleAdminController
     }
 
     /**
-     * Import settings from an uploaded XML file (POST multipart, field name "file").
+     * Import from an uploaded file (POST multipart, field "file").
+     * Auto-detects a full ZIP backup vs. a legacy XML settings export.
      */
     public function ajaxProcessImportSettings(): void
     {
         if (empty($_FILES['file']['tmp_name']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Brak pliku XML']));
+            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Brak pliku']));
         }
         if (!empty($_FILES['file']['error'])) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Błąd uploadu pliku (' . (int) $_FILES['file']['error'] . ')']));
+            $err = (int) $_FILES['file']['error'];
+            $msg = ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE)
+                ? 'Plik przekracza limit uploadu serwera — użyj importu z serwera (wgraj ZIP przez FTP/SFTP).'
+                : 'Błąd uploadu pliku (' . $err . ')';
+            $this->ajaxDie(json_encode(['success' => false, 'error' => $msg]));
         }
-        // Cap at 32 MB to keep memory sane.
-        if (($_FILES['file']['size'] ?? 0) > 32 * 1024 * 1024) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Plik za duży (max 32 MB)']));
+        $tmp = $_FILES['file']['tmp_name'];
+
+        // Sniff magic bytes: "PK\x03\x04" == ZIP, otherwise treat as legacy XML.
+        $magic = (string) @file_get_contents($tmp, false, null, 0, 4);
+        $purge = (int) Tools::getValue('purge_blocks', 1) === 1;
+
+        if (strncmp($magic, "PK\x03\x04", 4) === 0) {
+            $result = HbEditorTransfer::importZip($tmp, $purge);
+        } else {
+            $xml = (string) @file_get_contents($tmp);
+            if ($xml === '') {
+                $this->ajaxDie(json_encode(['success' => false, 'error' => 'Pusty plik']));
+            }
+            $result = HbEditorTransfer::importXml($xml, $purge);
         }
-        $xml = (string) @file_get_contents($_FILES['file']['tmp_name']);
-        if ($xml === '') {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Pusty plik']));
+        $this->ajaxDie(json_encode($result));
+    }
+
+    /**
+     * Import a full ZIP backup that already sits on the server (uploaded via
+     * FTP/SFTP into img/hb_editor_backups/). Bypasses PHP upload limits, so it
+     * is the reliable path for large backups with images.
+     */
+    public function ajaxProcessImportServerBackup(): void
+    {
+        $name = basename((string) Tools::getValue('backup_file'));
+        if ($name === '' || strtolower(substr($name, -4)) !== '.zip') {
+            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Nieprawidłowa nazwa pliku']));
+        }
+        $path = HbEditorTransfer::backupDir() . $name;
+        if (!is_file($path)) {
+            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Plik nie istnieje na serwerze']));
         }
         $purge  = (int) Tools::getValue('purge_blocks', 1) === 1;
-        $result = HbEditorTransfer::importXml($xml, $purge);
+        $result = HbEditorTransfer::importZip($path, $purge);
         $this->ajaxDie(json_encode($result));
     }
 }

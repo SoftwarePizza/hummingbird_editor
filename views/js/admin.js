@@ -1499,14 +1499,54 @@ $(function () {
         });
     });
 
-    /* ── Settings import (XML upload) ────────────────────────────────────── */
+    /* ── Backup import (ZIP/XML upload) ──────────────────────────────────── */
+    function hbeImportStatsMsg(s) {
+        s = s || {};
+        var msg = 'Import OK: ' +
+            'config=' + (s.configurations || 0) +
+            ', config_lang=' + (s.config_lang || 0) +
+            ', bloki=' + (s.blocks || 0) +
+            ', bloki_lang=' + (s.block_lang || 0) +
+            ', slajdy=' + (s.slides || 0) +
+            ', slajdy_lang=' + (s.slide_lang || 0) +
+            ', obrazki=' + (s.images || 0);
+        if (s.hooks || s.hook_bindings || s.modules_enabled) {
+            msg += ', hooki=' + (s.hooks || 0) +
+                   ', przypięcia=' + (s.hook_bindings || 0) +
+                   ', moduły_wł=' + (s.modules_enabled || 0);
+        }
+        return msg;
+    }
+    function hbeHandleImportResponse($ctl, resp) {
+        if ($ctl) { $ctl.prop('disabled', false); }
+        if (resp && resp.success) {
+            showGlobalSuccess(hbeImportStatsMsg(resp.stats));
+            if (resp.missing_modules && resp.missing_modules.length) {
+                showGlobalError('Uwaga: te moduły z backupu nie są zainstalowane na tym sklepie (pomięto ich hooki): ' +
+                    resp.missing_modules.join(', '));
+            }
+            setTimeout(function () { window.location.reload(); }, resp.missing_modules && resp.missing_modules.length ? 4000 : 1800);
+        } else {
+            showGlobalError((resp && resp.error) || 'Import nieudany');
+        }
+    }
+
+    /* ── Export: honour the "hooks + modules" checkbox ───────────────────── */
+    $(document).on('click', '#hbe-export-btn', function (e) {
+        var base = $(this).data('export-url');
+        if (!base) { return; }
+        e.preventDefault();
+        var url = base + ($('#hbe-opt-hooks').is(':checked') ? '&opt_hooks=1' : '');
+        window.location.href = url;
+    });
+
     $(document).on('click', '#hbe-import-btn', function () {
         $('#hbe-import-file').trigger('click');
     });
     $(document).on('change', '#hbe-import-file', function () {
         var file = this.files && this.files[0];
         if (!file) { return; }
-        if (!confirm('Import nadpisze wszystkie ustawienia HBE oraz bloki tego modułu na tym sklepie. Kontynuować?')) {
+        if (!confirm('Import nadpisze wszystkie ustawienia HBE, bloki oraz slider tego modułu na tym sklepie. Kontynuować?')) {
             this.value = '';
             return;
         }
@@ -1523,24 +1563,36 @@ $(function () {
             processData: false,
             contentType: false,
             dataType: 'json',
-            success: function (resp) {
+            success: function (resp) { $input.val(''); hbeHandleImportResponse($input, resp); },
+            error: function (xhr) {
                 $input.prop('disabled', false).val('');
-                if (resp && resp.success) {
-                    var s = resp.stats || {};
-                    showGlobalSuccess('Import OK: ' +
-                        'config=' + (s.configurations || 0) +
-                        ', config_lang=' + (s.config_lang || 0) +
-                        ', bloki=' + (s.blocks || 0) +
-                        ', bloki_lang=' + (s.block_lang || 0) +
-                        ', obrazki=' + (s.images || 0));
-                    setTimeout(function () { window.location.reload(); }, 1500);
+                if (xhr && (xhr.status === 413 || xhr.status === 0)) {
+                    showGlobalError('Plik za duży dla uploadu przeglądarki — wgraj ZIP przez FTP/SFTP i użyj „Backupy na serwerze".');
                 } else {
-                    showGlobalError((resp && resp.error) || 'Import nieudany');
+                    showGlobalError('Błąd komunikacji podczas importu');
                 }
-            },
+            }
+        });
+    });
+
+    /* ── Backup import from server (large ZIPs, no upload limit) ──────────── */
+    $(document).on('click', '#hbe-server-import-btn', function () {
+        var name = $('#hbe-server-backup-select').val();
+        if (!name) { return; }
+        if (!confirm('Import „' + name + '" nadpisze wszystkie ustawienia HBE, bloki oraz slider tego modułu na tym sklepie. Kontynuować?')) {
+            return;
+        }
+        var $btn = $(this).prop('disabled', true);
+        showGlobalSuccess('Importowanie backupu z serwera, proszę czekać…');
+        $.ajax({
+            url: hbeAjaxUrl + 'action=ImportServerBackup&ajax=1',
+            type: 'POST',
+            data: { token: hbeToken, backup_file: name, purge_blocks: '1' },
+            dataType: 'json',
+            success: function (resp) { hbeHandleImportResponse($btn, resp); },
             error: function () {
-                $input.prop('disabled', false).val('');
-                showGlobalError('Błąd komunikacji podczas importu');
+                $btn.prop('disabled', false);
+                showGlobalError('Błąd komunikacji podczas importu z serwera');
             }
         });
     });

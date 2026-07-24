@@ -20,16 +20,49 @@
     <button id="hbe-add-btn" class="btn btn-primary" type="button">
       <i class="icon-plus"></i> {l s='Add block' mod='hummingbird_editor'}
     </button>
-    <a id="hbe-export-btn" class="btn btn-default" href="{$hbe_ajax_url nofilter}&action=ExportSettings&token={$hbe_token}">
-      <i class="icon-download"></i> {l s='Eksport ustawień (XML)' mod='hummingbird_editor'}
+    <a id="hbe-export-btn" class="btn btn-default"
+       data-export-url="{$hbe_ajax_url nofilter}&action=ExportBackup&token={$hbe_token}"
+       href="{$hbe_ajax_url nofilter}&action=ExportBackup&token={$hbe_token}"
+       title="{l s='Pełny backup: ustawienia + bloki + slider + wszystkie obrazki' mod='hummingbird_editor'}">
+      <i class="icon-download"></i> {l s='Backup (ZIP)' mod='hummingbird_editor'}
     </a>
-    <button id="hbe-import-btn" class="btn btn-default" type="button">
-      <i class="icon-upload"></i> {l s='Import ustawień (XML)' mod='hummingbird_editor'}
+    <label class="hbe-export-opt" style="margin:0 8px 0 0;font-weight:normal" title="{l s='Dołącz przypisania modułów do hooków wyglądu (displayHome itd.) + listę powiązanych modułów i ich stan aktywności' mod='hummingbird_editor'}">
+      <input type="checkbox" id="hbe-opt-hooks"> {l s='+ hooki i powiązane moduły' mod='hummingbird_editor'}
+    </label>
+    <button id="hbe-import-btn" class="btn btn-default" type="button" title="{l s='Wczytaj backup ZIP (lub stary plik XML)' mod='hummingbird_editor'}">
+      <i class="icon-upload"></i> {l s='Wczytaj backup' mod='hummingbird_editor'}
     </button>
-    <input type="file" id="hbe-import-file" accept=".xml,application/xml,text/xml" style="display:none">
+    <input type="file" id="hbe-import-file" accept=".zip,application/zip,.xml,application/xml,text/xml" style="display:none">
     <p class="hbe-hint text-muted">
       {l s='Drag rows to reorder within a hook group.' mod='hummingbird_editor'}
     </p>
+  </div>
+
+  {* ── Import z serwera (dla dużych backupów przekraczających limit uploadu) ── *}
+  <div class="hbe-server-backups panel" style="margin-top:8px">
+    <div class="panel-heading">
+      <i class="icon-hdd"></i> {l s='Backupy na serwerze' mod='hummingbird_editor'}
+    </div>
+    <div class="panel-body">
+      <p class="text-muted" style="margin-top:0">
+        {l s='Duży backup ZIP (ze zdjęciami) może przekroczyć limit uploadu przeglądarki. Wgraj plik przez FTP/SFTP do katalogu' mod='hummingbird_editor'}
+        <code>{$hbe_backup_dir}</code>{l s=', odśwież stronę i zaimportuj poniżej.' mod='hummingbird_editor'}
+      </p>
+      {if $hbe_server_backups && $hbe_server_backups|@count > 0}
+        <div class="form-inline">
+          <select id="hbe-server-backup-select" class="form-control">
+            {foreach from=$hbe_server_backups item=bk}
+              <option value="{$bk.filename|escape:'html':'UTF-8'}">{$bk.filename|escape:'html':'UTF-8'} — {$bk.size_h} — {$bk.date}</option>
+            {/foreach}
+          </select>
+          <button id="hbe-server-import-btn" class="btn btn-default" type="button">
+            <i class="icon-upload"></i> {l s='Importuj wybrany' mod='hummingbird_editor'}
+          </button>
+        </div>
+      {else}
+        <p class="text-muted" style="margin-bottom:0"><em>{l s='Brak plików backupu na serwerze.' mod='hummingbird_editor'}</em></p>
+      {/if}
+    </div>
   </div>
 
   {* ── Filled-state detection for smart collapse ───────────────────────── *}
