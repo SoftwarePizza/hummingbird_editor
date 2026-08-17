@@ -20,13 +20,25 @@
                 block.appendChild(container);
             }
 
-            /* Wrap all existing children in a clippable div.
+            /* Keep a leading heading (page title) permanently visible so it does
+               not eat the collapsed line budget – the first ~5 lines that stay
+               visible should be body text, not just the title. */
+            var leadHeading = null;
+            var firstEl = container.firstElementChild;
+            if (firstEl && /^H[1-4]$/.test(firstEl.tagName)) {
+                leadHeading = firstEl;
+            }
+
+            /* Wrap the remaining children in a clippable div.
                Full text stays in DOM – bots / screen readers see everything. */
             var inner = document.createElement('div');
             inner.className = 'hbe-et-content';
-            /* move all children */
-            while (container.firstChild) {
-                inner.appendChild(container.firstChild);
+            /* move all children after the (optional) kept heading */
+            var node = leadHeading ? leadHeading.nextSibling : container.firstChild;
+            while (node) {
+                var next = node.nextSibling;
+                inner.appendChild(node);
+                node = next;
             }
             container.appendChild(inner);
 
