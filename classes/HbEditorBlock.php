@@ -24,6 +24,8 @@ class HbEditorBlock
     const STYPE_SPLITBLOCK = 'splitblock';
     const STYPE_ICONS4     = 'icons4';
     const STYPE_BRANDS     = 'brands';
+    /** Karuzela produktow z kategorii — funkcjonalnosc przeniesiona z modulu multislider. */
+    const STYPE_PRODUCTS   = 'products';
 
     public static function getTypes(): array
     {
@@ -42,6 +44,7 @@ class HbEditorBlock
             self::STYPE_SPLITBLOCK,
             self::STYPE_ICONS4,
             self::STYPE_BRANDS,
+            self::STYPE_PRODUCTS,
         ];
     }
 
@@ -387,11 +390,19 @@ class HbEditorBlock
 
     /**
      * Ensure schema has the section_type and section_data columns (upgrade helper).
+     *
+     * No-op on a fresh shop: the table is created by the module's install(), which
+     * already ships both columns. Without the guard SHOW COLUMNS throws
+     * "Table ... doesn't exist" and kills the install.
      */
     public static function upgradeSchema(): void
     {
         $db = Db::getInstance();
         $p  = _DB_PREFIX_;
+
+        if (!$db->executeS("SHOW TABLES LIKE '{$p}hb_editor_block'")) {
+            return;
+        }
 
         $cols = (array) $db->executeS("SHOW COLUMNS FROM `{$p}hb_editor_block`");
         $existing = array_column($cols, 'Field');
@@ -406,6 +417,15 @@ class HbEditorBlock
             $db->execute(
                 "ALTER TABLE `{$p}hb_editor_block`
                  ADD COLUMN `section_data` MEDIUMTEXT DEFAULT NULL AFTER `section_type`"
+            );
+        }
+
+        // Tables created before 1.2.0 have no index on the column pair every
+        // hook query filters by.
+        if (!$db->executeS("SHOW INDEX FROM `{$p}hb_editor_block` WHERE Key_name = 'idx_hook_active'")) {
+            $db->execute(
+                "ALTER TABLE `{$p}hb_editor_block`
+                 ADD KEY `idx_hook_active` (`hook_name`, `active`)"
             );
         }
     }
