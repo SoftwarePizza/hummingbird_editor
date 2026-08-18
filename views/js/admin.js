@@ -208,6 +208,66 @@ $(function () {
         });
     });
 
+    /* ── Wydajność karuzel: ustawienia cache + ręczne czyszczenie ─────────── */
+
+    function hbeRenderCacheStats(stats) {
+        if (!stats) { return; }
+        $('#hbe-cc-files').text(stats.files);
+        $('#hbe-cc-size').text(stats.size);
+        $('#hbe-cc-age').text(stats.age);
+    }
+
+    $(document).on('submit', '#hbe-carousel-cache-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = $form.serializeArray();
+        // Odznaczone checkboxy nie trafiają do serializeArray — dosyłamy 0.
+        ['enabled', 'lazy'].forEach(function (name) {
+            if (!$form.find('[name=' + name + ']').is(':checked')) {
+                data.push({ name: name, value: '0' });
+            }
+        });
+
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveCarouselCache&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                    hbeRenderCacheStats(resp.stats);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    $(document).on('click', '#hbe-cc-purge', function () {
+        var $form = $('#hbe-carousel-cache-form');
+        var $btn = $(this).prop('disabled', true);
+
+        $.ajax({
+            url: hbeAjaxUrl + 'action=PurgeCarouselCache&ajax=1',
+            type: 'POST',
+            data: { token: $form.find('[name=token]').val() },
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess('Usunięto wpisów: ' + resp.removed);
+                    hbeRenderCacheStats(resp.stats);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); },
+            complete: function () { $btn.prop('disabled', false); }
+        });
+    });
+
     /* ── Info bar (below slider): save ────────────────────────────────────── */
     $(document).on('submit', '#hbe-infobar-form', function (e) {
         console.log('[HBE-DIAG] infobar handler ENTERED');
@@ -1091,6 +1151,38 @@ $(function () {
         $alerts.empty();
 
         var data = $form.serializeArray();
+
+        // Karuzela produktowa ma zwykły formularz zamiast pola z JSON-em —
+        // składamy z niego section_data i odsyłamy pomocnicze pola pc_*,
+        // żeby backend dostał dokładnie to, czego się spodziewa.
+        if ($form.data('section-type') === 'products') {
+            var sd = {};
+            try {
+                sd = JSON.parse($form.find('[name=pc_original]').val() || '{}') || {};
+            } catch (err) {
+                sd = {};
+            }
+            sd.langs = {};
+            data = data.filter(function (f) { return f.name.indexOf('pc_') !== 0; });
+
+            sd.id_category = parseInt($form.find('[name=pc_id_category]').val(), 10) || 0;
+            sd.number      = parseInt($form.find('[name=pc_number]').val(), 10) || 8;
+            sd.randomized  = $form.find('[name=pc_randomized]').is(':checked') ? 1 : 0;
+
+            $form.find('[name^="pc_title["], [name^="pc_text["]').each(function () {
+                var m = this.name.match(/^pc_(title|text)\[(\d+)\]$/);
+                if (!m) { return; }
+                var field = m[1];
+                var lid   = m[2];
+                var val   = $.trim(this.value);
+                if (val === '') { return; }
+                if (!sd.langs[lid]) { sd.langs[lid] = {}; }
+                sd.langs[lid][field] = val;
+            });
+
+            data.push({ name: 'section_data', value: JSON.stringify(sd) });
+        }
+
         data.push({ name: 'action', value: 'SaveSectionBlock' });
         data.push({ name: 'ajax',   value: '1' });
 

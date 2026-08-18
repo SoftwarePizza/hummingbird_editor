@@ -1532,3 +1532,158 @@ section.ps-customtext {
     margin: 1rem 0;
 }
 
+/* ── Karuzele produktowe edytora (.hbe-products) ─────────────────────────
+   Motyw opisuje uklad karuzeli WYLACZNIE dla wlasnych sekcji, selektorem
+   :is(.ps-bestsellers,.ps-newproducts,.ps-featuredproducts) — dotyczy to takze
+   podstaw, czyli display:flex na .products i szerokosci kolumn. Sekcje z
+   edytora uzywaja tego samego szkieletu HTML, ale pod klasa .hbe-products,
+   wiec bez tego lustra .products zostaje zwykla siatka listingu i osiem
+   produktow uklada sie w dwa rzedy zamiast w jeden przewijany pas.
+   Uklad jest identyczny jak w sekcjach motywu: 3 karty widoczne naraz. */
+
+.hbe-products {
+    padding: 2rem 0;
+}
+
+.hbe-products .module-products__split {
+    align-items: center;
+    display: flex;
+    gap: 2rem;
+}
+
+.hbe-products .module-products__intro {
+    flex: 0 0 28%;
+    max-width: 28%;
+}
+
+.hbe-products .module-products__carousel {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.hbe-products .module-products__buttons--intro {
+    flex-wrap: wrap;
+    gap: .75rem;
+    justify-content: flex-start;
+    margin-top: 1.25rem;
+}
+
+.hbe-products .module-products__carousel .products {
+    cursor: grab;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: .5rem;
+    scroll-snap-type: x mandatory;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.hbe-products .module-products__carousel .products::-webkit-scrollbar {
+    display: none;
+}
+
+.hbe-products .module-products__carousel .products.is-dragging {
+    cursor: grabbing;
+    scroll-snap-type: none;
+}
+
+.hbe-products .module-products__carousel .product-miniature,
+.hbe-products .hbe-products__skeleton-card {
+    border: 1px solid #f1f1f1;
+    border-right-width: 0;
+    box-sizing: border-box;
+    flex: 0 0 33.3333333333%;
+    min-width: 33.3333333333%;
+    scroll-snap-align: start;
+}
+
+.hbe-products .module-products__carousel .product-miniature:last-child,
+.hbe-products .hbe-products__skeleton-card:last-child {
+    border-right-width: 1px;
+}
+
+@media (max-width: 1199px) {
+    .hbe-products .module-products__split {
+        gap: 1.25rem;
+    }
+
+    .hbe-products .module-products__intro {
+        flex: 0 0 32%;
+        max-width: 32%;
+    }
+}
+
+@media (max-width: 991px) {
+    .hbe-products .module-products__split {
+        flex-direction: column;
+    }
+
+    .hbe-products .module-products__carousel,
+    .hbe-products .module-products__intro {
+        flex: 0 0 100%;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .hbe-products .module-products__carousel .product-miniature,
+    .hbe-products .hbe-products__skeleton-card {
+        flex-basis: 50%;
+        min-width: 50%;
+    }
+}
+
+@media (max-width: 575px) {
+    .hbe-products .module-products__carousel .product-miniature,
+    .hbe-products .hbe-products__skeleton-card {
+        flex-basis: 100%;
+        min-width: 100%;
+    }
+}
+
+/* ── Szkielet karuzeli doladowywanej przy scrollu ────────────────────────
+   Trzyma wysokosc sekcji, zanim dojedzie prawdziwa tresc, zeby podmiana nie
+   przesuwala strony pod czytajacym. Proporcja karty jest przyblizeniem
+   miniatury (obrazek + tytul + cena). */
+
+.hbe-products__skeleton {
+    display: flex;
+    gap: 0;
+    overflow: hidden;
+}
+
+.hbe-products__skeleton-card {
+    aspect-ratio: 3 / 4;
+    background: linear-gradient(90deg, #f7f7f7 25%, #efefef 37%, #f7f7f7 63%);
+    background-size: 400% 100%;
+    animation: hbe-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes hbe-skeleton-shimmer {
+    0%   { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hbe-products__skeleton-card {
+        animation: none;
+    }
+}
+
+/* Doladowanie nie doszlo do skutku — zostaje naglowek i link do kategorii. */
+.hbe-products--failed .hbe-products__skeleton {
+    display: none;
+}
+
+/* Opcjonalny tekst pod tytulem sekcji (kolumna wprowadzenia). */
+.hbe-products__text {
+    margin: 0 0 1rem;
+    max-width: 42ch;
+    color: #6b6b6b;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}

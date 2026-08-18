@@ -1044,6 +1044,76 @@
     {* ── Karuzele ── *}
     <div id="hbe-tab-carousels">
 
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title"><i class="icon-dashboard"></i> {l s='Wydajność karuzel produktowych' mod='hummingbird_editor'}</h3>
+        </div>
+        <div class="panel-body">
+          <p class="text-muted" style="margin-bottom:1rem">
+            {l s='Każda karuzela to wyszukiwanie produktów w kategorii i wyliczenie kart — przy kilkunastu sekcjach to główny koszt strony głównej. Gotowy HTML leży na dysku i odświeża się co zadany czas, a sekcje poniżej pierwszego ekranu doładowują się dopiero przy przewijaniu.' mod='hummingbird_editor'}
+          </p>
+
+          <div class="alert alert-info" style="margin-bottom:1rem">
+            {l s='Stan cache:' mod='hummingbird_editor'}
+            <strong id="hbe-cc-files">{$hbe_cc_stats.files|intval}</strong> {l s='wpisów' mod='hummingbird_editor'},
+            <strong id="hbe-cc-size">{$hbe_cc_stats.size|escape:'html':'UTF-8'}</strong>,
+            {l s='najstarszy sprzed' mod='hummingbird_editor'} <strong id="hbe-cc-age">{$hbe_cc_stats.age|escape:'html':'UTF-8'}</strong>
+          </div>
+
+          <form id="hbe-carousel-cache-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+            <input type="hidden" name="token" value="{$hbe_token}">
+
+            <div class="row">
+              <div class="col-md-6 form-group">
+                <label class="control-label">
+                  <input type="checkbox" name="enabled" value="1"{if $hbe_cc_enabled} checked{/if}>
+                  {l s='Włącz cache karuzel' mod='hummingbird_editor'}
+                </label>
+                <p class="help-block">{l s='Wyłączenie oznacza przeliczanie każdej karuzeli przy każdym wejściu na stronę.' mod='hummingbird_editor'}</p>
+              </div>
+              <div class="col-md-6 form-group">
+                <label class="control-label">
+                  <input type="checkbox" name="lazy" value="1"{if $hbe_cc_lazy} checked{/if}>
+                  {l s='Doładowuj karuzele przy przewijaniu' mod='hummingbird_editor'}
+                </label>
+                <p class="help-block">{l s='Sekcje poniżej progu poniżej trafiają do strony jako zajawka i dociągają treść, gdy zbliżą się do ekranu.' mod='hummingbird_editor'}</p>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-4 form-group">
+                <label class="control-label">{l s='Odświeżaj co (godzin)' mod='hummingbird_editor'}</label>
+                <input type="text" class="form-control" name="ttl_hours" value="{$hbe_cc_ttl_hours|escape:'html':'UTF-8'}">
+                <p class="help-block">{l s='24 = raz dziennie. Po tym czasie pierwszy gość odbudowuje wpis — chyba że wyprzedzi go cron (poniżej).' mod='hummingbird_editor'}</p>
+              </div>
+              <div class="col-md-4 form-group">
+                <label class="control-label">{l s='Ile karuzel w HTML strony' mod='hummingbird_editor'}</label>
+                <input type="number" class="form-control" name="eager" min="0" max="20" value="{$hbe_cc_eager|intval}">
+                <p class="help-block">{l s='Tyle pierwszych karuzel renderuje się od razu, żeby góra strony była kompletna. Reszta doładowuje się przy przewijaniu.' mod='hummingbird_editor'}</p>
+              </div>
+              <div class="col-md-4 form-group">
+                <label class="control-label">{l s='Warianty karuzel losowych' mod='hummingbird_editor'}</label>
+                <input type="number" class="form-control" name="variants" min="1" max="10" value="{$hbe_cc_variants|intval}">
+                <p class="help-block">{l s='Karuzela z losową kolejnością trzyma tyle wersji i losuje między nimi — inaczej zamrożony HTML pokazywałby wszystkim to samo.' mod='hummingbird_editor'}</p>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz ustawienia' mod='hummingbird_editor'}</button>
+            <button type="button" id="hbe-cc-purge" class="btn btn-default"><i class="icon-trash"></i> {l s='Wyczyść cache teraz' mod='hummingbird_editor'}</button>
+            <div class="hbe-alerts"></div>
+          </form>
+
+          <hr>
+
+          <p class="text-muted" style="margin-bottom:.5rem">
+            <strong>{l s='Odświeżanie z crona' mod='hummingbird_editor'}</strong> —
+            {l s='żeby to nie pierwszy gość po wygaśnięciu cache czekał na odbudowę, wywołaj ten adres raz dziennie (dla każdego języka osobno, zmieniając prefiks w adresie):' mod='hummingbird_editor'}
+          </p>
+          <input type="text" class="form-control" readonly onclick="this.select()" value="{$hbe_cc_warm_url|escape:'html':'UTF-8'}">
+          <p class="help-block">{l s='Adres zawiera klucz — nie publikuj go. Przykład wpisu crona: 15 4 * * * curl -s "…" > /dev/null' mod='hummingbird_editor'}</p>
+        </div>
+      </div>
+
       <div class="panel panel-default hbe-collapse-panel">
         <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-carousel">
           <h4 class="panel-title clearfix">

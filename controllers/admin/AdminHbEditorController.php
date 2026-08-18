@@ -11,6 +11,7 @@ require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorConfig.php';
 require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorBlock.php';
 require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorTransfer.php';
 require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorSlide.php';
+require_once _PS_MODULE_DIR_ . 'hummingbird_editor/classes/HbEditorCarouselCache.php';
 
 class AdminHbEditorController extends ModuleAdminController
 {
@@ -107,6 +108,11 @@ class AdminHbEditorController extends ModuleAdminController
             $b['image_mobile_url'] = $b['image_mobile']
                 ? __PS_BASE_URI__ . 'img/hb_editor/' . $b['image_mobile']
                 : '';
+            // Karuzela produktowa dostaje rozlozone dane, zeby panel pokazal
+            // zwykly formularz zamiast surowego JSON-a.
+            if (($b['section_type'] ?? '') === HbEditorBlock::STYPE_PRODUCTS) {
+                $b['products_cfg'] = $this->parseProductsSection((string) $b['section_data'], $languages);
+            }
         }
         unset($b);
 
@@ -225,7 +231,7 @@ class AdminHbEditorController extends ModuleAdminController
             }
         }
 
-        $allShops = Shop::getShops(true, null, true);
+        $allShops = Shop::getShops(true);
 
         // Manufacturer list for the brands pickers (id, name, default logo URL)
         $idLangCtx = (int) $this->context->language->id;
@@ -639,6 +645,19 @@ class AdminHbEditorController extends ModuleAdminController
                 return $slots;
             })(),
             'hbe_all_categories' => Category::getCategories((int) $this->context->language->id, true, false),
+            // Wydajnosc karuzel produktowych (cache + doladowywanie przy scrollu)
+            'hbe_cc_enabled'   => (int) HbEditorCarouselCache::isEnabled(),
+            'hbe_cc_lazy'      => (int) HbEditorCarouselCache::lazyEnabled(),
+            'hbe_cc_ttl_hours' => rtrim(rtrim(number_format(HbEditorCarouselCache::ttl() / 3600, 2, '.', ''), '0'), '.'),
+            'hbe_cc_eager'     => HbEditorCarouselCache::eagerCount(),
+            'hbe_cc_variants'  => HbEditorCarouselCache::variants(),
+            'hbe_cc_stats'     => $this->carouselCacheStats(),
+            'hbe_cc_warm_url'  => $this->context->link->getModuleLink(
+                'hummingbird_editor',
+                'carousel',
+                ['warm' => HbEditorCarouselCache::warmKey(), 'ids' => 'all'],
+                true
+            ),
         ]);
 
         $this->assignSliderTab($languages);
@@ -962,7 +981,7 @@ class AdminHbEditorController extends ModuleAdminController
                 }
             }
         }
-        $this->ajaxDie(json_encode(['success' => $success]));
+        $this->hbeAjaxDie(json_encode(['success' => $success]));
     }
 
     /** Build all Smarty vars for the Slider tab (list + settings + add/edit form). */
@@ -1031,7 +1050,7 @@ class AdminHbEditorController extends ModuleAdminController
         $shopIds  = Tools::getValue('shop_ids', []);
 
         if (!$hookName || !in_array($type, HbEditorBlock::getTypes(), true)) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid data']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid data']));
         }
 
         $hookName = preg_replace('/[^a-zA-Z0-9_\-]/', '', $hookName);
@@ -1046,7 +1065,7 @@ class AdminHbEditorController extends ModuleAdminController
         ]);
 
         if (!$idBlock) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'DB error']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'DB error']));
         }
 
         // Shops
@@ -1058,7 +1077,7 @@ class AdminHbEditorController extends ModuleAdminController
         // Register hook in PS if new
         $this->module->ensureHookRegistered($hookName);
 
-        $this->ajaxDie(json_encode([
+        $this->hbeAjaxDie(json_encode([
             'success'  => true,
             'id_block' => $idBlock,
         ]));
@@ -1076,7 +1095,7 @@ class AdminHbEditorController extends ModuleAdminController
         $shopIds  = Tools::getValue('shop_ids', []);
 
         if (!$idBlock || !$hookName || !in_array($type, HbEditorBlock::getTypes(), true)) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid data']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid data']));
         }
 
         $hookName = preg_replace('/[^a-zA-Z0-9_\-]/', '', $hookName);
@@ -1111,7 +1130,7 @@ class AdminHbEditorController extends ModuleAdminController
         // Register hook if needed
         $this->module->ensureHookRegistered($hookName);
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /* ── AJAX: delete block ──────────────────────────────────────────────── */
@@ -1120,7 +1139,7 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $idBlock = (int) Tools::getValue('id_block');
         if (!$idBlock) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid id']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid id']));
         }
 
         // Delete images from disk
@@ -1135,7 +1154,8 @@ class AdminHbEditorController extends ModuleAdminController
         }
 
         $ok = HbEditorBlock::delete($idBlock);
-        $this->ajaxDie(json_encode(['success' => $ok]));
+        HbEditorCarouselCache::purge($idBlock);
+        $this->hbeAjaxDie(json_encode(['success' => $ok]));
     }
 
     /* ── AJAX: duplicate block ──────────────────────────────────────────── */
@@ -1144,16 +1164,16 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $idBlock = (int) Tools::getValue('id_block');
         if (!$idBlock) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid id']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid id']));
         }
 
         $newId = HbEditorBlock::duplicate($idBlock);
 
         if (!$newId) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Duplicate failed']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Duplicate failed']));
         }
 
-        $this->ajaxDie(json_encode(['success' => true, 'id_block' => $newId]));
+        $this->hbeAjaxDie(json_encode(['success' => true, 'id_block' => $newId]));
     }
 
     /* ── AJAX: clone static section as a new DB block ────────────────────── */
@@ -1164,7 +1184,7 @@ class AdminHbEditorController extends ModuleAdminController
         $validSlugs = HbEditorBlock::getSectionTypes();
 
         if (!in_array($slug, $validSlugs, true)) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Unknown section type']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Unknown section type']));
         }
 
         $languages  = Language::getLanguages(true);
@@ -1373,7 +1393,7 @@ class AdminHbEditorController extends ModuleAdminController
         ]);
 
         if (!$newId) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'DB error']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'DB error']));
         }
 
         HbEditorBlock::setShops($newId, [(int) Context::getContext()->shop->id]);
@@ -1386,7 +1406,7 @@ class AdminHbEditorController extends ModuleAdminController
 
         $this->module->ensureHookRegistered('displayHome');
 
-        $this->ajaxDie(json_encode(['success' => true, 'id_block' => $newId]));
+        $this->hbeAjaxDie(json_encode(['success' => true, 'id_block' => $newId]));
     }
 
     /* ── AJAX: save section block data (JSON editor) ────────────────────── */
@@ -1395,18 +1415,18 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $idBlock = (int) Tools::getValue('id_block');
         if (!$idBlock) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid id']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid id']));
         }
 
         $block = HbEditorBlock::getById($idBlock);
         if (!$block || empty($block['section_type'])) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Block not found or not a section block']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Block not found or not a section block']));
         }
 
         $raw = trim((string) Tools::getValue('section_data', '{}'));
         $decoded = json_decode($raw, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid JSON: ' . json_last_error_msg()]));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid JSON: ' . json_last_error_msg()]));
         }
 
         $active   = (int) Tools::getValue('active', 0);
@@ -1421,7 +1441,102 @@ class AdminHbEditorController extends ModuleAdminController
             HbEditorBlock::setShops($idBlock, (array) $shopIds);
         }
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        // Klucz cache karuzeli zawiera odcisk section_data, wiec zapis i tak daje
+        // nowy wpis — kasujemy stary, zeby nie zalegal az do sprzatania po TTL.
+        HbEditorCarouselCache::purge($idBlock);
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Rozklada section_data karuzeli produktowej na pola formularza: ustawienia
+     * plus wartosci per jezyk. Jezyki bez wpisu dostaja pusty string, zeby
+     * formularz mial komplet pol niezaleznie od tego, co jest w JSON-ie.
+     *
+     * @param array<int,array<string,mixed>> $languages
+     *
+     * @return array{id_category:int,number:int,randomized:int,title:array<int,string>,text:array<int,string>}
+     */
+    private function parseProductsSection(string $json, array $languages): array
+    {
+        $sd = json_decode($json, true);
+        if (!is_array($sd)) {
+            $sd = [];
+        }
+
+        $cfg = [
+            'id_category' => (int) ($sd['id_category'] ?? 0),
+            'number'      => (int) ($sd['number'] ?? 8),
+            'randomized'  => empty($sd['randomized']) ? 0 : 1,
+            'title'       => [],
+            'text'        => [],
+        ];
+
+        foreach ($languages as $lang) {
+            $lid = (int) $lang['id_lang'];
+            $cfg['title'][$lid] = (string) ($sd['langs'][$lid]['title'] ?? '');
+            $cfg['text'][$lid]  = (string) ($sd['langs'][$lid]['text'] ?? '');
+        }
+
+        return $cfg;
+    }
+
+    /* ── AJAX: carousel cache settings + manual purge ────────────────────── */
+
+    public function ajaxProcessSaveCarouselCache(): void
+    {
+        Configuration::updateValue(HbEditorCarouselCache::CONF_ENABLED, (int) Tools::getValue('enabled', 0));
+        Configuration::updateValue(HbEditorCarouselCache::CONF_LAZY, (int) Tools::getValue('lazy', 0));
+
+        // Godziny w formularzu — sekundy w konfiguracji.
+        $hours = (float) str_replace(',', '.', (string) Tools::getValue('ttl_hours', '24'));
+        $ttl = (int) round($hours * 3600);
+        Configuration::updateValue(
+            HbEditorCarouselCache::CONF_TTL,
+            $ttl > 0 ? $ttl : HbEditorCarouselCache::DEFAULT_TTL
+        );
+
+        Configuration::updateValue(HbEditorCarouselCache::CONF_EAGER, max(0, (int) Tools::getValue('eager', 1)));
+        Configuration::updateValue(
+            HbEditorCarouselCache::CONF_VARIANTS,
+            max(1, min(10, (int) Tools::getValue('variants', 3)))
+        );
+
+        $this->hbeAjaxDie(json_encode(['success' => true, 'stats' => $this->carouselCacheStats()]));
+    }
+
+    public function ajaxProcessPurgeCarouselCache(): void
+    {
+        $removed = HbEditorCarouselCache::purge();
+        $this->hbeAjaxDie(json_encode([
+            'success' => true,
+            'removed' => $removed,
+            'stats'   => $this->carouselCacheStats(),
+        ]));
+    }
+
+    /**
+     * Stan cache w formie gotowej do pokazania w panelu.
+     *
+     * @return array{files:int,size:string,age:string}
+     */
+    private function carouselCacheStats(): array
+    {
+        $stats = HbEditorCarouselCache::stats();
+
+        $age = '—';
+        if ($stats['oldest'] !== null) {
+            $minutes = (int) round((time() - $stats['oldest']) / 60);
+            $age = $minutes < 60
+                ? $minutes . ' min'
+                : round($minutes / 60, 1) . ' h';
+        }
+
+        return [
+            'files' => $stats['files'],
+            'size'  => $stats['bytes'] > 0 ? round($stats['bytes'] / 1024) . ' kB' : '0 kB',
+            'age'   => $age,
+        ];
     }
 
     /* ── AJAX: save brands configuration ────────────────────────────────── */
@@ -1457,7 +1572,7 @@ class AdminHbEditorController extends ModuleAdminController
             $this->saveLocalizedFromForm('HBE_BRANDS_ALT_' . $i, Tools::getValue('HBE_BRANDS_ALT_' . $i, ''));
         }
 
-        $this->ajaxDie(json_encode($response));
+        $this->hbeAjaxDie(json_encode($response));
     }
 
     /* ── AJAX: reorder blocks ────────────────────────────────────────────── */
@@ -1467,7 +1582,7 @@ class AdminHbEditorController extends ModuleAdminController
         $hookName = trim((string) Tools::getValue('hook_name', ''));
         $ids = Tools::getValue('ids', []);
         if (!is_array($ids)) {
-            $this->ajaxDie(json_encode(['success' => false]));
+            $this->hbeAjaxDie(json_encode(['success' => false]));
         }
 
         if ($hookName === 'displayHome') {
@@ -1504,7 +1619,7 @@ class AdminHbEditorController extends ModuleAdminController
             }
             HbEditorBlock::updatePositions($positions);
         }
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /* ── AJAX: toggle active ─────────────────────────────────────────────── */
@@ -1514,7 +1629,7 @@ class AdminHbEditorController extends ModuleAdminController
         $idBlock = (int) Tools::getValue('id_block');
         $active  = (bool) Tools::getValue('active');
         $ok = HbEditorBlock::toggleActive($idBlock, $active);
-        $this->ajaxDie(json_encode(['success' => $ok]));
+        $this->hbeAjaxDie(json_encode(['success' => $ok]));
     }
 
     /* ── AJAX: upload image ──────────────────────────────────────────────── */
@@ -1525,23 +1640,23 @@ class AdminHbEditorController extends ModuleAdminController
         $side    = Tools::getValue('side'); // 'desktop' or 'mobile'
 
         if (!$idBlock || !in_array($side, ['desktop', 'mobile'], true)) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid params']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid params']));
         }
         if (empty($_FILES['image']['name'])) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'No file']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'No file']));
         }
 
         try {
             $filename = $this->module->uploadImage($idBlock, $side, $_FILES['image']);
         } catch (RuntimeException $e) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => $e->getMessage()]));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => $e->getMessage()]));
         }
 
         // Persist filename
         $field = 'image_' . $side;
         HbEditorBlock::update($idBlock, [$field => $filename]);
 
-        $this->ajaxDie(json_encode([
+        $this->hbeAjaxDie(json_encode([
             'success'  => true,
             'filename' => $filename,
             'url'      => _PS_IMG_ . 'hb_editor/' . $filename,
@@ -1556,7 +1671,7 @@ class AdminHbEditorController extends ModuleAdminController
         $side    = Tools::getValue('side');
 
         if (!$idBlock || !in_array($side, ['desktop', 'mobile'], true)) {
-            $this->ajaxDie(json_encode(['success' => false]));
+            $this->hbeAjaxDie(json_encode(['success' => false]));
         }
 
         $block = HbEditorBlock::getById($idBlock);
@@ -1569,7 +1684,7 @@ class AdminHbEditorController extends ModuleAdminController
         }
 
         HbEditorBlock::update($idBlock, ['image_' . $side => '']);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveTopBar(): void
@@ -1586,7 +1701,7 @@ class AdminHbEditorController extends ModuleAdminController
                 if (trim((string) $v) !== '') { $hasText = true; break; }
             }
             if (!$hasText) {
-                $this->ajaxDie(json_encode(['success' => false, 'error' => 'Text is required when enabled']));
+                $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Text is required when enabled']));
             }
         }
 
@@ -1595,7 +1710,7 @@ class AdminHbEditorController extends ModuleAdminController
         $this->saveLocalizedFromForm('HBE_TOPBAR_URL',  $urlRaw, true);
         $this->saveLocalizedFromForm('HBE_TOPBAR_LINK_TEXT', Tools::getValue('link_text', ''));
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveInfoBar(): void
@@ -1613,7 +1728,7 @@ class AdminHbEditorController extends ModuleAdminController
                 if (trim((string) $v) !== '') { $hasText = true; break; }
             }
             if (!$hasText) {
-                $this->ajaxDie(json_encode(['success' => false, 'error' => 'Text is required when enabled']));
+                $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Text is required when enabled']));
             }
         }
         // Validate colours (must be #rrggbb or empty)
@@ -1634,7 +1749,7 @@ class AdminHbEditorController extends ModuleAdminController
         // Register displayHome hook for existing installs (no-op if already registered)
         $this->module->ensureHookRegistered('displayHome');
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveInfoBar2(): void
@@ -1652,7 +1767,7 @@ class AdminHbEditorController extends ModuleAdminController
                 if (trim((string) $v) !== '') { $hasText = true; break; }
             }
             if (!$hasText) {
-                $this->ajaxDie(json_encode(['success' => false, 'error' => 'Text is required when enabled']));
+                $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Text is required when enabled']));
             }
         }
         if ($bg !== '' && !preg_match('/^#[0-9a-fA-F]{6}$/', $bg)) {
@@ -1671,7 +1786,7 @@ class AdminHbEditorController extends ModuleAdminController
 
         $this->module->ensureHookRegistered('displayHome');
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveHeaderToggles(): void
@@ -1682,7 +1797,7 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_HIDE_LANGUAGE_MOBILE',  (int) Tools::getValue('hide_language_mobile', 0));
         Configuration::updateValue('HBE_HIDE_QUICKVIEW',         (int) Tools::getValue('hide_quickview', 0));
         Configuration::updateValue('HBE_WISHLIST_PREVIEW_ENABLED', (int) Tools::getValue('wishlist_preview', 0));
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /**
@@ -1705,7 +1820,7 @@ class AdminHbEditorController extends ModuleAdminController
         $this->saveLocalizedFromForm('HBE_GIFTCARD_FOOTER_DESC',  Tools::getValue('footer_desc', ''));
         $this->saveLocalizedFromForm('HBE_GIFTCARD_FLOAT_LABEL',  Tools::getValue('float_label', ''));
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /**
@@ -1748,13 +1863,13 @@ class AdminHbEditorController extends ModuleAdminController
         }
 
         if ($errors) {
-            $this->ajaxDie(json_encode([
+            $this->hbeAjaxDie(json_encode([
                 'success' => false,
                 'error'   => 'Adres musi zaczynać się od http:// lub https:// — popraw: ' . implode(', ', $errors),
             ]));
         }
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /**
@@ -1766,7 +1881,7 @@ class AdminHbEditorController extends ModuleAdminController
     {
         Configuration::updateValue('HBE_MENU_FLAT_ITEMS',        $this->cleanFlatItems(Tools::getValue('flat_items', [])));
         Configuration::updateValue('HBE_MENU_FLAT_ITEMS_MOBILE', $this->cleanFlatItems(Tools::getValue('flat_items_mobile', [])));
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /** Sanitise a posted list of page identifiers into a clean CSV string. */
@@ -1866,7 +1981,7 @@ class AdminHbEditorController extends ModuleAdminController
         $threshold = $threshold > 0 ? $threshold : 0;
 
         if ($mode === Hummingbird_editor::FREE_SHIPPING_MODE_MANUAL && $threshold <= 0) {
-            $this->ajaxDie(json_encode([
+            $this->hbeAjaxDie(json_encode([
                 'success' => false,
                 'error'   => $this->module->l('Podaj próg darmowej dostawy większy od 0 lub wybierz inny tryb.'),
             ]));
@@ -1875,7 +1990,7 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_CART_FREE_SHIPPING_MODE', $mode);
         Configuration::updateValue('HBE_CART_FREE_SHIPPING_THRESHOLD', $threshold);
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /**
@@ -1895,7 +2010,7 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_CARE_BUTTON', trim((string) Tools::getValue('care_button', '')));
         Configuration::updateValue('HBE_CARE_LOGIN_REQUIRED', (int) Tools::getValue('care_login_required', 0));
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /**
@@ -1910,7 +2025,7 @@ class AdminHbEditorController extends ModuleAdminController
         }
         HbEditorConfig::set('HBE_PRODUCT_SUMMARY_SOURCE', $source);
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveCarouselHeaders(): void
@@ -1925,7 +2040,7 @@ class AdminHbEditorController extends ModuleAdminController
             // Carousel-source override: 0 (or blank) keeps the native module's list.
             Configuration::updateValue($prefix . '_CATEGORY_ID', max(0, (int) Tools::getValue($key . '_category_id', 0)));
         }
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /**
@@ -1968,7 +2083,7 @@ class AdminHbEditorController extends ModuleAdminController
             }
         }
 
-        $this->ajaxDie(json_encode(['categories' => $results]));
+        $this->hbeAjaxDie(json_encode(['categories' => $results]));
     }
 
     public function ajaxProcessSaveImgHero(): void
@@ -1992,7 +2107,7 @@ class AdminHbEditorController extends ModuleAdminController
         $this->saveLocalizedFromForm('HBE_IMGHERO_CTA_TEXT', $ctaTextRaw);
         $this->saveLocalizedFromForm('HBE_IMGHERO_CTA_URL',  $ctaUrlRaw, true);
 
-        $this->ajaxDie(json_encode([
+        $this->hbeAjaxDie(json_encode([
             'success'   => true,
             'img_url'   => $currentImage ? _PS_IMG_ . 'hb_editor/' . $currentImage : '',
             'img_name'  => $currentImage,
@@ -2004,7 +2119,7 @@ class AdminHbEditorController extends ModuleAdminController
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $key = Tools::getValue('variant') === 'mobile' ? 'HBE_IMGHERO_IMAGE_MOBILE' : 'HBE_IMGHERO_IMAGE';
         $this->deleteLocalizedImage($key, $idLang);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveImgHero2(): void
@@ -2028,7 +2143,7 @@ class AdminHbEditorController extends ModuleAdminController
         $this->saveLocalizedFromForm('HBE_IMGHERO2_CTA_TEXT', $ctaTextRaw);
         $this->saveLocalizedFromForm('HBE_IMGHERO2_CTA_URL',  $ctaUrlRaw, true);
 
-        $this->ajaxDie(json_encode([
+        $this->hbeAjaxDie(json_encode([
             'success'  => true,
             'img_url'  => $currentImage ? __PS_BASE_URI__ . 'img/hb_editor/' . $currentImage : '',
             'img_name' => $currentImage,
@@ -2040,7 +2155,7 @@ class AdminHbEditorController extends ModuleAdminController
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $key = Tools::getValue('variant') === 'mobile' ? 'HBE_IMGHERO2_IMAGE_MOBILE' : 'HBE_IMGHERO2_IMAGE';
         $this->deleteLocalizedImage($key, $idLang);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveImgText(): void
@@ -2066,7 +2181,7 @@ class AdminHbEditorController extends ModuleAdminController
         $this->saveLocalizedFromForm('HBE_IMGTEXT_CTA_TEXT', $ctaTextRaw);
         $this->saveLocalizedFromForm('HBE_IMGTEXT_CTA_URL',  $ctaUrlRaw, true);
 
-        $this->ajaxDie(json_encode([
+        $this->hbeAjaxDie(json_encode([
             'success'  => true,
             'img_url'  => $currentImage ? __PS_BASE_URI__ . 'img/hb_editor/' . $currentImage : '',
             'img_name' => $currentImage,
@@ -2078,7 +2193,7 @@ class AdminHbEditorController extends ModuleAdminController
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $key = Tools::getValue('variant') === 'mobile' ? 'HBE_IMGTEXT_IMAGE_MOBILE' : 'HBE_IMGTEXT_IMAGE';
         $this->deleteLocalizedImage($key, $idLang);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveListingBanners(): void
@@ -2116,7 +2231,7 @@ class AdminHbEditorController extends ModuleAdminController
             Configuration::updateValue('HBE_LISTBAN_' . $i . '_CATS', implode(',', $cats));
         }
 
-        $this->ajaxDie(json_encode($response));
+        $this->hbeAjaxDie(json_encode($response));
     }
 
     public function ajaxProcessDeleteListingBannerImage(): void
@@ -2126,7 +2241,7 @@ class AdminHbEditorController extends ModuleAdminController
             ? 'HBE_LISTBAN_' . $i . '_IMAGE_MOBILE'
             : 'HBE_LISTBAN_' . $i . '_IMAGE';
         $this->deleteLocalizedImage($key, 0);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /* ── AJAX: add module to HBE management ──────────────────────────────── */
@@ -2135,12 +2250,12 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $modName = preg_replace('/[^a-zA-Z0-9_]/', '', trim((string) Tools::getValue('module_name', '')));
         if ($modName === '' || $modName === 'hummingbird_editor') {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid module name']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid module name']));
         }
 
         $mod = Module::getInstanceByName($modName);
         if (!$mod) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Module not found']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Module not found']));
         }
 
         // Unregister from displayHome — HBE will render it in order
@@ -2164,7 +2279,7 @@ class AdminHbEditorController extends ModuleAdminController
             Configuration::updateValue('HBE_HOME_ORDER', implode(',', $orderParts));
         }
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /* ── AJAX: release module back to PS hook system ─────────────────────── */
@@ -2173,7 +2288,7 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $modName = preg_replace('/[^a-zA-Z0-9_]/', '', trim((string) Tools::getValue('module_name', '')));
         if ($modName === '') {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Invalid module name']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Invalid module name']));
         }
 
         // Re-register to displayHome
@@ -2195,7 +2310,7 @@ class AdminHbEditorController extends ModuleAdminController
         $orderParts = array_values(array_filter($orderParts, fn($e) => $e !== 'module_' . $modName));
         Configuration::updateValue('HBE_HOME_ORDER', implode(',', $orderParts));
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveCols3(): void
@@ -2206,7 +2321,7 @@ class AdminHbEditorController extends ModuleAdminController
             $this->saveLocalizedFromForm('HBE_COLS3_TEXT_' . $i, Tools::getValue('text_' . $i, ''));
             $this->saveLocalizedFromForm('HBE_COLS3_URL_'  . $i, Tools::getValue('url_'  . $i, ''), true);
         }
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveCols3Desc(): void
@@ -2229,7 +2344,7 @@ class AdminHbEditorController extends ModuleAdminController
             }
         }
 
-        $this->ajaxDie(json_encode($response));
+        $this->hbeAjaxDie(json_encode($response));
     }
 
     public function ajaxProcessDeleteCols3descImage(): void
@@ -2238,7 +2353,7 @@ class AdminHbEditorController extends ModuleAdminController
         $key = 'HBE_COLS3D_IMG_' . $col;
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $this->deleteLocalizedImage($key, $idLang);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveTagline(): void
@@ -2272,7 +2387,7 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_TAGLINE_LINK_TEXT', $linkTextVals, true);
         Configuration::updateValue('HBE_TAGLINE_LINK_URL',  $linkUrlVals,  true);
 
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveKatcols(): void
@@ -2356,7 +2471,7 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_KATCOLS_R_CAPTION',     $rCaptionVals[$activeLang] ?? '');
         Configuration::updateValue('HBE_KATCOLS_R_URL',         $rUrlVals[$activeLang] ?? '');
 
-        $this->ajaxDie(json_encode($response));
+        $this->hbeAjaxDie(json_encode($response));
     }
 
     public function ajaxProcessDeleteKatcolsImage(): void
@@ -2366,7 +2481,7 @@ class AdminHbEditorController extends ModuleAdminController
         if (Tools::getValue('variant') === 'mobile') { $key .= '_MOBILE'; }
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $this->deleteLocalizedImage($key, $idLang);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveSplitBlock(): void
@@ -2395,7 +2510,7 @@ class AdminHbEditorController extends ModuleAdminController
         $this->saveLocalizedFromForm('HBE_SPLITBLOCK_DESC',     $descRaw);
         $this->saveLocalizedFromForm('HBE_SPLITBLOCK_CTA_TEXT', $ctaTextRaw);
         $this->saveLocalizedFromForm('HBE_SPLITBLOCK_CTA_URL',  $ctaUrlRaw, true);
-        $this->ajaxDie(json_encode($response));
+        $this->hbeAjaxDie(json_encode($response));
     }
 
     public function ajaxProcessDeleteSplitBlockImage(): void
@@ -2405,7 +2520,7 @@ class AdminHbEditorController extends ModuleAdminController
         if (Tools::getValue('variant') === 'mobile') { $key .= '_MOBILE'; }
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $this->deleteLocalizedImage($key, $idLang);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     public function ajaxProcessSaveIcons4(): void
@@ -2427,7 +2542,7 @@ class AdminHbEditorController extends ModuleAdminController
             if ($img) { $response['img_url_' . $i] = __PS_BASE_URI__ . 'img/hb_editor/' . $img; }
         }
 
-        $this->ajaxDie(json_encode($response));
+        $this->hbeAjaxDie(json_encode($response));
     }
 
     public function ajaxProcessDeleteIcons4Image(): void
@@ -2437,7 +2552,7 @@ class AdminHbEditorController extends ModuleAdminController
         if (Tools::getValue('variant') === 'mobile') { $key .= '_MOBILE'; }
         $idLang = max(0, (int) Tools::getValue('lang_id_target', 0));
         $this->deleteLocalizedImage($key, $idLang);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /* ── "Inne sklepy online" section ────────────────────────────────────── */
@@ -2490,7 +2605,7 @@ class AdminHbEditorController extends ModuleAdminController
                 }
             }
         }
-        $this->ajaxDie(json_encode($response));
+        $this->hbeAjaxDie(json_encode($response));
     }
 
     public function ajaxProcessDeleteShopsImage(): void
@@ -2498,7 +2613,7 @@ class AdminHbEditorController extends ModuleAdminController
         $store = max(1, min(3, (int) Tools::getValue('store', 1)));
         $idx   = max(1, min(3, (int) Tools::getValue('idx', 1)));
         $this->deleteLocalizedImage('HBE_SHOPS_IMG_' . $store . '_' . $idx, 0);
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     private function getActiveLangId(): int
@@ -2943,10 +3058,10 @@ class AdminHbEditorController extends ModuleAdminController
             }
             Configuration::updateValue('HBE_FAQ_ITEMS_' . $id, json_encode($clean, JSON_UNESCAPED_UNICODE), true);
         }
-        $this->ajaxDie(json_encode(['success' => true]));
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
-    private function ajaxDie(string $json): void
+    private function hbeAjaxDie(string $json): void
     {
         while (ob_get_level() > 0) {
             ob_end_clean();
@@ -2962,14 +3077,14 @@ class AdminHbEditorController extends ModuleAdminController
     public function ajaxProcessImportSettings(): void
     {
         if (empty($_FILES['file']['tmp_name']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Brak pliku']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Brak pliku']));
         }
         if (!empty($_FILES['file']['error'])) {
             $err = (int) $_FILES['file']['error'];
             $msg = ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE)
                 ? 'Plik przekracza limit uploadu serwera — użyj importu z serwera (wgraj ZIP przez FTP/SFTP).'
                 : 'Błąd uploadu pliku (' . $err . ')';
-            $this->ajaxDie(json_encode(['success' => false, 'error' => $msg]));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => $msg]));
         }
         $tmp = $_FILES['file']['tmp_name'];
 
@@ -2982,11 +3097,11 @@ class AdminHbEditorController extends ModuleAdminController
         } else {
             $xml = (string) @file_get_contents($tmp);
             if ($xml === '') {
-                $this->ajaxDie(json_encode(['success' => false, 'error' => 'Pusty plik']));
+                $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Pusty plik']));
             }
             $result = HbEditorTransfer::importXml($xml, $purge);
         }
-        $this->ajaxDie(json_encode($result));
+        $this->hbeAjaxDie(json_encode($result));
     }
 
     /**
@@ -2998,14 +3113,14 @@ class AdminHbEditorController extends ModuleAdminController
     {
         $name = basename((string) Tools::getValue('backup_file'));
         if ($name === '' || strtolower(substr($name, -4)) !== '.zip') {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Nieprawidłowa nazwa pliku']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Nieprawidłowa nazwa pliku']));
         }
         $path = HbEditorTransfer::backupDir() . $name;
         if (!is_file($path)) {
-            $this->ajaxDie(json_encode(['success' => false, 'error' => 'Plik nie istnieje na serwerze']));
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Plik nie istnieje na serwerze']));
         }
         $purge  = (int) Tools::getValue('purge_blocks', 1) === 1;
         $result = HbEditorTransfer::importZip($path, $purge);
-        $this->ajaxDie(json_encode($result));
+        $this->hbeAjaxDie(json_encode($result));
     }
 }

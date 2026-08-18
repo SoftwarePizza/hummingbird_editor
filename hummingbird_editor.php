@@ -15,6 +15,7 @@ if (!defined('_PS_VERSION_')) {
 require_once __DIR__ . '/classes/HbEditorConfig.php';
 require_once __DIR__ . '/classes/HbEditorBlock.php';
 require_once __DIR__ . '/classes/HbEditorSlide.php';
+require_once __DIR__ . '/classes/HbEditorCarouselCache.php';
 
 class Hummingbird_editor extends Module
 {
@@ -25,6 +26,20 @@ class Hummingbird_editor extends Module
 
     /** Configuration key: same as MENU_FLAT_ITEMS_KEY but for the mobile drawer. */
     const MENU_FLAT_ITEMS_MOBILE_KEY = 'HBE_MENU_FLAT_ITEMS_MOBILE';
+
+    /**
+     * Configuration key: page identifiers (CSV) of menu items rendered as a
+     * multi-column link list instead of the tabbed submenu. Meant for branches
+     * that are wide and shallow — a tabbed layout leaves the right-hand pane
+     * empty for every child that has no children of its own.
+     */
+    const MENU_COLUMNS_ITEMS_KEY = 'HBE_MENU_COLUMNS_ITEMS';
+
+    /** Configuration key: heading above the childless categories in the column layout. */
+    const MENU_COLUMNS_REST_LABEL_KEY = 'HBE_MENU_COLUMNS_REST_LABEL';
+
+    /** Fallback heading when MENU_COLUMNS_REST_LABEL_KEY is blank. */
+    const MENU_COLUMNS_REST_LABEL_DEFAULT = 'Pozostałe rodzaje';
 
     /**
      * Social networks offered in the footer "Kontakt" column, in display order.
@@ -423,6 +438,22 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // Karuzele produktowe: cache na dobe + doladowywanie przy scrollu.
+        // Pierwsza karuzela zostaje w HTML strony, zeby nad zgieciem nic nie
+        // doskakiwalo; reszta dociaga sie, gdy zbliza sie do ekranu.
+        foreach ([
+            HbEditorCarouselCache::CONF_ENABLED  => 1,
+            HbEditorCarouselCache::CONF_TTL      => HbEditorCarouselCache::DEFAULT_TTL,
+            HbEditorCarouselCache::CONF_VARIANTS => HbEditorCarouselCache::DEFAULT_VARIANTS,
+            HbEditorCarouselCache::CONF_LAZY     => 1,
+            HbEditorCarouselCache::CONF_EAGER    => HbEditorCarouselCache::DEFAULT_EAGER,
+        ] as $ccKey => $ccDefault) {
+            if (Configuration::get($ccKey) === false) {
+                Configuration::updateValue($ccKey, $ccDefault);
+            }
+        }
+        HbEditorCarouselCache::warmKey();
+
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
@@ -571,6 +602,14 @@ class Hummingbird_editor extends Module
         ] as $k) {
             Configuration::deleteByName($k);
         }
+        foreach ([
+            HbEditorCarouselCache::CONF_ENABLED, HbEditorCarouselCache::CONF_TTL,
+            HbEditorCarouselCache::CONF_VARIANTS, HbEditorCarouselCache::CONF_LAZY,
+            HbEditorCarouselCache::CONF_EAGER, HbEditorCarouselCache::CONF_WARM_KEY,
+        ] as $k) {
+            Configuration::deleteByName($k);
+        }
+        HbEditorCarouselCache::purge();
 
         return parent::uninstall()
             && $this->dropTables()
@@ -807,6 +846,51 @@ class Hummingbird_editor extends Module
     }
 
     /**
+     * Page identifiers rendered as a multi-column link list on desktop.
+     *
+     * @return string[]
+     */
+    public function getMenuColumnItems(): array
+    {
+        $raw = (string) Configuration::get(self::MENU_COLUMNS_ITEMS_KEY);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    /**
+     * Walk the whole menu tree and stamp every node with the layout flags the
+     * theme templates read. Only top-level identifiers can opt into a layout;
+     * deeper nodes always get `false`, which is what the templates expect —
+     * they just must not be missing.
+     *
+     * @param array<int, array<string, mixed>> $nodes
+     * @param string[]                         $flatDesktop
+     * @param string[]                         $flatMobile
+     * @param string[]                         $columns
+     */
+    private function flagMenuNodes(array &$nodes, array $flatDesktop, array $flatMobile, array $columns, string $restLabel, int $depth = 0): void
+    {
+        foreach ($nodes as &$node) {
+            $id = (string) ($node['page_identifier'] ?? '');
+            $isTop = ($depth === 0 && $id !== '');
+
+            $node['flat_desktop']  = $isTop && in_array($id, $flatDesktop, true);
+            $node['flat_mobile']   = $isTop && in_array($id, $flatMobile, true);
+            $node['menu_columns']  = $isTop && in_array($id, $columns, true);
+            $node['rest_label']    = $restLabel;
+
+            if (!empty($node['children']) && is_array($node['children'])) {
+                $this->flagMenuNodes($node['children'], $flatDesktop, $flatMobile, $columns, $restLabel, $depth + 1);
+            }
+        }
+        unset($node);
+    }
+
+    /**
      * Flag the configured top-level menu items so the theme renders them with
      * the flat layout, independently per device. Hooked into ps_mainmenu's
      * actionMainMenuModifier, which passes the built menu tree by reference —
@@ -820,14 +904,19 @@ class Hummingbird_editor extends Module
 
         $flatDesktop = $this->getMenuFlatItems('desktop');
         $flatMobile  = $this->getMenuFlatItems('mobile');
+        $columns     = $this->getMenuColumnItems();
+        $restLabel   = trim((string) Configuration::get(self::MENU_COLUMNS_REST_LABEL_KEY));
 
-        foreach ($params['menu']['children'] as &$node) {
-            if (!empty($node['page_identifier'])) {
-                $node['flat_desktop'] = in_array($node['page_identifier'], $flatDesktop, true);
-                $node['flat_mobile']  = in_array($node['page_identifier'], $flatMobile, true);
-            }
+        if ($restLabel === '') {
+            $restLabel = self::MENU_COLUMNS_REST_LABEL_DEFAULT;
         }
-        unset($node);
+
+        // The theme reads these flags on every nesting level (the submenu
+        // functions recurse and pass each node down as $parent), so they have to
+        // exist on every node — not just the top level. Missing keys used to
+        // surface as "Undefined index: flat_mobile" notices inside the rendered
+        // navigation.
+        $this->flagMenuNodes($params['menu']['children'], $flatDesktop, $flatMobile, $columns, $restLabel);
 
         // Karta podarunkowa — append a top-level leaf item to the main menu.
         // ($params['menu'] is passed by reference by ps_mainmenu, and PHP keeps
@@ -845,6 +934,10 @@ class Hummingbird_editor extends Module
                     'open_in_new_window' => false,
                     'children'           => [],
                     'image_urls'         => [],
+                    'flat_desktop'       => false,
+                    'flat_mobile'        => false,
+                    'menu_columns'       => false,
+                    'rest_label'         => $restLabel,
                 ];
             }
         }
@@ -975,6 +1068,13 @@ class Hummingbird_editor extends Module
                 'modules/' . $this->name . '/views/js/slider.js',
                 ['position' => 'bottom', 'priority' => 200]
             );
+            if (HbEditorCarouselCache::lazyEnabled()) {
+                Media::addJsDef([
+                    'hbeCarouselLazy' => [
+                        'url' => $this->context->link->getModuleLink($this->name, 'carousel', [], true),
+                    ],
+                ]);
+            }
         }
 
         if ($page === 'product') {
@@ -1073,6 +1173,55 @@ class Hummingbird_editor extends Module
             return [];
         }
 
+        if (!HbEditorCarouselCache::isEnabled()) {
+            return $this->buildCategoryCarouselProducts($idCategory, $limit);
+        }
+
+        // Kolejnosc jest losowa, wiec jak przy karuzelach z edytora trzymamy
+        // kilka wersji i losujemy — inaczej zamrozony na dobe wynik pokazywalby
+        // wszystkim dokladnie te same produkty.
+        $variants = HbEditorCarouselCache::variants();
+        $file = HbEditorCarouselCache::fileForOverride(
+            $idCategory,
+            $limit,
+            $variants > 1 ? random_int(0, $variants - 1) : 0
+        );
+
+        $raw = HbEditorCarouselCache::get($file);
+        if ($raw === null && !HbEditorCarouselCache::claimRebuild($file)) {
+            $raw = HbEditorCarouselCache::getStale($file);
+        }
+        if ($raw !== null) {
+            $cached = @unserialize($raw, ['allowed_classes' => false]);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        }
+
+        // Presenter zwraca leniwe obiekty — do zapisu trzeba je splaszczyc do
+        // zwyklych tablic (szablony i tak siegaja po nie jak po tablice).
+        $plain = [];
+        foreach ($this->buildCategoryCarouselProducts($idCategory, $limit) as $product) {
+            $plain[] = $product instanceof \PrestaShop\PrestaShop\Adapter\Presenter\AbstractLazyArray
+                ? $product->jsonSerialize()
+                : (array) $product;
+        }
+
+        if ($plain) {
+            HbEditorCarouselCache::set($file, serialize($plain));
+        }
+
+        return $plain;
+    }
+
+    /**
+     * Wlasciwe pobranie i zaprezentowanie produktow kategorii — kosztowna czesc,
+     * ktora cache w getCategoryCarouselProducts() ma omijac.
+     *
+     * @return array<int,mixed>
+     */
+    private function buildCategoryCarouselProducts(int $idCategory, int $limit): array
+    {
         $category = new Category($idCategory, (int) $this->context->language->id);
         if (!Validate::isLoadedObject($category) || !$category->active) {
             return [];
@@ -1703,6 +1852,12 @@ class Hummingbird_editor extends Module
             $output .= $jsTag('carousel-drag.js');
         }
 
+        // Doladowywanie karuzel produktowych przy scrollu — musi isc po
+        // carousel-drag.js, bo korzysta z wystawionego przez niego inicjatora.
+        if ($page === 'index' && HbEditorCarouselCache::lazyEnabled()) {
+            $output .= $jsTag('carousel-lazy.js');
+        }
+
         // Wishlist preview drawer shell (Figma: Ulubione) — every page; rows
         // are filled client-side by wishlist-preview.js.
         if ($this->isWishlistPreviewEnabled()) {
@@ -1776,6 +1931,13 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // Karuzele produktowe ponad limit nie trafiaja do HTML strony — zostaje
+        // po nich atrapa, a tresc dociaga carousel-lazy.js, gdy sekcja zbliza sie
+        // do ekranu. Pierwsze $eagerLeft renderuja sie normalnie, zeby gora strony
+        // byla kompletna od razu.
+        $lazyCarousels = HbEditorCarouselCache::lazyEnabled();
+        $eagerLeft = HbEditorCarouselCache::eagerCount();
+
         $output = '';
         foreach ($order as $component) {
             if ($component === 'infobar') {
@@ -1810,6 +1972,14 @@ class Hummingbird_editor extends Module
                     continue;
                 }
                 if (!empty($block['section_type'])) {
+                    if ($lazyCarousels && $block['section_type'] === HbEditorBlock::STYPE_PRODUCTS) {
+                        if ($eagerLeft > 0) {
+                            --$eagerLeft;
+                        } else {
+                            $output .= $this->renderProductsPlaceholder($block);
+                            continue;
+                        }
+                    }
                     $output .= $this->renderSectionBlock($block);
                     continue;
                 }
@@ -2530,6 +2700,304 @@ class Hummingbird_editor extends Module
      * Parses the JSON, assigns Smarty vars and delegates to the same templates
      * used by the config-backed static sections.
      */
+
+    /**
+     * Pobiera i prezentuje produkty z kategorii — logika przeniesiona z modulu multislider,
+     * zeby dalo sie go usunac. Uzywa wylacznie klas rdzenia PrestaShop (zadnych API zewnetrznych).
+     *
+     * @param int  $idCategory kategoria zrodlowa
+     * @param int  $ile        ile produktow pokazac
+     * @param bool $losowo     czy losowa kolejnosc zamiast wg daty dodania
+     *
+     * @return array lista produktow gotowa dla szablonu
+     */
+    private function hbeGetCategoryProducts(int $idCategory, int $ile, bool $losowo): array
+    {
+        if ($ile <= 0) {
+            $ile = 8;
+        }
+        $category = new Category($idCategory);
+
+        $searchProvider = new \PrestaShop\PrestaShop\Adapter\Category\CategoryProductSearchProvider(
+            $this->context->getTranslator(),
+            $category
+        );
+        $searchContext = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchContext($this->context);
+
+        $query = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchQuery();
+        $query->setResultsPerPage($ile)->setPage(1);
+        if ($losowo) {
+            $query->setSortOrder(\PrestaShop\PrestaShop\Core\Product\Search\SortOrder::random());
+        } else {
+            $query->setSortOrder(new \PrestaShop\PrestaShop\Core\Product\Search\SortOrder('product', 'date_add', 'desc'));
+        }
+
+        $wynik = $searchProvider->runQuery($searchContext, $query);
+
+        $assembler = new ProductAssembler($this->context);
+        $factory = new ProductPresenterFactory($this->context);
+        $ustawienia = $factory->getPresentationSettings();
+        $presenter = $factory->getPresenter();
+
+        $lista = [];
+        foreach ($wynik->getProducts() as $surowy) {
+            $lista[] = $presenter->present($ustawienia, $assembler->assembleProduct($surowy), $this->context->language);
+        }
+
+        return $lista;
+    }
+
+    /**
+     * Wyciaga wartosc per jezyk z section_data z zapasem: gdy dany jezyk nie ma
+     * wpisu, bierze pierwszy dostepny (tak samo jak zamkniete w renderSectionBlock).
+     */
+    private function hbeSectionLangValue(array $sd, string $key, int $idLang): string
+    {
+        $langs = $sd['langs'] ?? [];
+        if (isset($langs[$idLang][$key])) {
+            return (string) $langs[$idLang][$key];
+        }
+
+        $first = $langs ? array_key_first($langs) : null;
+
+        return $first === null ? '' : (string) ($langs[$first][$key] ?? '');
+    }
+
+    /**
+     * Karuzela produktowa gotowa do wstawienia w strone — z cache.
+     *
+     * Trafienie w cache oznacza odczyt jednego pliku zamiast wyszukiwania w
+     * kategorii i prezentowania kilkunastu produktow. Karuzele z losowa
+     * kolejnoscia trzymaja kilka wariantow i losuja miedzy nimi, zeby zamrozony
+     * na dobe HTML nie oznaczal tych samych produktow przy kazdej wizycie.
+     *
+     * @param int        $idBlock id bloku (0 = renderuj bez cache)
+     * @param array|null $sd      section_data; null = dociagnij z bazy (sciezka AJAX)
+     */
+    public function renderProductsCarousel(int $idBlock, ?array $sd = null): string
+    {
+        if ($sd === null) {
+            $block = $this->hbeProductsBlockData($idBlock);
+            if ($block === null) {
+                return '';
+            }
+            $sd = $block['sd'];
+        }
+
+        if ((int) ($sd['id_category'] ?? 0) <= 0) {
+            return '';
+        }
+
+        if ($idBlock <= 0 || !HbEditorCarouselCache::isEnabled()) {
+            return $this->buildProductsCarousel($sd);
+        }
+
+        $fingerprint = (string) json_encode($sd);
+        $variants = !empty($sd['randomized']) ? HbEditorCarouselCache::variants() : 1;
+        $file = HbEditorCarouselCache::fileForBlock(
+            $idBlock,
+            $fingerprint,
+            $variants > 1 ? random_int(0, $variants - 1) : 0
+        );
+
+        $html = HbEditorCarouselCache::get($file);
+        if ($html === null) {
+            if (HbEditorCarouselCache::claimRebuild($file)) {
+                $html = HbEditorCarouselCache::detokenize($this->buildProductsCarousel($sd));
+                if ($this->hbeCarouselIsCacheable($html)) {
+                    HbEditorCarouselCache::set($file, $html);
+                }
+            } else {
+                // Ktos inny wlasnie odbudowuje — podajemy stara tresc zamiast
+                // renderowac to samo rownolegle.
+                $html = (string) HbEditorCarouselCache::getStale($file);
+            }
+        }
+
+        return HbEditorCarouselCache::retokenize($html);
+    }
+
+    /**
+     * Wlasciwe zbudowanie karuzeli — kosztowna czesc, ktora cache ma omijac.
+     */
+    private function buildProductsCarousel(array $sd): string
+    {
+        $idCategory = (int) ($sd['id_category'] ?? 0);
+        if ($idCategory <= 0) {
+            return '';
+        }
+
+        $produkty = $this->hbeGetCategoryProducts(
+            $idCategory,
+            (int) ($sd['number'] ?? 8),
+            !empty($sd['randomized'])
+        );
+        if (!$produkty) {
+            return '';
+        }
+
+        $idLang = (int) $this->context->language->id;
+        $this->context->smarty->assign([
+            'hbe_products_title'    => $this->hbeSectionLangValue($sd, 'title', $idLang),
+            'hbe_products_text'     => $this->hbeSectionLangValue($sd, 'text', $idLang),
+            'hbe_products'          => $produkty,
+            'hbe_products_all_link' => $this->context->link->getCategoryLink($idCategory),
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/products.tpl');
+    }
+
+    /**
+     * Lekka atrapa karuzeli wstawiana w HTML strony glownej: naglowek, link do
+     * kategorii (zeby sekcja miala tresc dla robotow i dzialala bez JS) oraz
+     * szkielet kart rezerwujacy wysokosc, zeby doladowanie nie przesuwalo strony.
+     * Prawdziwa tresc wciaga carousel-lazy.js, gdy sekcja zbliza sie do ekranu.
+     */
+    private function renderProductsPlaceholder(array $block): string
+    {
+        $sd = [];
+        if (!empty($block['section_data'])) {
+            $decoded = json_decode((string) $block['section_data'], true);
+            if (is_array($decoded)) {
+                $sd = $decoded;
+            }
+        }
+
+        $idCategory = (int) ($sd['id_category'] ?? 0);
+        if ($idCategory <= 0) {
+            return '';
+        }
+
+        // Karuzela, ktora po zbudowaniu okazala sie pusta (kategoria bez
+        // produktow), nie zasluguje na atrape — inaczej przy kazdym wejsciu
+        // mignelaby sekcja, ktora zaraz po doladowaniu znika.
+        if (HbEditorCarouselCache::isEnabled()) {
+            $cached = HbEditorCarouselCache::get(
+                HbEditorCarouselCache::fileForBlock((int) $block['id_block'], (string) json_encode($sd), 0)
+            );
+            if ($cached !== null && trim($cached) === '') {
+                return '';
+            }
+        }
+
+        $idLang = (int) $this->context->language->id;
+        $this->context->smarty->assign([
+            'hbe_products_lazy_id'    => (int) $block['id_block'],
+            'hbe_products_title'      => $this->hbeSectionLangValue($sd, 'title', $idLang),
+            'hbe_products_text'       => $this->hbeSectionLangValue($sd, 'text', $idLang),
+            'hbe_products_all_link'   => $this->context->link->getCategoryLink($idCategory),
+            'hbe_products_lazy_count' => max(2, min(12, (int) ($sd['number'] ?? 8))),
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/products-lazy.tpl');
+    }
+
+    /**
+     * Blok karuzeli widoczny publicznie w biezacym sklepie, wraz z odkodowanym
+     * section_data. Zwraca null, gdy bloku nie ma, jest wylaczony, nie jest
+     * karuzela albo nie nalezy do tego sklepu — endpoint AJAX opiera sie na tym
+     * sprawdzeniu, wiec id z zewnatrz nie moze wyrenderowac cudzej tresci.
+     *
+     * @return array{id_block:string,section_data:string,sd:array}|null
+     */
+    private function hbeProductsBlockData(int $idBlock): ?array
+    {
+        if ($idBlock <= 0) {
+            return null;
+        }
+
+        $row = Db::getInstance()->getRow(
+            'SELECT b.`id_block`, b.`section_data`
+             FROM `' . _DB_PREFIX_ . 'hb_editor_block` b
+             INNER JOIN `' . _DB_PREFIX_ . 'hb_editor_block_shop` bs
+                 ON bs.id_block = b.id_block AND bs.id_shop = ' . (int) $this->context->shop->id . '
+             WHERE b.`id_block` = ' . $idBlock . '
+               AND b.`active` = 1
+               AND b.`section_type` = "' . pSQL(HbEditorBlock::STYPE_PRODUCTS) . '"'
+        );
+        if (!$row) {
+            return null;
+        }
+
+        $decoded = json_decode((string) $row['section_data'], true);
+        $row['sd'] = is_array($decoded) ? $decoded : [];
+
+        return $row;
+    }
+
+    /**
+     * Id wszystkich aktywnych karuzel produktowych biezacego sklepu — uzywane
+     * przez rozgrzewanie cache z crona.
+     *
+     * @return int[]
+     */
+    public function getProductsCarouselIds(): array
+    {
+        $rows = (array) Db::getInstance()->executeS(
+            'SELECT b.`id_block`
+             FROM `' . _DB_PREFIX_ . 'hb_editor_block` b
+             INNER JOIN `' . _DB_PREFIX_ . 'hb_editor_block_shop` bs
+                 ON bs.id_block = b.id_block AND bs.id_shop = ' . (int) $this->context->shop->id . '
+             WHERE b.`active` = 1 AND b.`section_type` = "' . pSQL(HbEditorBlock::STYPE_PRODUCTS) . '"
+             ORDER BY b.`position` ASC'
+        );
+
+        return array_map('intval', array_column($rows, 'id_block'));
+    }
+
+    /**
+     * Buduje na nowo wszystkie warianty jednej karuzeli, nie ogladajac sie na
+     * TTL. Wolane przez rozgrzewanie z crona, zeby to cron placil za odbudowe,
+     * a nie pierwszy gosc po wygasnieciu cache.
+     *
+     * @return int liczba zapisanych wariantow
+     */
+    public function warmProductsCarousel(int $idBlock): int
+    {
+        $block = $this->hbeProductsBlockData($idBlock);
+        if ($block === null) {
+            return 0;
+        }
+
+        $sd = $block['sd'];
+        if ((int) ($sd['id_category'] ?? 0) <= 0) {
+            return 0;
+        }
+
+        $fingerprint = (string) json_encode($sd);
+        $variants = !empty($sd['randomized']) ? HbEditorCarouselCache::variants() : 1;
+
+        $built = 0;
+        for ($variant = 0; $variant < $variants; ++$variant) {
+            $html = HbEditorCarouselCache::detokenize($this->buildProductsCarousel($sd));
+            if (!$this->hbeCarouselIsCacheable($html)) {
+                continue;
+            }
+            if (HbEditorCarouselCache::set(HbEditorCarouselCache::fileForBlock($idBlock, $fingerprint, $variant), $html)) {
+                ++$built;
+            }
+        }
+
+        return $built;
+    }
+
+    /**
+     * Czy wyrenderowany HTML nadaje sie do utrwalenia.
+     *
+     * Pusty wynik jest w porzadku — kategoria bez produktow nie ma czego pokazac.
+     * Odrzucamy natomiast render urwany w polowie (fatal w trakcie skladania
+     * szablonu): bez tego jeden zly render zamrozilby polowe sekcji w cache na
+     * cala dobe.
+     */
+    private function hbeCarouselIsCacheable(string $html): bool
+    {
+        if (trim($html) === '') {
+            return true;
+        }
+
+        return strpos($html, '</section>') !== false;
+    }
+
     private function renderSectionBlock(array $block): string
     {
         if (!(int) $block['active']) {
@@ -2577,6 +3045,13 @@ class Hummingbird_editor extends Module
                     'hbe_infobar_color'     => $sd['color'] ?? '#ffffff',
                 ]);
                 return $this->display(__FILE__, 'views/templates/hook/infobar.tpl');
+
+            case HbEditorBlock::STYPE_PRODUCTS:
+                // Karuzela produktow z kategorii — funkcjonalnosc przeniesiona z modulu multislider.
+                // Dane: id_category / number / randomized w section_data, tytul per jezyk w section_data['langs'].
+                // Wlasciwe renderowanie (i cache) siedzi w renderProductsCarousel(),
+                // bo siega po nie takze endpoint doladowywania przy scrollu.
+                return $this->renderProductsCarousel((int) ($block['id_block'] ?? 0), $sd);
 
             case HbEditorBlock::STYPE_IMGHERO:
                 $imgFile    = $sd['image']        ?? '';

@@ -59,7 +59,8 @@
         {* ── Section data edit panel (for cloned sections) ──────────────── *}
         {if $block.section_type}
         <div id="hbe-edit-panel-{$block.id_block}" class="hbe-edit-panel hbe-section-panel" style="display:none">
-          <form class="hbe-section-edit-form" data-id="{$block.id_block}" autocomplete="off">
+          <form class="hbe-section-edit-form" data-id="{$block.id_block}"
+                data-section-type="{$block.section_type|escape:'html':'UTF-8'}" autocomplete="off">
             <input type="hidden" name="token" value="{$hbe_token}">
             <input type="hidden" name="id_block" value="{$block.id_block}">
             <div class="row hbe-edit-general" style="margin-bottom:12px">
@@ -73,17 +74,72 @@
               <div class="col-md-9">
                 <div class="alert alert-info" style="margin:0;padding:8px 12px;font-size:0.85em">
                   <i class="icon-info-sign"></i>
-                  {l s='Zduplikowana sekcja. Edytuj dane JSON poniżej.' mod='hummingbird_editor'}
+                  {if $block.section_type == 'products'}
+                    {l s='Karuzela produktów z kategorii. Pola poniżej składają się w dane sekcji przy zapisie.' mod='hummingbird_editor'}
+                  {else}
+                    {l s='Zduplikowana sekcja. Edytuj dane JSON poniżej.' mod='hummingbird_editor'}
+                  {/if}
                   Typ: <code>{$block.section_type|escape:'html':'UTF-8'}</code>
                 </div>
               </div>
             </div>
+
+            {if $block.section_type == 'products' && isset($block.products_cfg)}
+            {* ── Karuzela produktowa: zwykły formularz zamiast surowego JSON-a ── *}
+            {* Oryginał wędruje z formularzem, żeby zapis nie gubił kluczy, których
+               formularz nie pokazuje (np. "zrodlo" po migracji z multislidera). *}
+            <input type="hidden" name="pc_original"
+                   value="{$block.section_data|default:'{}'|escape:'html':'UTF-8'}">
+            <div class="hbe-products-cfg">
+              <div class="row">
+                <div class="col-md-5 form-group">
+                  <label>{l s='Kategoria źródłowa' mod='hummingbird_editor'}</label>
+                  <select name="pc_id_category" class="form-control">
+                    <option value="0">{l s='— wybierz kategorię —' mod='hummingbird_editor'}</option>
+                    {foreach from=$hbe_all_categories item=cat}
+                      <option value="{$cat.id_category|intval}"
+                        {if (int)$cat.id_category == $block.products_cfg.id_category}selected{/if}>
+                        {$cat.name|escape:'html':'UTF-8'} (#{$cat.id_category|intval})
+                      </option>
+                    {/foreach}
+                  </select>
+                </div>
+                <div class="col-md-3 form-group">
+                  <label>{l s='Ile produktów' mod='hummingbird_editor'}</label>
+                  <input type="number" name="pc_number" class="form-control" min="1" max="24"
+                         value="{$block.products_cfg.number|intval}">
+                  <p class="help-block" style="margin:2px 0 0">{l s='Widoczne 3 naraz, reszta pod przewijaniem.' mod='hummingbird_editor'}</p>
+                </div>
+                <div class="col-md-4 form-group">
+                  <label>{l s='Kolejność' mod='hummingbird_editor'}</label>
+                  <div class="checkbox"><label>
+                    <input type="checkbox" name="pc_randomized" value="1"
+                           {if $block.products_cfg.randomized}checked{/if}>
+                    {l s='Losowa (zamiast od najnowszych)' mod='hummingbird_editor'}
+                  </label></div>
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 form-group">
+                  <label>{l s='Tytuł sekcji' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='pc_title' values=$block.products_cfg.title placeholder="{l s='np. Kaszmir i wełna' mod='hummingbird_editor'}"}
+                </div>
+                <div class="col-md-6 form-group">
+                  <label>{l s='Tekst pod tytułem (opcjonalny)' mod='hummingbird_editor'}</label>
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='pc_text' values=$block.products_cfg.text type='textarea' rows=3 placeholder="{l s='Krótki opis tej grupy produktów' mod='hummingbird_editor'}"}
+                  <p class="help-block" style="margin:2px 0 0">{l s='Puste pole = sekcja bez tekstu.' mod='hummingbird_editor'}</p>
+                </div>
+              </div>
+            </div>
+            {else}
             <div class="form-group">
               <label>{l s='Dane sekcji (JSON)' mod='hummingbird_editor'}</label>
               <textarea name="section_data" class="form-control hbe-code-editor" rows="12"
                         style="font-family:monospace;font-size:12px"
               >{$block.section_data|default:'{}'|escape:'html':'UTF-8'}</textarea>
             </div>
+            {/if}
             {if $hbe_all_shops|count > 1}
             <div class="hbe-shops-section form-group">
               <label>{l s='Visible in shops' mod='hummingbird_editor'}</label>
@@ -91,7 +147,7 @@
                 {foreach from=$hbe_all_shops item=shop}
                 <label class="hbe-shop-label">
                   <input type="checkbox" name="shop_ids[]" value="{$shop.id_shop}"
-                         {if in_array($shop.id_shop, $block.shop_ids)}checked{/if}>
+                         {if in_array($shop.id_shop, $block.shop_ids|default:[])}checked{/if}>
                   {$shop.name|escape:'html':'UTF-8'}
                 </label>
                 {/foreach}
@@ -332,7 +388,7 @@
                 {foreach from=$hbe_all_shops item=shop}
                 <label class="hbe-shop-label">
                   <input type="checkbox" name="shop_ids[]" value="{$shop.id_shop}"
-                         {if in_array($shop.id_shop, $block.shop_ids)}checked{/if}>
+                         {if in_array($shop.id_shop, $block.shop_ids|default:[])}checked{/if}>
                   {$shop.name|escape:'html':'UTF-8'}
                 </label>
                 {/foreach}

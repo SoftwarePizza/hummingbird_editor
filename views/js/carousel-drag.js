@@ -1,6 +1,9 @@
 /**
  * Hummingbird Editor — drag-to-scroll + arrow nav for product carousels.
  * Targets: .ps-bestsellers .module-products__carousel .products
+ *
+ * Exposes window.hbeInitCarousel(section) so carousel-lazy.js can wire up the
+ * sections it injects after page load — this file only sweeps the DOM once.
  */
 (function () {
     'use strict';
@@ -100,8 +103,18 @@
     }
 
     function initAll() {
-        document.querySelectorAll('.ps-bestsellers, .ps-newproducts, .ps-featuredproducts').forEach(initCarousel);
+        document.querySelectorAll(
+            '.ps-bestsellers, .ps-newproducts, .ps-featuredproducts, .hbe-products'
+        ).forEach(initCarousel);
     }
+
+    // Sekcje doladowane po starcie strony (carousel-lazy.js) nie zostaly objete
+    // powyzszym przejsciem po DOM — dostaja obsluge tedy.
+    window.hbeInitCarousel = function (section) {
+        if (section && section.nodeType === 1) {
+            initCarousel(section);
+        }
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initAll);
