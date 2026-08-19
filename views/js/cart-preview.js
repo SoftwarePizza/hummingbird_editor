@@ -77,6 +77,12 @@
    * Show the new quantity immediately. Anything derived from it (prices, cart
    * total, free-shipping bar) is left to the server render, and so is a
    * decrease down to zero, which removes the line altogether.
+   *
+   * Fabric sold by the metre (pproperties) is skipped on purpose: its quantity
+   * link carries a step (&qty=0.2) and the rendered value is not a plain number
+   * but the module's own wording — "1,6 m" or even "2 x 0,8 m". Counting that in
+   * the browser flashed a piece count where metres belong, so those lines wait
+   * for the server render instead.
    */
   function bumpQuantity(link) {
     var op = link.getAttribute('data-ps-qty-op');
@@ -86,13 +92,27 @@
       return;
     }
 
+    if (/[?&]qty=/.test(link.getAttribute('href') || '')) {
+      group.setAttribute('data-ps-state', 'pending');
+
+      return;
+    }
+
     var value = group.querySelector(QTY_VALUE_SELECTOR);
 
     if (!value) {
       return;
     }
 
-    var current = parseInt(value.textContent, 10);
+    var shown = value.textContent.trim();
+
+    if (!/^\d+$/.test(shown)) {
+      group.setAttribute('data-ps-state', 'pending');
+
+      return;
+    }
+
+    var current = parseInt(shown, 10);
 
     if (isNaN(current) || (op === 'down' && current <= 1)) {
       return;

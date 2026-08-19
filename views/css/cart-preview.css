@@ -214,6 +214,14 @@
   transition: opacity 0.15s ease-out;
 }
 
+/* Quantities the browser cannot count on its own — fabric sold by the metre,
+   where the value reads "1,6 m" or "2 x 0,8 m" — wait for the server render.
+   Dimming the number is the only feedback such a click gets. */
+[data-ps-ref="cart-preview-qty"][data-ps-state="pending"] .cart-preview-product__qty-value {
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out;
+}
+
 .cart-preview-product__remove {
   font-size: var(--fs-body-s);
   color: var(--bs-secondary-color, #6b6b6b);
