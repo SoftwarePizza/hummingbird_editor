@@ -1,0 +1,611 @@
+/* Hummingbird Editor — kasa (kontroler `order`): kroki „Przesyłka" i „Płatność"
+   oraz podsumowanie zamówienia.
+
+   Ładowany na każdej stronie kasy, bo niesie dwie różne rzeczy:
+
+   1. BRAMKĘ trybu jednostronicowego. Motyw (hummingbird-elegant) miał w
+      `pages/_checkout.scss` regułę pokazującą wszystkie kroki naraz:
+          .step.step--reachable.collapse,
+          .step.step--complete.collapse { display: block }
+      Trzy klasy specyficzności — celowo bije bootstrapowe
+      `.collapse:not(.show){display:none}`. Efektem był stos otwartych kroków
+      („Dane osobowe" + „Adresy" + „Przesyłka" jeden pod drugim), czyli wygląd
+      pisany pod jednostronicową kasę, której na tym sklepie nie ma.
+      Reguła wróciła tu jako opcja: włącza ją klasa `checkout-grid--onepage`,
+      a bez niej sekcja niżej wygasza to, co zostało w zbudowanym theme.css.
+
+   2. SKÓRKĘ kroków — wszystko pod `.checkout-grid--skin`. Obie klasy dokłada
+      `templates/checkout/checkout.tpl` z konfiguracji modułu (zakładka „Kasa"),
+      więc sklep bez włączonych przełączników dostaje czystego Hummingbirda.
+
+   Kolory biorę ze zmiennych motywu z fallbackami — arkusz działa też tam,
+   gdzie motyw ich nie definiuje. */
+
+/* ══ 1. Bramka trybu jednostronicowego ══════════════════════════════════ */
+
+/* Wyłączone (domyślnie): kroki niebieżące chowamy z powrotem. Cztery klasy
+   + :not() — musi wygrać z regułą wkompilowaną w theme.css sklepów, które
+   nie mają jeszcze przebudowanego motywu. */
+.checkout-grid:not(.checkout-grid--onepage) .step.step--reachable.collapse:not(.show),
+.checkout-grid:not(.checkout-grid--onepage) .step.step--complete.collapse:not(.show) {
+  display: none;
+}
+
+/* Włączone: ukończone i osiągalne kroki zostają widoczne pod bieżącym. */
+.checkout-grid--onepage .step.step--reachable.collapse,
+.checkout-grid--onepage .step.step--complete.collapse {
+  display: block;
+}
+
+/* ══ 2. Skórka — zmienne ════════════════════════════════════════════════ */
+
+.checkout-grid--skin {
+  --hbe-co-ink: var(--c-black, #242424);
+  --hbe-co-muted: var(--c-grey-5, #5a5a5a);
+  --hbe-co-line: var(--c-grey-2, #e5e5e5);
+  --hbe-co-soft: var(--c-grey-1, #f5f5f5);
+  --hbe-co-sel: var(--c-beige, #f5f1ea);
+  --hbe-co-bg: var(--c-white, #fff);
+  --hbe-co-pad: 1.125rem;
+  /* Wcięcie treści pod etykietą z radiem: pole + odstęp + padding wiersza. */
+  --hbe-co-indent: 3rem;
+}
+
+/* ══ 3. Nagłówki kroków ═════════════════════════════════════════════════ */
+
+.checkout-grid--skin .step {
+  margin-block-end: 2.5rem;
+}
+
+.checkout-grid--skin .step__title .page-title-section {
+  margin-block-end: 0;
+  font-size: 1.75rem;
+  line-height: 1.15;
+}
+
+.checkout-grid--skin .step__title hr {
+  margin-block: 0.875rem 1.75rem;
+  border: 0;
+  border-block-start: 1px solid var(--hbe-co-line);
+  opacity: 1;
+}
+
+/* W trybie jednostronicowym kroki już zamknięte są tylko podsumowaniem tego,
+   co klient wybrał — nie mogą krzyczeć tak samo jak krok bieżący. */
+.checkout-grid--skin.checkout-grid--onepage .step:not(.step--current) .step__title .page-title-section {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--hbe-co-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ══ 4. Pola wyboru ═════════════════════════════════════════════════════ */
+
+.checkout-grid--skin .delivery-option__check .form-check-input,
+.checkout-grid--skin .payment-option__form-check > .form-check-input {
+  flex: 0 0 auto;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border-color: #b0b0b0;
+}
+
+.checkout-grid--skin .form-check-input:checked {
+  background-color: var(--hbe-co-ink);
+  border-color: var(--hbe-co-ink);
+}
+
+.checkout-grid--skin .form-check-input:focus {
+  border-color: var(--hbe-co-ink);
+  box-shadow: 0 0 0 0.2rem rgba(36, 36, 36, 0.15);
+}
+
+/* ══ 5. Krok „Przesyłka" ════════════════════════════════════════════════ */
+
+.checkout-grid--skin .delivery-options__list {
+  margin-block-end: 1.75rem;
+  border: 1px solid var(--hbe-co-line);
+}
+
+/* Motyw malował wiersze na --bs-tertiary-bg, więc lista wyglądała jak stos
+   szarych klocków. Biel + hairline czyta się jak wybór, nie jak tło. */
+.checkout-grid--skin .delivery-option__item {
+  background-color: var(--hbe-co-bg);
+  border-block-end: 1px solid var(--hbe-co-line);
+  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.checkout-grid--skin .delivery-options__list > .delivery-option__item:last-child {
+  border-block-end: 0;
+}
+
+.checkout-grid--skin .delivery-option__item:hover {
+  background-color: var(--hbe-co-soft);
+}
+
+.checkout-grid--skin .delivery-option__item:has(input:checked) {
+  background-color: var(--hbe-co-sel);
+  box-shadow: inset 0.1875rem 0 0 0 var(--hbe-co-ink);
+}
+
+.checkout-grid--skin .delivery-option__label {
+  gap: 0.5rem 1rem;
+  align-items: center;
+  padding: 1rem var(--hbe-co-pad);
+}
+
+.checkout-grid--skin .delivery-option__left {
+  gap: 0.75rem;
+}
+
+.checkout-grid--skin .delivery-option__carrier {
+  gap: 0.75rem;
+}
+
+/* Logotypy przewoźników są poziomymi plakietkami (InPost, DPD), więc kwadrat
+   4×4rem z motywu zostawiał wokół nich pustkę. Kadr poziomy + `contain`. */
+.checkout-grid--skin .delivery-option__carrier-logo {
+  width: 3.25rem;
+  height: 2.25rem;
+  padding: 0.125rem;
+  aspect-ratio: auto;
+  object-fit: contain;
+  background-color: var(--hbe-co-bg);
+  border: 1px solid var(--hbe-co-line);
+  border-radius: 0;
+}
+
+.checkout-grid--skin .delivery-option__carrier-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.checkout-grid--skin .delivery-option__content {
+  font-size: 0.875rem;
+  color: var(--hbe-co-muted);
+}
+
+.checkout-grid--skin .delivery-option__price {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Treść dodatkowa przewoźnika (widżet Paczkomatu, dane kontaktowe). */
+.checkout-grid--skin .delivery-option__extra-content {
+  padding-inline: var(--hbe-co-pad);
+}
+
+.checkout-grid--skin .delivery-option__extra[data-active] .delivery-option__extra-content {
+  padding-block: 0.25rem 1.125rem;
+}
+
+/* InPost wstawia swój panel we własnej siatce Bootstrapa z offsetami
+   (`col-md-5 offset-md-7`), przez co blok „Twoje dane" wisiał przyklejony do
+   prawej krawędzi wiersza, oderwany od przewoźnika, którego dotyczy. */
+.checkout-grid--skin .delivery-option__extra-content .inpost-shipping-container > .row > [class*="col-"] {
+  flex: 1 1 100%;
+  max-width: 100%;
+  margin-inline: 0;
+}
+
+.checkout-grid--skin .inpost-shipping-machine-customer-info,
+.checkout-grid--skin .inpost-shipping-machine-info:not(.hidden) {
+  padding: 0.75rem 0.875rem;
+  margin-block-start: 0.75rem;
+  font-size: 0.875rem;
+  background-color: var(--hbe-co-bg);
+  border: 1px solid var(--hbe-co-line);
+}
+
+.checkout-grid--skin .inpost-shipping-subheader {
+  margin-block-end: 0.25rem;
+  font-weight: 600;
+}
+
+.checkout-grid--skin .inpost-shipping-customer,
+.checkout-grid--skin .inpost-shipping-machine-address {
+  margin-block-end: 0.125rem;
+  color: var(--hbe-co-muted);
+}
+
+.checkout-grid--skin .inpost-shipping-label,
+.checkout-grid--skin .inpost-shipping-machine-name {
+  color: var(--hbe-co-ink);
+}
+
+.checkout-grid--skin .inpost-shipping-customer-change-wrapper {
+  margin-block-end: 0;
+}
+
+.checkout-grid--skin .inpost-shipping-customer-change {
+  font-size: 0.8125rem;
+  color: var(--hbe-co-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.checkout-grid--skin .inpost-shipping-button {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: var(--hbe-co-bg);
+  background-color: var(--hbe-co-ink);
+  border: 1px solid var(--hbe-co-ink);
+  border-radius: 0;
+}
+
+.checkout-grid--skin .inpost-shipping-button:hover {
+  color: var(--hbe-co-ink);
+  background-color: transparent;
+}
+
+/* Komentarz do zamówienia i opcje prezentu. */
+.checkout-grid--skin .order-options {
+  margin-block-end: 1.5rem;
+}
+
+.checkout-grid--skin .order-options .form-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.checkout-grid--skin #delivery_message {
+  min-height: 4.5rem;
+  border-radius: 0;
+}
+
+/* ══ 6. Krok „Płatność" ═════════════════════════════════════════════════ */
+
+/* Motyw dawał tu siatkę z odstępem 0.5rem — po zamknięciu listy w ramkę
+   odstęp rozbijałby wiersze na osobne kartki. */
+.checkout-grid--skin .payment-options__list {
+  gap: 0;
+  margin-block-end: 1.5rem;
+  border: 1px solid var(--hbe-co-line);
+}
+
+.checkout-grid--skin .payment-option {
+  border-block-end: 1px solid var(--hbe-co-line);
+  transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.checkout-grid--skin .payment-options__list > .payment-option:last-child {
+  border-block-end: 0;
+}
+
+.checkout-grid--skin .payment-option:hover {
+  background-color: var(--hbe-co-soft);
+}
+
+.checkout-grid--skin .payment-option:has(.payment-option__input:checked) {
+  background-color: var(--hbe-co-sel);
+  box-shadow: inset 0.1875rem 0 0 0 var(--hbe-co-ink);
+}
+
+.checkout-grid--skin .payment-option__form-check {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 3.5rem;
+  padding: 0.875rem var(--hbe-co-pad);
+  margin: 0;
+}
+
+.checkout-grid--skin .payment-option__label {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--hbe-co-ink);
+  cursor: pointer;
+}
+
+/* Logotypy bramek przychodzą w bardzo różnych rozmiarach (Przelewy24 wjeżdżał
+   na dwa wiersze tekstu). Wspólna wysokość porządkuje kolumnę. */
+.checkout-grid--skin .payment-option__label img {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 7rem;
+  max-height: 1.5rem;
+  object-fit: contain;
+}
+
+.checkout-grid--skin .payment-option__additional-information {
+  padding: 0 var(--hbe-co-pad) 1rem var(--hbe-co-indent);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--hbe-co-muted);
+}
+
+.checkout-grid--skin .payment-option__additional-information > :last-child {
+  margin-block-end: 0;
+}
+
+.checkout-grid--skin .payment-option .js-payment-option-form {
+  padding-inline: var(--hbe-co-indent) var(--hbe-co-pad);
+}
+
+.checkout-grid--skin .payment-option__free,
+.checkout-grid--skin .payment-options__updated {
+  padding: 0.75rem var(--hbe-co-pad);
+  margin-block-end: 1rem;
+  background-color: var(--hbe-co-soft);
+  border-inline-start: 0.1875rem solid var(--hbe-co-ink);
+}
+
+/* ══ 7. Zgody (regulamin) ═══════════════════════════════════════════════ */
+
+.checkout-grid--skin #conditions-to-approve {
+  padding: 1rem var(--hbe-co-pad);
+  margin-block: 1.5rem 1rem;
+  background-color: var(--hbe-co-soft);
+  border: 1px solid var(--hbe-co-line);
+}
+
+.checkout-grid--skin #conditions-to-approve .form-check {
+  margin: 0;
+  padding-inline-start: 1.875rem;
+}
+
+.checkout-grid--skin #conditions-to-approve .form-check + .form-check {
+  margin-block-start: 0.625rem;
+}
+
+.checkout-grid--skin #conditions-to-approve .form-check-input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-block-start: 0.1875rem;
+  margin-inline-start: -1.875rem;
+  border-color: #b0b0b0;
+}
+
+.checkout-grid--skin #conditions-to-approve .form-check-label {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--hbe-co-ink);
+  cursor: pointer;
+}
+
+/* ══ 8. Podsumowanie przed płatnością ═══════════════════════════════════ */
+
+.checkout-grid--skin .final-summary {
+  margin-block-start: 0.5rem;
+}
+
+.checkout-grid--skin .final-summary > .h2 {
+  margin-block-end: 0.25rem;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.checkout-grid--skin .final-summary__header {
+  padding-block-end: 0.5rem;
+  margin-block: 2rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--hbe-co-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-block-end: 1px solid var(--hbe-co-line);
+}
+
+.checkout-grid--skin .final-summary__header .btn {
+  flex: 0 0 auto;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* Adresy */
+.checkout-grid--skin .final-summary .address-card__container {
+  height: 100%;
+  padding: 1rem var(--hbe-co-pad);
+  border: 1px solid var(--hbe-co-line);
+  border-radius: 0;
+}
+
+.checkout-grid--skin .final-summary .address-card__alias {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.checkout-grid--skin .final-summary .address-card__content {
+  margin-block: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-style: normal;
+  line-height: 1.6;
+  color: var(--hbe-co-muted);
+}
+
+.checkout-grid--skin .final-summary .address-card__actions {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8125rem;
+}
+
+/* Sposób dostawy — tabela siatkowa motywu bez własnej ramki wyglądała jak
+   luźne linie tekstu. */
+.checkout-grid--skin .final-summary .grid-table__row,
+.checkout-grid--skin .final-summary .grid-table__header {
+  padding-inline: var(--hbe-co-pad);
+}
+
+.checkout-grid--skin .final-summary .grid-table__header {
+  font-size: 0.8125rem;
+  color: var(--hbe-co-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.checkout-grid--skin .final-summary .grid-table__row {
+  padding-block: 0.875rem;
+  border: 1px solid var(--hbe-co-line);
+  border-radius: 0;
+}
+
+.checkout-grid--skin .final-summary .grid-table__cell {
+  font-size: 0.9375rem;
+}
+
+/* Pozycje zamówienia */
+.checkout-grid--skin .final-summary__order-table {
+  border: 1px solid var(--hbe-co-line) !important;
+  border-radius: 0;
+}
+
+.checkout-grid--skin .final-summary__order-table .card-body {
+  padding: var(--hbe-co-pad);
+}
+
+/* 8rem miniatura z motywu zjadała połowę wiersza i spychała cenę na dół. */
+.checkout-grid--skin .final-summary .order-confirmation__product-img {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 0;
+}
+
+.checkout-grid--skin .final-summary .order-confirmation__product-title {
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.checkout-grid--skin .final-summary .order-confirmation__product-reference,
+.checkout-grid--skin .final-summary .order-confirmation__product-attribute {
+  font-size: 0.8125rem;
+  color: var(--hbe-co-muted);
+}
+
+/* Cena jednostkowa ma nie konkurować z wartością pozycji po prawej. */
+.checkout-grid--skin .final-summary .order-confirmation__product-price {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--hbe-co-muted);
+}
+
+.checkout-grid--skin .final-summary .order-confirmation__product-total {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-grid--skin .final-summary .order-confirmation__line {
+  padding-block: 0.3125rem;
+  font-size: 0.9375rem;
+}
+
+.checkout-grid--skin .final-summary .order-confirmation__line-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-grid--skin .final-summary .order-confirmation__totals .order-confirmation__line:first-child {
+  font-size: 1.0625rem;
+}
+
+.checkout-grid--skin .final-summary .order-confirmation__table > hr {
+  margin-block: 0.875rem;
+  border-block-start: 1px solid var(--hbe-co-line);
+  opacity: 1;
+}
+
+/* ══ 9. Kolumna z podsumowaniem koszyka (prawa) ═════════════════════════ */
+
+/* Podsumowanie i kod rabatowy stają się jednym panelem. Ramkę bierze
+   #js-checkout-summary, a nie jego rodzic, bo na wąskim ekranie panel jest
+   zwijany — obramowany rodzic zostawiałby pod nagłówkiem pustą ramkę. */
+.checkout-grid--skin #js-checkout-summary {
+  padding: var(--hbe-co-pad);
+  background-color: var(--hbe-co-bg);
+  border: 1px solid var(--hbe-co-line);
+}
+
+.checkout-grid--skin #js-checkout-summary .cart-summary__card--promo {
+  padding: 1rem 0 0;
+  margin-block-start: 0.25rem;
+  background-color: transparent;
+  border: 0;
+  border-block-start: 1px solid var(--hbe-co-line);
+}
+
+.checkout-grid--skin .cart-summary__line {
+  padding-block: 0.25rem;
+  font-size: 0.9375rem;
+}
+
+.checkout-grid--skin .cart-summary__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout-grid--skin .cart-summary__total {
+  padding-block-start: 0.75rem;
+  margin-block-start: 0.75rem;
+  border-block-start: 1px solid var(--hbe-co-line);
+}
+
+.checkout-grid--skin .cart-summary__total .cart-summary__line--bold:first-child {
+  font-size: 1.0625rem;
+}
+
+.checkout-grid--skin .cart-voucher__form .form-control {
+  border-radius: 0;
+}
+
+.checkout-grid--skin .cart-voucher__offers {
+  font-size: 0.8125rem;
+  color: var(--hbe-co-muted);
+}
+
+/* ══ 10. Przyciski kroków ═══════════════════════════════════════════════ */
+
+.checkout-grid--skin .buttons-wrapper {
+  margin-block-start: 1.5rem;
+}
+
+.checkout-grid--skin .js-alert-payment-conditions {
+  border-radius: 0;
+}
+
+/* ══ 11. Warianty szerokości ════════════════════════════════════════════ */
+
+@media (min-width: 576px) {
+  .checkout-grid--skin .step__title .page-title-section {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .checkout-grid--skin {
+    --hbe-co-pad: 0.875rem;
+    --hbe-co-indent: 0.875rem;
+  }
+
+  /* Na wąskim ekranie etykieta przewoźnika zawija się na trzy linie; cena
+     ma zostać w jednym rzędzie z nazwą, a nie lądować pod opisem. */
+  .checkout-grid--skin .delivery-option__label {
+    row-gap: 0.375rem;
+  }
+
+  .checkout-grid--skin .delivery-option__content,
+  .checkout-grid--skin .delivery-option__price {
+    flex-basis: auto;
+  }
+
+  .checkout-grid--skin .delivery-option__price {
+    margin-inline-start: auto;
+  }
+
+  .checkout-grid--skin .final-summary .order-confirmation__product-img {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .checkout-grid--skin .delivery-option__carrier-logo {
+    width: 3.75rem;
+    height: 2.5rem;
+  }
+}

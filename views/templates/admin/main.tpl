@@ -107,6 +107,9 @@
       <a href="#hbe-tab-cart" data-toggle="tab" role="tab"><i class="icon-shopping-cart"></i> {l s='Koszyk' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-checkout" data-toggle="tab" role="tab"><i class="icon-credit-card"></i> {l s='Kasa' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-productcard" data-toggle="tab" role="tab"><i class="icon-tag"></i> {l s='Karta produktu' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
@@ -1530,6 +1533,71 @@
       </div>
 
     </div>{* /tab-cart *}
+
+    {* ═══════════════════════════════════════════════════════════════════════
+       Tab — Kasa (kroki zamówienia)
+    ═══════════════════════════════════════════════════════════════════════ *}
+    <div id="hbe-tab-checkout" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-checkout">
+          <h4 class="panel-title clearfix">
+            {l s='Kroki zamówienia' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-checkout" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="help-block">
+              {l s='Ustawienia dotyczą wbudowanej kasy PrestaShopa (kroki „Przesyłka”, „Płatność”, podsumowanie). Wszystkie są domyślnie wyłączone — sklep bez nich wygląda dokładnie tak, jak daje motyw. Jeśli zamówienie obsługuje osobny moduł kasy (np. jednostronicowa), te przełączniki go nie dotyczą.' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-checkout-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <table class="table">
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>{l s='Nowy wygląd kroków kasy' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">
+                        {l s='Lista przewoźników i metod płatności jako wiersze w jednej ramce, z zaznaczeniem wybranej opcji, uporządkowanymi logotypami i czytelnym podsumowaniem przed płatnością.' mod='hummingbird_editor'}
+                      </div>
+                    </td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="checkout_skin" value="1" {if $hbe_checkout_skin}checked{/if}>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Ukończone kroki widoczne pod bieżącym' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">
+                        {l s='Kasa przestaje chować kroki, które klient ma już za sobą — „Dane osobowe”, „Adresy” i „Przesyłka” zostają otwarte jeden pod drugim. Ma sens tylko przy kasie pomyślanej jako jedna strona; przy zwykłej kasie krokowej robi się z tego długa lista sekcji.' mod='hummingbird_editor'}
+                      </div>
+                    </td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="checkout_onepage" value="1" {if $hbe_checkout_onepage}checked{/if}>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Zgody tuż nad przyciskiem „Złóż zamówienie”' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">
+                        {l s='Akceptacja regulaminu przenosi się spod listy metod płatności na sam dół — pod podsumowanie zamówienia, bezpośrednio nad przycisk. Klient zaznacza zgodę tam, gdzie ją zatwierdza.' mod='hummingbird_editor'}
+                      </div>
+                    </td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="checkout_terms_bottom" value="1" {if $hbe_checkout_terms_bottom}checked{/if}>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>{* /tab-checkout *}
 
     {* ═══════════════════════════════════════════════════════════════════════
        Tab — Karta produktu

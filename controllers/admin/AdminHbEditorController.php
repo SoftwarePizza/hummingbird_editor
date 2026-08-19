@@ -384,6 +384,10 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_care_text'              => (string) Configuration::get('HBE_CARE_TEXT'),
             'hbe_care_button'            => (string) Configuration::get('HBE_CARE_BUTTON'),
             'hbe_care_login_required'    => (int) Configuration::get('HBE_CARE_LOGIN_REQUIRED'),
+            // Kasa (krok dostawy / płatności / podsumowanie)
+            'hbe_checkout_skin'          => (int) HbEditorConfig::get(Hummingbird_editor::CONF_CHECKOUT_SKIN),
+            'hbe_checkout_onepage'       => (int) HbEditorConfig::get(Hummingbird_editor::CONF_CHECKOUT_ONEPAGE),
+            'hbe_checkout_terms_bottom'  => (int) HbEditorConfig::get(Hummingbird_editor::CONF_CHECKOUT_TERMS_BOTTOM),
             // Image hero banner
             'hbe_imghero_enabled'  => (int) Configuration::get('HBE_IMGHERO_ENABLED'),
             'hbe_imghero_image'    => (string) Configuration::get('HBE_IMGHERO_IMAGE'),
@@ -2149,6 +2153,20 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_CARE_TEXT', (string) Tools::getValue('care_text', ''));
         Configuration::updateValue('HBE_CARE_BUTTON', trim((string) Tools::getValue('care_button', '')));
         Configuration::updateValue('HBE_CARE_LOGIN_REQUIRED', (int) Tools::getValue('care_login_required', 0));
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Saves the checkout toggles. All three are read on the `order` page:
+     * two become modifier classes on `.checkout-grid` (skin + one-page), the
+     * third moves the terms checkboxes down to the Place Order button.
+     */
+    public function ajaxProcessSaveCheckoutSettings(): void
+    {
+        HbEditorConfig::set(Hummingbird_editor::CONF_CHECKOUT_SKIN, (int) Tools::getValue('checkout_skin', 0));
+        HbEditorConfig::set(Hummingbird_editor::CONF_CHECKOUT_ONEPAGE, (int) Tools::getValue('checkout_onepage', 0));
+        HbEditorConfig::set(Hummingbird_editor::CONF_CHECKOUT_TERMS_BOTTOM, (int) Tools::getValue('checkout_terms_bottom', 0));
 
         $this->hbeAjaxDie(json_encode(['success' => true]));
     }

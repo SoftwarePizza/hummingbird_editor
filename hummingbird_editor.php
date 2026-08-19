@@ -69,6 +69,27 @@ class Hummingbird_editor extends Module
     public const FREE_SHIPPING_MODE_OFF    = 'off';
 
     /**
+     * Kasa — przelaczniki zakladki "Kasa".
+     *
+     * Wszystkie domyslnie wylaczone (brak klucza = 0), bo kazdy z nich zmienia
+     * wyglad albo kolejnosc kroku zamowienia, a tego samego modulu uzywaja
+     * sklepy z wlasnymi kasami. Sklep, ktory nic nie wlaczy, dostaje kase
+     * dokladnie taka, jaka daje motyw.
+     *
+     *  SKIN         — nowy wyglad krokow "Przesylka" i "Platnosc" oraz
+     *                 podsumowania (views/css/checkout.css).
+     *  ONEPAGE      — ukonczone kroki zostaja widoczne pod biezacym. To jest
+     *                 dawna regula z pages/_checkout.scss motywu, przeniesiona
+     *                 tutaj: pisana byla pod jednostronicowa kase i na sklepie
+     *                 bez niej robila stos otwartych sekcji.
+     *  TERMS_BOTTOM — zgody (regulamin) tuz nad przyciskiem "Zloz zamowienie",
+     *                 zamiast pod lista metod platnosci.
+     */
+    public const CONF_CHECKOUT_SKIN         = 'HBE_CHECKOUT_SKIN';
+    public const CONF_CHECKOUT_ONEPAGE      = 'HBE_CHECKOUT_ONEPAGE';
+    public const CONF_CHECKOUT_TERMS_BOTTOM = 'HBE_CHECKOUT_TERMS_BOTTOM';
+
+    /**
      * Wyglad miniatury produktu (kafla) — jedno miejsce na cala witryne.
      *
      * Motyw trzyma zdjecie miniatury w 40 px paddingu, karuzele skleja bez
@@ -667,6 +688,9 @@ class Hummingbird_editor extends Module
             Configuration::deleteByName($k);
         }
         Configuration::deleteByName('HBE_PRODUCT_SUMMARY_SOURCE');
+        foreach ([self::CONF_CHECKOUT_SKIN, self::CONF_CHECKOUT_ONEPAGE, self::CONF_CHECKOUT_TERMS_BOTTOM] as $k) {
+            Configuration::deleteByName($k);
+        }
         foreach ([
             'HBE_GIFTCARD_MENU_ENABLED', 'HBE_GIFTCARD_MENU_LABEL',
             'HBE_GIFTCARD_FOOTER_ENABLED', 'HBE_GIFTCARD_FOOTER_LABEL', 'HBE_GIFTCARD_FOOTER_DESC',
@@ -1185,6 +1209,26 @@ class Hummingbird_editor extends Module
                 'modules/' . $this->name . '/views/css/listing.css',
                 ['media' => 'all', 'priority' => 200]
             );
+        }
+
+        if ($page === 'order') {
+            // Arkusz kasy leci na kazda strone `order`, nie tylko przy wlaczonej
+            // skorce: niesie tez bramke, ktora wygasza wkompilowana w theme.css
+            // regule "pokaz wszystkie kroki naraz". Bez niego sklep z gotowym
+            // motywem zostalby z ta regula na stale.
+            $this->context->controller->registerStylesheet(
+                'hb-editor-checkout',
+                'modules/' . $this->name . '/views/css/checkout.css',
+                ['media' => 'all', 'priority' => 200]
+            );
+
+            // Przelaczniki zakladki "Kasa" — czyta je checkout/checkout.tpl
+            // (klasy modyfikujace na .checkout-grid) i steps/payment.tpl.
+            $this->context->smarty->assign([
+                'hbe_checkout_skin'         => (int) HbEditorConfig::get(self::CONF_CHECKOUT_SKIN),
+                'hbe_checkout_onepage'      => (int) HbEditorConfig::get(self::CONF_CHECKOUT_ONEPAGE),
+                'hbe_checkout_terms_bottom' => (int) HbEditorConfig::get(self::CONF_CHECKOUT_TERMS_BOTTOM),
+            ]);
         }
 
         // Carousel section header vars — consumed by the theme overrides of

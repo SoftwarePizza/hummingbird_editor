@@ -1567,6 +1567,33 @@ $(function () {
         });
     });
 
+    /* ── Kasa (kroki zamówienia): save ────────────────────────────────────── */
+    $(document).on('submit', '#hbe-checkout-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = [
+            { name: 'token', value: $form.find('[name=token]').val() },
+            { name: 'checkout_skin',         value: $form.find('[name=checkout_skin]').is(':checked')         ? 1 : 0 },
+            { name: 'checkout_onepage',      value: $form.find('[name=checkout_onepage]').is(':checked')      ? 1 : 0 },
+            { name: 'checkout_terms_bottom', value: $form.find('[name=checkout_terms_bottom]').is(':checked') ? 1 : 0 }
+        ];
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveCheckoutSettings&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     /* ── Karta produktu: save ─────────────────────────────────────────────── */
     $(document).on('submit', '#hbe-productcard-form', function (e) {
         e.preventDefault();
