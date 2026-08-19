@@ -452,3 +452,205 @@
 .hbe-catpick-item:hover {
   background: #f3f6f9;
 }
+
+/* ── Miniatury produktu: gotowe zestawy, pokretla i podglad ──────────────── */
+
+/* Przykladowe zdjecie do podgladu: pionowy kadr 2:3 z ukosnym splotem, zeby
+   po zmianie proporcji bylo widac, co kadr przycina, a co zostawia. Trzymane
+   jako SVG w tle, wiec podglad nie odpytuje serwera o zaden plik. */
+.hbe-wrap {
+  --hbe-mini-photo: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23cbb5a4'/%3E%3Cstop offset='1' stop-color='%237d6353'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='400' height='600' fill='url(%23g)'/%3E%3Cg stroke='%23ffffff' stroke-opacity='.26' stroke-width='16'%3E%3Cpath d='M-120 640 L440 80'/%3E%3Cpath d='M-120 760 L440 200'/%3E%3Cpath d='M-120 880 L440 320'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+.hbe-mini-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.hbe-mini-preset {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  background: #fff;
+  border: 2px solid #dfe4ea;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.hbe-mini-preset:hover {
+  border-color: #b9c2cc;
+}
+
+.hbe-mini-preset.is-active {
+  border-color: #25b9d7;
+  box-shadow: 0 0 0 3px rgba(37, 185, 215, .15);
+}
+
+.hbe-mini-preset__art {
+  display: flex;
+  align-items: flex-start;
+  height: 76px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: #f6f7f9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hbe-mini-preset__tile {
+  flex: 1 1 0;
+  min-width: 0;
+  background: #fff;
+}
+
+/* Padding zdjecia dziala tak samo jak na sklepie: box-sizing + tlo przyciete
+   do content-boxa, wiec margines wokol zdjecia realnie zjada kadr. */
+.hbe-mini-preset__photo,
+.hbe-mini-tile__photo {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  background-image: var(--hbe-mini-photo);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+
+.hbe-mini-preset__name {
+  display: block;
+  font-weight: 600;
+  color: #363a41;
+}
+
+.hbe-mini-preset__desc {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b727c;
+  white-space: normal;
+}
+
+.hbe-mini-state {
+  margin: 0 0 14px;
+  color: #6b727c;
+}
+
+.hbe-mini-state strong {
+  color: #363a41;
+}
+
+.hbe-mini-state__hint {
+  display: block;
+  font-size: 12px;
+}
+
+/* Wyglad z motywu = modul nic nie robi, wiec pola sa przygaszone. Zostaja
+   klikalne: pierwsza zmiana ma od razu przejmowac kontrole nad kaflem. */
+.hbe-mini-body.is-theme {
+  opacity: .5;
+}
+
+.hbe-mini-table > tbody > tr > td {
+  vertical-align: middle;
+}
+
+.hbe-mini-table .help-block {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.hbe-mini-cell {
+  width: 210px;
+  text-align: right;
+}
+
+.hbe-mini-pair {
+  display: flex;
+  gap: 8px;
+}
+
+.hbe-mini-pair label {
+  flex: 1 1 0;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b727c;
+  text-align: left;
+}
+
+.hbe-mini-check {
+  margin: 0;
+  font-weight: 400;
+}
+
+.hbe-mini-preview-wrap {
+  position: sticky;
+  top: 12px;
+  padding: 14px;
+  background: #f6f7f9;
+  border: 1px solid #e2e6ea;
+  border-radius: 6px;
+}
+
+.hbe-mini-preview-head {
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #363a41;
+}
+
+.hbe-mini-preview-head span {
+  font-weight: 400;
+  color: #6b727c;
+}
+
+.hbe-mini-preview {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px;
+  background: #fff;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hbe-mini-tile {
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.hbe-mini-tile__name,
+.hbe-mini-tile__price {
+  height: 6px;
+  margin: 8px 6px 0;
+  background: #e4e7ea;
+  border-radius: 3px;
+}
+
+.hbe-mini-tile__price {
+  width: 45%;
+  margin-bottom: 6px;
+}
+
+.hbe-mini-preview-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #6b727c;
+}
+
+.hbe-mini-theme-note {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: #fdf7e3;
+  border: 1px solid #f2e2b0;
+  border-radius: 4px;
+  color: #7a6420;
+  font-size: 13px;
+}

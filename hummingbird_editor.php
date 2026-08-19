@@ -68,11 +68,73 @@ class Hummingbird_editor extends Module
     public const FREE_SHIPPING_MODE_SHOP   = 'shop';
     public const FREE_SHIPPING_MODE_OFF    = 'off';
 
+    /**
+     * Wyglad miniatury produktu (kafla) — jedno miejsce na cala witryne.
+     *
+     * Motyw trzyma zdjecie miniatury w 40 px paddingu, karuzele skleja bez
+     * odstepu i rozdziela kreska 1 px, a listing dostaje kolumny z ukladu
+     * strony. Kazdy sklep chcial to inaczej i konczylo sie recznym CSS-em
+     * w motywie, ktory ginal przy przebudowie assetow. Te ustawienia opisuja
+     * ten sam wyglad danymi, a `getMiniatureCss()` sklada z nich arkusz.
+     *
+     * Wartosci domyslne = wyglad motywu, a przy `enabled = 0` nie leci ani
+     * jedna regula, wiec swiezo zainstalowany modul niczego nie zmienia.
+     *
+     * Klucz konfiguracji: HBE_MINI_<NAZWA>, np. HBE_MINI_CAR_DESKTOP.
+     */
+    public const MINIATURE_DEFAULTS = [
+        'enabled'     => 0,   // 0 = nie ruszaj wygladu z motywu
+        'pad'         => 40,  // px paddingu wokol zdjecia (motyw: 40)
+        'ratio'       => '',  // '' = proporcja pliku; inaczej np. '2/3'
+        'fit'         => 'cover',
+        'radius'      => 0,   // px zaokraglenia kadru
+        'gap'         => 24,  // px odstepu miedzy kaflami (motyw: 1,5 rem)
+        'car_desktop' => 3,   // kafli widocznych w karuzeli od 768 px
+        'car_mobile'  => 1,   // kafli widocznych ponizej 768 px
+        'car_border'  => 1,   // kreska 1 px wokol kafla karuzeli
+        'list_cols'   => 0,   // 0 = kolumny listingu z motywu, inaczej 2..6
+        'zoom'        => 1,   // powiekszenie zdjecia po najechaniu
+    ];
+
+    /** Dozwolone proporcje kadru (klucz = wartosc CSS `aspect-ratio`). */
+    public const MINIATURE_RATIOS = ['', '1/1', '4/5', '3/4', '2/3', '4/3', '16/9'];
+
+    /**
+     * Gotowe zestawy do wyboru w BO. Nie zapisuje sie nazwy zestawu — zapisuja
+     * sie same wartosci, a panel pokazuje, ktory zestaw im odpowiada. Dzieki
+     * temu "wlasne" nie jest osobnym trybem, tylko brakiem trafienia.
+     */
+    public const MINIATURE_PRESETS = [
+        'theme' => ['enabled' => 0],
+        'full' => [
+            'enabled' => 1, 'pad' => 0, 'ratio' => '2/3', 'fit' => 'cover',
+            'radius' => 8, 'gap' => 24, 'car_desktop' => 3, 'car_mobile' => 2,
+            'car_border' => 0, 'list_cols' => 0, 'zoom' => 1,
+        ],
+        'dense' => [
+            'enabled' => 1, 'pad' => 0, 'ratio' => '1/1', 'fit' => 'cover',
+            'radius' => 0, 'gap' => 8, 'car_desktop' => 4, 'car_mobile' => 2,
+            'car_border' => 0, 'list_cols' => 4, 'zoom' => 1,
+        ],
+        'framed' => [
+            'enabled' => 1, 'pad' => 16, 'ratio' => '3/4', 'fit' => 'contain',
+            'radius' => 12, 'gap' => 16, 'car_desktop' => 3, 'car_mobile' => 2,
+            'car_border' => 1, 'list_cols' => 0, 'zoom' => 0,
+        ],
+    ];
+
+    /**
+     * Sekcje, ktore renderuja karuzele produktowe: trzy wlasne motywu plus
+     * sekcje tego modulu. Kazda ma ten sam szkielet HTML.
+     */
+    private const MINIATURE_CAROUSEL_SECTIONS =
+        '.ps-newproducts,.ps-bestsellers,.ps-featuredproducts,.hbe-products';
+
     public function __construct()
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.12.1';
+        $this->version = '1.13.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -454,6 +516,14 @@ class Hummingbird_editor extends Module
         }
         HbEditorCarouselCache::warmKey();
 
+        // Wyglad miniatur: same wartosci motywu, a `enabled = 0` sprawia, ze
+        // swiezy modul nie dokłada do strony ani jednej reguly.
+        foreach (self::MINIATURE_DEFAULTS as $miniKey => $miniDefault) {
+            if (Configuration::get('HBE_MINI_' . strtoupper($miniKey)) === false) {
+                Configuration::updateValue('HBE_MINI_' . strtoupper($miniKey), $miniDefault);
+            }
+        }
+
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
@@ -480,6 +550,9 @@ class Hummingbird_editor extends Module
         Configuration::deleteByName('HBE_HIDE_LANGUAGE_DESKTOP');
         Configuration::deleteByName('HBE_HIDE_LANGUAGE_MOBILE');
         Configuration::deleteByName('HBE_HIDE_QUICKVIEW');
+        foreach (array_keys(self::MINIATURE_DEFAULTS) as $miniKey) {
+            Configuration::deleteByName('HBE_MINI_' . strtoupper($miniKey));
+        }
         foreach (array_keys(self::SOCIAL_NETWORKS) as $network) {
             Configuration::deleteByName(self::socialConfigKey($network));
         }
@@ -1791,6 +1864,141 @@ class Hummingbird_editor extends Module
         return $this->display(__FILE__, 'views/templates/hook/faq.tpl');
     }
 
+    /* ── Wyglad miniatur produktu ────────────────────────────────────────── */
+
+    /**
+     * Ustawienia kafla produktu, kazde sprowadzone do dozwolonego zakresu.
+     *
+     * Czyta je i front (do zbudowania CSS-a), i panel (do formularza), zeby
+     * jedno i drugie widzialo dokladnie te same wartosci — takze wtedy, gdy
+     * w bazie siedzi smiec po recznej edycji.
+     *
+     * @return array<string,int|string>
+     */
+    public function getMiniatureSettings(): array
+    {
+        $out = [];
+        foreach (self::MINIATURE_DEFAULTS as $key => $default) {
+            $raw = HbEditorConfig::get('HBE_MINI_' . strtoupper($key));
+            // Pusty ciag zostaje pustym ciagiem: dla proporcji to prawidlowa
+            // wartosc ("bez wymuszania"), a reszte i tak przepuszcza ponizej
+            // clamp albo rzutowanie na bool.
+            $out[$key] = ($raw === false || $raw === null) ? $default : $raw;
+        }
+
+        $clamp = static function ($value, int $min, int $max): int {
+            return max($min, min($max, (int) $value));
+        };
+
+        return [
+            'enabled'     => (int) (bool) $out['enabled'],
+            'pad'         => $clamp($out['pad'], 0, 80),
+            'ratio'       => in_array((string) $out['ratio'], self::MINIATURE_RATIOS, true)
+                ? (string) $out['ratio']
+                : '',
+            'fit'         => (string) $out['fit'] === 'contain' ? 'contain' : 'cover',
+            'radius'      => $clamp($out['radius'], 0, 40),
+            'gap'         => $clamp($out['gap'], 0, 48),
+            'car_desktop' => $clamp($out['car_desktop'], 2, 6),
+            'car_mobile'  => $clamp($out['car_mobile'], 1, 3),
+            'car_border'  => (int) (bool) $out['car_border'],
+            // 0 = zostaw kolumny listingu takie, jakie daje uklad strony.
+            'list_cols'   => (int) $out['list_cols'] === 0 ? 0 : $clamp($out['list_cols'], 2, 6),
+            'zoom'        => (int) (bool) $out['zoom'],
+        ];
+    }
+
+    /**
+     * Szerokosc kafla karuzeli przy `n` kaflach na ekran i odstepie `gap`.
+     *
+     * Odstepow jest o jeden mniej niz kafli i trzeba je odjac od 100 %,
+     * inaczej ostatni kafel wystaje poza widok i karuzela zatrzymuje sie
+     * w polowie zdjecia.
+     */
+    private static function miniatureTrackWidth(int $count, int $gap): string
+    {
+        return 'calc((100% - ' . ($count - 1) * $gap . 'px) / ' . $count . ')';
+    }
+
+    /**
+     * Arkusz opisujacy wybrany wyglad kafla — pusty, gdy sklep zostaje przy
+     * motywie.
+     *
+     * Wstrzykiwany za <body>, czyli po wszystkich arkuszach z <head>. To wazne
+     * podwojnie: theme.css hummingbirda jest w @layer, a regula bez warstwy
+     * bije kazda warstwe niezaleznie od specyficznosci, natomiast wobec CSS-a
+     * modulow i recznego custom.css motywu (tez bez warstw) wygrywa kolejnoscia.
+     * Jedyny wyjatek to kolumny listingu, gdzie motywy potrafia miec wlasna
+     * regule z dodatkowa klasa — stad podwojone `.products.products`, ktore
+     * podnosi specyficznosc, zeby wybor z panelu byl ostatnim slowem.
+     */
+    public function getMiniatureCss(): string
+    {
+        $s = $this->getMiniatureSettings();
+        if (!$s['enabled']) {
+            return '';
+        }
+
+        $carouselItems = ':is(' . self::MINIATURE_CAROUSEL_SECTIONS . ')'
+            . ' .module-products__carousel .product-miniature,'
+            . '.hbe-products .hbe-products__skeleton-card';
+
+        $css = 'img.product-miniature__image{padding:' . $s['pad'] . 'px';
+        if ($s['ratio'] !== '') {
+            // Atrybuty width/height w HTML-u to wymiary RAMKI typu obrazka
+            // (zwykle kwadrat), a nie pliku. Bez wymuszonej proporcji
+            // przegladarka rezerwuje kwadrat i siatka przeskakuje, gdy zdjecia
+            // dojada. object-fit pilnuje zdjec o innej proporcji: przytnie je
+            // (cover) albo zmiesci w calosci (contain), zamiast rozjechac rzad.
+            $css .= ';aspect-ratio:' . $s['ratio'] . ';object-fit:' . $s['fit'];
+        }
+        $css .= '}';
+
+        // Powiekszenie na hoverze (scale 1.1 z motywu) miescilo sie dotad
+        // w paddingu zdjecia; przy mniejszym paddingu wylewa sie poza kafel,
+        // wiec kadr musi przycinac niezaleznie od zaokraglenia.
+        $css .= '.product-miniature__image-container{overflow:hidden;border-radius:' . $s['radius'] . 'px}';
+        if (!$s['zoom']) {
+            $css .= '.product-miniature__inner:hover .product-miniature__image{transform:none}';
+        }
+
+        // Ten sam odstep rozdziela siatke listingu i pas karuzeli — kafle maja
+        // wygladac tak samo niezaleznie od miejsca.
+        $css .= '.products{gap:' . $s['gap'] . 'px}'
+            . '.hbe-products .hbe-products__skeleton{gap:' . $s['gap'] . 'px}';
+
+        $css .= $carouselItems . '{'
+            . ($s['car_border'] ? '' : 'border:0;')
+            . 'flex-basis:' . self::miniatureTrackWidth($s['car_desktop'], $s['gap']) . ';'
+            . 'min-width:' . self::miniatureTrackWidth($s['car_desktop'], $s['gap'])
+            . '}';
+        // Motyw zwezal kafle karuzeli progami max-width (991 px i 575 px);
+        // regula wyzej bije je na kazdej szerokosci, wiec caly telefon obsluguje
+        // ten jeden prog.
+        $css .= '@media(max-width:767.98px){' . $carouselItems . '{'
+            . 'flex-basis:' . self::miniatureTrackWidth($s['car_mobile'], $s['gap']) . ';'
+            . 'min-width:' . self::miniatureTrackWidth($s['car_mobile'], $s['gap'])
+            . '}}';
+
+        if ($s['list_cols'] >= 2) {
+            // Powyzej 1400 px pelna liczba kolumn, w srodkowym zakresie co
+            // najwyzej trzy (inaczej kafel robi sie wezszy niz w karuzeli),
+            // na telefonie zawsze dwa.
+            $mid = min($s['list_cols'], 3);
+            $grid = static function (int $cols): string {
+                return '#js-product-list .products.products{grid-template-columns:repeat('
+                    . $cols . ',minmax(0,1fr))}';
+            };
+            $css .= $grid(2);
+            $css .= '@media(min-width:768px){' . $grid($mid) . '}';
+            if ($s['list_cols'] > $mid) {
+                $css .= '@media(min-width:1400px){' . $grid($s['list_cols']) . '}';
+            }
+        }
+
+        return $css;
+    }
+
     public function hookDisplayAfterBodyOpeningTag(): string
     {
         $output = '';
@@ -1821,6 +2029,9 @@ class Hummingbird_editor extends Module
             // Hide quickview button on product miniatures (both desktop hover and mobile touch variants).
             $css .= '.product-miniature__quickview-button,.product-miniature__quickview-touch,.js-quickview{display:none!important}';
         }
+        // Wyglad kafla produktu (zdjecie, odstepy, kolumny) — pusty ciag,
+        // dopoki sklep nie wybierze czegos innego niz uklad motywu.
+        $css .= $this->getMiniatureCss();
         if ($css !== '') {
             $output .= '<style>' . $css . '</style>';
         }

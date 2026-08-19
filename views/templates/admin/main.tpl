@@ -113,6 +113,9 @@
       <a href="#hbe-tab-listing" data-toggle="tab" role="tab"><i class="icon-th-list"></i> {l s='Listing' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-miniatures" data-toggle="tab" role="tab"><i class="icon-th-large"></i> {l s='Miniatury' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-menu" data-toggle="tab" role="tab"><i class="icon-sitemap"></i> {l s='Menu' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
@@ -2106,6 +2109,227 @@
       </div>
 
     </div>{* /hbe-tab-listing *}
+
+    {* ══ Miniatury — wyglad kafla produktu w calym sklepie ════════════════ *}
+    <div id="hbe-tab-miniatures" class="tab-pane" role="tabpanel">
+
+      <div class="panel panel-default">
+        <div class="panel-heading">
+          <h3 class="panel-title"><i class="icon-th-large"></i> {l s='Wygląd miniatury produktu' mod='hummingbird_editor'}</h3>
+        </div>
+        <div class="panel-body">
+          <p class="text-muted" style="margin-bottom:1rem">
+            {l s='Ustawienia obejmują kafel produktu wszędzie, gdzie się pojawia: listing kategorii i wyników wyszukiwania, karuzele na stronie głównej, „Już obejrzane produkty" i produkty powiązane. Zacznij od gotowego zestawu, a potem dopraw szczegóły — każdą wartość widać od razu w podglądzie po prawej.' mod='hummingbird_editor'}
+          </p>
+
+          <form id="hbe-mini-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off"
+                data-presets='{$hbe_mini_presets|escape:'html':'UTF-8'}'>
+            <input type="hidden" name="token" value="{$hbe_token}">
+            <input type="hidden" name="mini_enabled" id="hbe-mini-enabled" value="{$hbe_mini.enabled|intval}">
+
+            {* ── Gotowe zestawy ─────────────────────────────────────────── *}
+            <div class="hbe-mini-presets">
+              {foreach from=$hbe_mini_cards item=card}
+                {assign var=artCount value=$card.art.car_desktop}
+                {if $artCount > 4}{assign var=artCount value=4}{/if}
+                <button type="button" class="hbe-mini-preset{if $hbe_mini_preset === $card.key} is-active{/if}"
+                        data-preset="{$card.key|escape:'html':'UTF-8'}">
+                  {* Miniaturka rysuje sie z tych samych liczb, ktore zestaw
+                     zapisuje — w skali 1:4, bo kafel na karcie jest tyle razy
+                     wezszy od prawdziwego. *}
+                  <span class="hbe-mini-preset__art" style="gap:{($card.art.gap/4)|round}px">
+                    {for $i=1 to $artCount}
+                      <span class="hbe-mini-preset__tile" style="{if $card.art.car_border}border:1px solid #dcdcdc;{/if}">
+                        <span class="hbe-mini-preset__photo" style="
+                          padding:{($card.art.pad/4)|round}px;
+                          border-radius:{($card.art.radius/4)|round}px;
+                          background-size:{if $card.art.ratio}{$card.art.fit|escape:'html':'UTF-8'}{else}cover{/if};
+                          aspect-ratio:{if $card.art.ratio}{$card.art.ratio|escape:'html':'UTF-8'}{else}3/4{/if}"></span>
+                      </span>
+                    {/for}
+                  </span>
+                  <span class="hbe-mini-preset__name">{$card.name|escape:'html':'UTF-8'}</span>
+                  <span class="hbe-mini-preset__desc">{$card.desc|escape:'html':'UTF-8'}</span>
+                </button>
+              {/foreach}
+            </div>
+
+            <p class="hbe-mini-state">
+              {l s='Teraz ustawione:' mod='hummingbird_editor'}
+              <strong id="hbe-mini-state-name" data-custom-label="{l s='ustawienia własne' mod='hummingbird_editor'}">
+                {if $hbe_mini_preset === 'custom'}{l s='ustawienia własne' mod='hummingbird_editor'}
+                {else}{foreach from=$hbe_mini_cards item=card}{if $card.key === $hbe_mini_preset}{$card.name|escape:'html':'UTF-8'}{/if}{/foreach}{/if}
+              </strong>
+              <span class="hbe-mini-state__hint">{l s='Zmiana dowolnego pola poniżej przełącza opis na „ustawienia własne" — zestawy to tylko punkt wyjścia.' mod='hummingbird_editor'}</span>
+            </p>
+
+            {* ── Szczegoly + podglad ────────────────────────────────────── *}
+            <div class="row hbe-mini-body{if !$hbe_mini.enabled} is-theme{/if}" id="hbe-mini-body">
+              <div class="col-md-7">
+
+                <table class="table hbe-mini-table">
+                  <tbody>
+                    <tr>
+                      <td>
+                        <strong>{l s='Margines wokół zdjęcia' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='Motyw trzyma 40 px. Przy zerze zdjęcie idzie na całą szerokość kafla — to najprostszy sposób na większe zdjęcia bez ruszania siatki.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <select name="mini_pad" class="form-control">
+                          {foreach from=[0,4,8,12,16,24,32,40] item=v}
+                            <option value="{$v}" {if $hbe_mini.pad == $v}selected{/if}>{$v} px</option>
+                          {/foreach}
+                        </select>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>{l s='Kadr zdjęcia' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='Wymuszona proporcja wyrównuje rzędy i blokuje przeskok siatki w chwili doładowania zdjęć. „Jak plik" zostawia proporcje takie, jakie mają zdjęcia w katalogu.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <select name="mini_ratio" class="form-control">
+                          {foreach from=$hbe_mini_ratios key=rval item=rlabel}
+                            <option value="{$rval|escape:'html':'UTF-8'}" {if $hbe_mini.ratio === $rval}selected{/if}>{$rlabel|escape:'html':'UTF-8'}</option>
+                          {/foreach}
+                        </select>
+                      </td>
+                    </tr>
+                    <tr class="hbe-mini-row-fit">
+                      <td>
+                        <strong>{l s='Zdjęcie w kadrze' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='„Wypełnij" przycina to, co nie mieści się w kadrze — dobre do tkanin i zdjęć aranżacyjnych. „Zmieść w całości" nic nie obcina, ale zostawia puste pasy przy zdjęciach o innej proporcji.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <select name="mini_fit" class="form-control">
+                          <option value="cover" {if $hbe_mini.fit === 'cover'}selected{/if}>{l s='Wypełnij kadr (przytnij)' mod='hummingbird_editor'}</option>
+                          <option value="contain" {if $hbe_mini.fit === 'contain'}selected{/if}>{l s='Zmieść w całości' mod='hummingbird_editor'}</option>
+                        </select>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><strong>{l s='Zaokrąglenie rogów zdjęcia' mod='hummingbird_editor'}</strong></td>
+                      <td class="hbe-mini-cell">
+                        <select name="mini_radius" class="form-control">
+                          {foreach from=[0,4,8,12,16,24] item=v}
+                            <option value="{$v}" {if $hbe_mini.radius == $v}selected{/if}>{$v} px</option>
+                          {/foreach}
+                        </select>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>{l s='Przerwa między kaflami' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='Ta sama wartość rozdziela siatkę listingu i pas karuzeli, więc kafel wygląda wszędzie identycznie. Im mniejsza przerwa, tym większe zdjęcia przy tej samej liczbie kolumn.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <select name="mini_gap" class="form-control">
+                          {foreach from=[0,4,8,12,16,24,32,40] item=v}
+                            <option value="{$v}" {if $hbe_mini.gap == $v}selected{/if}>{$v} px</option>
+                          {/foreach}
+                        </select>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>{l s='Kafle widoczne w karuzeli' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='Na stronie głównej karuzela dzieli wiersz z kolumną tytułu, więc 3 kafle wypadają mniej więcej tak szeroko jak kafel 4-kolumnowego listingu.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <div class="hbe-mini-pair">
+                          <label>{l s='Komputer' mod='hummingbird_editor'}
+                            <select name="mini_car_desktop" class="form-control">
+                              {foreach from=[2,3,4,5,6] item=v}
+                                <option value="{$v}" {if $hbe_mini.car_desktop == $v}selected{/if}>{$v}</option>
+                              {/foreach}
+                            </select>
+                          </label>
+                          <label>{l s='Telefon' mod='hummingbird_editor'}
+                            <select name="mini_car_mobile" class="form-control">
+                              {foreach from=[1,2,3] item=v}
+                                <option value="{$v}" {if $hbe_mini.car_mobile == $v}selected{/if}>{$v}</option>
+                              {/foreach}
+                            </select>
+                          </label>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>{l s='Kolumny na listingu' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='„Z motywu” zostawia siatkę taką, jaką daje układ strony. Wybrana liczba dotyczy ekranów od 1400 px; w zakresie 768–1400 px kolumn jest najwyżej 3, a na telefonie zawsze 2. Uwaga: przy widocznej kolumnie filtrów po lewej większa liczba kolumn zwęża kafle.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <select name="mini_list_cols" class="form-control">
+                          <option value="0" {if $hbe_mini.list_cols == 0}selected{/if}>{l s='Z motywu (bez zmian)' mod='hummingbird_editor'}</option>
+                          {foreach from=[2,3,4,5,6] item=v}
+                            <option value="{$v}" {if $hbe_mini.list_cols == $v}selected{/if}>{$v}</option>
+                          {/foreach}
+                        </select>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>{l s='Kreska wokół kafla karuzeli' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='Ramka 1 px z motywu. Ma sens przy zerowej przerwie, gdzie rozdziela sklejone kafle; przy wyraźnej przerwie zwykle przeszkadza.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <label class="hbe-mini-check">
+                          <input type="checkbox" name="mini_car_border" value="1" {if $hbe_mini.car_border}checked{/if}>
+                          {l s='Pokaż' mod='hummingbird_editor'}
+                        </label>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>{l s='Powiększenie zdjęcia po najechaniu' mod='hummingbird_editor'}</strong>
+                        <div class="help-block">{l s='Zdjęcie powiększa się o 10 % w obrębie kadru. Kadr zawsze przycina to, co wychodzi poza kafel.' mod='hummingbird_editor'}</div>
+                      </td>
+                      <td class="hbe-mini-cell">
+                        <label class="hbe-mini-check">
+                          <input type="checkbox" name="mini_zoom" value="1" {if $hbe_mini.zoom}checked{/if}>
+                          {l s='Włącz' mod='hummingbird_editor'}
+                        </label>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+              </div>
+
+              <div class="col-md-5">
+                <div class="hbe-mini-preview-wrap">
+                  <div class="hbe-mini-preview-head">
+                    {l s='Podgląd' mod='hummingbird_editor'}
+                    <span id="hbe-mini-preview-note">{l s='pas karuzeli' mod='hummingbird_editor'}</span>
+                  </div>
+                  <div class="hbe-mini-preview" id="hbe-mini-preview">
+                    {for $i=1 to 6}
+                      <div class="hbe-mini-tile">
+                        <div class="hbe-mini-tile__photo"></div>
+                        <div class="hbe-mini-tile__name"></div>
+                        <div class="hbe-mini-tile__price"></div>
+                      </div>
+                    {/for}
+                  </div>
+                  <p class="hbe-mini-preview-hint">
+                    {l s='Podgląd rysuje kafel w proporcjach, jakie zobaczy klient — zdjęcie jest przykładowe.' mod='hummingbird_editor'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="hbe-mini-theme-note" id="hbe-mini-theme-note"{if $hbe_mini.enabled} style="display:none"{/if}>
+              {l s='Wybrany jest wygląd z motywu — moduł nie dokłada żadnych stylów, a pola powyżej czekają bezczynnie. Kliknij inny zestaw albo zmień dowolne pole, żeby przejąć kontrolę nad kaflem.' mod='hummingbird_editor'}
+            </div>
+
+            <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz wygląd miniatur' mod='hummingbird_editor'}</button>
+            <div class="hbe-alerts"></div>
+          </form>
+        </div>
+      </div>
+
+    </div>{* /hbe-tab-miniatures *}
 
   </div>{* /tab-content *}
 

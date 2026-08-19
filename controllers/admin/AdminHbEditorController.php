@@ -250,6 +250,9 @@ class AdminHbEditorController extends ModuleAdminController
             }
         }
 
+        $miniature      = $this->module->getMiniatureSettings();
+        $miniatureCards = $this->miniaturePresetCards();
+
         $this->context->smarty->assign([
             'hbe_grouped'           => $grouped,
             'hbe_home_ordered'      => $homeOrderedItems,
@@ -341,6 +344,18 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_hide_language_desktop' => (int) Configuration::get('HBE_HIDE_LANGUAGE_DESKTOP'),
             'hbe_hide_language_mobile'  => (int) Configuration::get('HBE_HIDE_LANGUAGE_MOBILE'),
             'hbe_hide_quickview'        => (int) Configuration::get('HBE_HIDE_QUICKVIEW'),
+            // Wyglad miniatury produktu — wartosci, gotowe zestawy (dla JS-a
+            // wypelniajacego formularz) i informacja, ktory zestaw jest teraz
+            // ustawiony.
+            'hbe_mini'         => $miniature,
+            'hbe_mini_preset'  => $this->detectMiniaturePreset($miniature),
+            // Do JS-a ida zestawy scalone z domyslnymi (komplet pol), zeby
+            // porownanie "ktory zestaw jest ustawiony" mialo co porownywac.
+            'hbe_mini_presets' => json_encode(
+                array_combine(array_column($miniatureCards, 'key'), array_column($miniatureCards, 'values'))
+            ),
+            'hbe_mini_cards'   => $miniatureCards,
+            'hbe_mini_ratios'  => $this->miniatureRatioLabels(),
             // Footer social icons: [key => ['label' => ..., 'url' => ...]]
             'hbe_social'                => $this->getSocialForForm(),
             'hbe_menu_top_items'         => $menuTopItems,
@@ -1787,6 +1802,131 @@ class AdminHbEditorController extends ModuleAdminController
         $this->module->ensureHookRegistered('displayHome');
 
         $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /* ── Wyglad miniatur produktu ────────────────────────────────────────── */
+
+    /**
+     * Podpisy proporcji kadru w kolejnosci od najszerszej do najwezszej.
+     *
+     * @return array<string,string> wartosc CSS `aspect-ratio` => etykieta
+     */
+    private function miniatureRatioLabels(): array
+    {
+        return [
+            ''     => $this->module->l('Jak plik zdjęcia (bez wymuszania)'),
+            '1/1'  => $this->module->l('Kwadrat 1:1'),
+            '4/5'  => $this->module->l('Pionowy 4:5'),
+            '3/4'  => $this->module->l('Pionowy 3:4'),
+            '2/3'  => $this->module->l('Pionowy 2:3 (wysoki)'),
+            '4/3'  => $this->module->l('Poziomy 4:3'),
+            '16/9' => $this->module->l('Panorama 16:9'),
+        ];
+    }
+
+    /**
+     * Karty gotowych zestawow: nazwa, opis i komplet wartosci.
+     *
+     * Miniaturka na karcie rysuje sie z tych samych liczb, ktore zestaw
+     * zapisuje, wiec podglad nie ma jak sie rozjechac z tym, co ustawia.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function miniaturePresetCards(): array
+    {
+        $labels = [
+            'theme' => [
+                $this->module->l('Motyw — bez zmian'),
+                $this->module->l('Zdjęcie w 40 px marginesu, kafle karuzeli sklejone i rozdzielone kreską. Tak wygląda czysty Hummingbird; moduł nie dokłada wtedy ani jednej reguły.'),
+            ],
+            'full' => [
+                $this->module->l('Pełne zdjęcie'),
+                $this->module->l('Zdjęcie na całą szerokość kafla, kadr pionowy 2:3, lekko zaokrąglone rogi, 24 px przerwy. Ten sam kafel na listingu i w karuzeli.'),
+            ],
+            'dense' => [
+                $this->module->l('Gęsta siatka'),
+                $this->module->l('Kwadratowe kadry, 8 px przerwy, 4 kolumny na listingu i 4 kafle w karuzeli — dużo asortymentu na jednym ekranie.'),
+            ],
+            'framed' => [
+                $this->module->l('Kafel z oddechem'),
+                $this->module->l('Zdjęcie mieści się w całości (nic nie zostaje przycięte), 16 px marginesu i wyraźna ramka. Dla zdjęć pakshotowych na białym tle.'),
+            ],
+        ];
+
+        $cards = [];
+        foreach (Hummingbird_editor::MINIATURE_PRESETS as $key => $preset) {
+            $values = array_merge(Hummingbird_editor::MINIATURE_DEFAULTS, $preset);
+            $cards[] = [
+                'key'    => $key,
+                'name'   => $labels[$key][0] ?? $key,
+                'desc'   => $labels[$key][1] ?? '',
+                'values' => $values,
+                // Miniaturka rysuje pas karuzeli. Przy wygladzie z motywu modul
+                // milczy, a motyw sklada kafle karuzeli bez odstepu (rozdziela
+                // je kreska) — domyslne 24 px opisuja tam siatke listingu,
+                // wiec karta pokazywalaby przerwe, ktorej na karuzeli nie ma.
+                'art'    => $key === 'theme' ? array_merge($values, ['gap' => 0]) : $values,
+            ];
+        }
+
+        return $cards;
+    }
+
+    /**
+     * Ktory gotowy zestaw odpowiada zapisanym wartosciom.
+     *
+     * Nazwa zestawu nie jest przechowywana — panel wylicza ja przez porownanie,
+     * wiec recznie zmieniona pojedyncza wartosc od razu przelacza opis na
+     * „ustawienia własne" i nic nie klamie.
+     *
+     * @param array<string,int|string> $current
+     */
+    private function detectMiniaturePreset(array $current): string
+    {
+        if (!$current['enabled']) {
+            return 'theme';
+        }
+
+        foreach (Hummingbird_editor::MINIATURE_PRESETS as $name => $preset) {
+            if ($name === 'theme') {
+                continue;
+            }
+            $full = array_merge(Hummingbird_editor::MINIATURE_DEFAULTS, $preset);
+            foreach ($full as $key => $value) {
+                // Luzne porownanie: z bazy wraca '3', z definicji 3.
+                if ((string) $current[$key] !== (string) $value) {
+                    continue 2;
+                }
+            }
+
+            return $name;
+        }
+
+        return 'custom';
+    }
+
+    /**
+     * Zapis wygladu kafla. Kazda wartosc idzie przez getMiniatureSettings(),
+     * ktore sprowadza ja do dozwolonego zakresu — front i panel czytaja
+     * dokladnie to samo, co tu wpadlo.
+     */
+    public function ajaxProcessSaveMiniatures(): void
+    {
+        foreach (array_keys(Hummingbird_editor::MINIATURE_DEFAULTS) as $key) {
+            $value = Tools::getValue('mini_' . $key, Hummingbird_editor::MINIATURE_DEFAULTS[$key]);
+            HbEditorConfig::set(
+                'HBE_MINI_' . strtoupper($key),
+                $key === 'ratio' || $key === 'fit' ? (string) $value : (int) $value
+            );
+        }
+
+        $settings = $this->module->getMiniatureSettings();
+
+        $this->hbeAjaxDie(json_encode([
+            'success' => true,
+            'preset'  => $this->detectMiniaturePreset($settings),
+            'css'     => $this->module->getMiniatureCss(),
+        ]));
     }
 
     public function ajaxProcessSaveHeaderToggles(): void

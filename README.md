@@ -10,6 +10,7 @@ Hummingbird Editor to moduł PrestaShop do budowania i zarządzania sekcjami tre
 - pełna obsługa wielu języków,
 - osobne treści i linki dla desktopu oraz mobile,
 - gotowe sekcje: top bar, info bar, banery, tagline, kolumny tekstowe, sekcje obrazowe, ikony, marki, slider,
+- wybór wyglądu miniatury produktu (margines i kadr zdjęcia, odstępy, liczba kolumn i kafli karuzeli) — gotowe zestawy albo własne ustawienia, wspólne dla listingu i karuzel,
 - eksport i import ustawień w formacie XML,
 - możliwość sortowania bloków metodą drag and drop,
 - dołączone style i skrypty frontowe oraz panel administracyjny oparty o Bootstrap.
@@ -52,6 +53,7 @@ Moduł ma własną zakładkę w panelu administracyjnym. Interfejs jest podzielo
 - `Karuzele` - nagłówki dla zestawów produktowych / karuzel,
 - `Slider` - zarządzanie slajdami i ustawieniami slidera,
 - `Koszyk` - ustawienia podglądu koszyka,
+- `Miniatury` - wygląd kafla produktu (zdjęcie, kadr, odstępy, kolumny) w całym sklepie,
 - `Ustawienia` - dodatkowe opcje globalne.
 
 W panelu dostępne są też:
@@ -173,6 +175,40 @@ Hummingbird Editor zawiera również funkcje wspierające moduł koszyka PrestaS
 - ręcznie ustawiany próg darmowej dostawy,
 - opcje ukrywania waluty, języka i szybkiego podglądu w wybranych wariantach.
 
+## Miniatury produktu (zakładka `Miniatury`)
+
+Wygląd kafla produktu opisuje jeden zestaw ustawień, wspólny dla wszystkich
+miejsc, w których kafel się pojawia: listingu kategorii i wyszukiwarki, karuzel
+na stronie głównej, „Już obejrzane produkty" i produktów powiązanych. Wcześniej
+robił to ręczny CSS w motywie — osobny w każdym sklepie i ginący przy
+przebudowie assetów.
+
+Do wyboru są gotowe zestawy:
+
+- **Motyw — bez zmian** — moduł nie dokłada ani jednej reguły (stan po instalacji),
+- **Pełne zdjęcie** — zdjęcie na całą szerokość kafla, kadr 2:3, zaokrąglone rogi, 24 px przerwy,
+- **Gęsta siatka** — kwadratowe kadry, 8 px przerwy, 4 kolumny i 4 kafle w karuzeli,
+- **Kafel z oddechem** — zdjęcie mieszczące się w całości, 16 px marginesu, ramka.
+
+Zestaw jest punktem wyjścia — każdą wartość można potem zmienić osobno
+(margines zdjęcia, kadr i sposób dopasowania, zaokrąglenie, przerwa między
+kaflami, liczba kafli w karuzeli na komputerze i telefonie, liczba kolumn
+listingu, kreska wokół kafla karuzeli, powiększenie po najechaniu). Nazwa
+zestawu nie jest przechowywana: panel wylicza ją z wartości, więc ręczna zmiana
+pojedynczego pola od razu pokazuje „ustawienia własne". Podgląd obok formularza
+rysuje kafel w tych samych proporcjach, jakie zobaczy klient.
+
+Arkusz powstaje w `getMiniatureCss()` i jest wstrzykiwany za `<body>`, czyli po
+wszystkich arkuszach z `<head>`. To dwie różne wygrane naraz: `theme.css`
+Hummingbirda jest w `@layer`, a reguła bez warstwy bije każdą warstwę niezależnie
+od specyficzności; wobec CSS-u modułów i ręcznego `custom.css` motywu (też bez
+warstw) decyduje kolejność. Wyjątkiem są kolumny listingu — tam motywy miewają
+własną regułę z dodatkową klasą, więc selektor ma podwojone `.products.products`,
+żeby wybór z panelu był ostatnim słowem.
+
+Ustawienia siedzą w kluczach `HBE_MINI_*` i podlegają kontekstowi sklepu jak
+reszta konfiguracji modułu.
+
 ## Ustawienia slidera
 
 Slider posiada ustawienia globalne, między innymi:
@@ -252,4 +288,4 @@ Same pliki graficzne w katalogach mogą pozostać na dysku, dlatego przed pełny
 
 ## Wersja
 
-Aktualna wersja modułu: `1.8.0`.
+Aktualna wersja modułu: `1.13.0`.

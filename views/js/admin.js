@@ -1319,6 +1319,170 @@ $(function () {
         });
     });
 
+    /* ── Miniatury produktu: gotowe zestawy, podglad na zywo, zapis ───────── */
+    (function () {
+        var $form = $('#hbe-mini-form');
+        if (!$form.length) {
+            return;
+        }
+
+        // Komplet wartosci kazdego zestawu (juz scalony z domyslnymi) — panel
+        // dostaje go z kontrolera, zeby definicja zestawu byla w jednym miejscu.
+        var presets = $form.data('presets') || {};
+        var $preview = $('#hbe-mini-preview');
+        var $stateName = $('#hbe-mini-state-name');
+        var $body = $('#hbe-mini-body');
+        var $themeNote = $('#hbe-mini-theme-note');
+        var $enabled = $('#hbe-mini-enabled');
+
+        // Nominalna szerokosc kafla na sklepie. Podglad jest kilka razy wezszy,
+        // wiec marginesy, zaokraglenia i przerwy trzeba przeskalowac tym samym
+        // wspolczynnikiem — inaczej 40 px paddingu zjadloby w nim caly kadr.
+        var TILE_WIDTH = 300;
+
+        function val(name) {
+            return $form.find('[name="mini_' + name + '"]').val();
+        }
+
+        function read() {
+            return {
+                enabled:     parseInt($enabled.val(), 10) ? 1 : 0,
+                pad:         parseInt(val('pad'), 10) || 0,
+                ratio:       val('ratio') || '',
+                fit:         val('fit') === 'contain' ? 'contain' : 'cover',
+                radius:      parseInt(val('radius'), 10) || 0,
+                gap:         parseInt(val('gap'), 10) || 0,
+                car_desktop: parseInt(val('car_desktop'), 10) || 3,
+                car_mobile:  parseInt(val('car_mobile'), 10) || 1,
+                car_border:  $form.find('[name="mini_car_border"]').is(':checked') ? 1 : 0,
+                list_cols:   parseInt(val('list_cols'), 10) || 0,
+                zoom:        $form.find('[name="mini_zoom"]').is(':checked') ? 1 : 0
+            };
+        }
+
+        function apply(values) {
+            if (!values) {
+                return;
+            }
+            $enabled.val(values.enabled ? 1 : 0);
+            ['pad', 'ratio', 'fit', 'radius', 'gap', 'car_desktop', 'car_mobile', 'list_cols'].forEach(function (key) {
+                if (typeof values[key] !== 'undefined') {
+                    $form.find('[name="mini_' + key + '"]').val(String(values[key]));
+                }
+            });
+            $form.find('[name="mini_car_border"]').prop('checked', !!values.car_border);
+            $form.find('[name="mini_zoom"]').prop('checked', !!values.zoom);
+        }
+
+        // Nazwa zestawu nigdzie sie nie zapisuje — wynika z wartosci, wiec
+        // reczna zmiana pojedynczego pola od razu daje "ustawienia wlasne".
+        function detect(current) {
+            if (!current.enabled) {
+                return 'theme';
+            }
+            var found = 'custom';
+            Object.keys(presets).forEach(function (key) {
+                if (found !== 'custom' || key === 'theme') {
+                    return;
+                }
+                var same = Object.keys(current).every(function (field) {
+                    return String(current[field]) === String(presets[key][field]);
+                });
+                if (same) {
+                    found = key;
+                }
+            });
+            return found;
+        }
+
+        function paint(v) {
+            var $tiles = $preview.children('.hbe-mini-tile');
+            $tiles.each(function (i) {
+                $(this).toggle(i < v.car_desktop);
+            });
+
+            // Zakladka bywa jeszcze ukryta (szerokosc 0) — wtedy skala z
+            // ostatniego znanego rozmiaru, a wlasciwe malowanie przychodzi
+            // z obslugi shown.bs.tab.
+            var inner = $preview.width() || 340;
+            var scale = Math.min(1, inner / (v.car_desktop * TILE_WIDTH));
+
+            $preview.css('gap', Math.round(v.gap * scale) + 'px');
+            $tiles.css('border', v.car_border ? '1px solid #dcdcdc' : '0');
+            $tiles.find('.hbe-mini-tile__photo').css({
+                padding: Math.round(v.pad * scale) + 'px',
+                borderRadius: Math.round(v.radius * scale) + 'px',
+                aspectRatio: v.ratio ? v.ratio.replace('/', ' / ') : '3 / 4',
+                backgroundSize: v.ratio ? v.fit : 'cover'
+            });
+        }
+
+        function refresh() {
+            var v = read();
+            var preset = detect(v);
+
+            $('.hbe-mini-preset').each(function () {
+                $(this).toggleClass('is-active', $(this).data('preset') === preset);
+            });
+
+            var label = $stateName.data('custom-label');
+            if (preset !== 'custom') {
+                var $active = $('.hbe-mini-preset[data-preset="' + preset + '"] .hbe-mini-preset__name');
+                if ($active.length) {
+                    label = $active.text();
+                }
+            }
+            $stateName.text($.trim(label));
+
+            $body.toggleClass('is-theme', !v.enabled);
+            $themeNote.toggle(!v.enabled);
+            // Dopasowanie kadru dziala tylko przy wymuszonej proporcji.
+            $('.hbe-mini-row-fit').toggle(v.ratio !== '');
+
+            paint(v);
+        }
+
+        $(document).on('click', '.hbe-mini-preset', function () {
+            apply(presets[$(this).data('preset')]);
+            refresh();
+        });
+
+        // Kazda reczna zmiana przejmuje kontrole nad kaflem: bez tego pola
+        // dzialalyby "w prozni", bo przy wygladzie z motywu modul milczy.
+        $form.on('change', 'select, input[type="checkbox"]', function () {
+            $enabled.val(1);
+            refresh();
+        });
+
+        $(document).on('shown.bs.tab', 'a[href="#hbe-tab-miniatures"]', refresh);
+        refresh();
+
+        $(document).on('submit', '#hbe-mini-form', function (e) {
+            e.preventDefault();
+            var v = read();
+            var data = [{ name: 'token', value: $form.find('[name=token]').val() }];
+            Object.keys(v).forEach(function (key) {
+                data.push({ name: 'mini_' + key, value: v[key] });
+            });
+            $.ajax({
+                url: hbeAjaxUrl + 'action=SaveMiniatures&ajax=1',
+                type: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (resp) {
+                    if (resp && resp.success) {
+                        showGlobalSuccess(hbeTrans.saved);
+                        clearFormErrors($form);
+                        refresh();
+                    } else {
+                        showFormError($form, resp ? resp.error : hbeTrans.error);
+                    }
+                },
+                error: function () { showFormError($form, hbeTrans.error); }
+            });
+        });
+    })();
+
     /* ── Footer social links: save ────────────────────────────────────────── */
     $(document).on('submit', '#hbe-social-form', function (e) {
         e.preventDefault();
