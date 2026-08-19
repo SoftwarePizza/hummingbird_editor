@@ -20,6 +20,7 @@
     var cfg = window.hbeZoom || {};
     var imageType = cfg.type || '';          // np. 'product_main_2x'
     var level = parseFloat(cfg.level || 0);  // 0 = naturalna rozdzielczosc zrodla
+    var originals = cfg.originals || {};     // id_image -> adres oryginalu (o ile lekki)
 
     /* Dotyk i rysiki pomijamy: tam nie ma najechania, a jest juz modal. */
     if (!window.matchMedia || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
@@ -29,14 +30,29 @@
     var LAYER_CLASS = 'hbe-zoom-layer';
 
     /**
-     * Zamienia typ obrazka w URL-u miniatury na `imageType`.
-     * Obsluguje oba warianty PrestaShop:
+     * Numer zdjecia z adresu miniatury — ostatnia liczba przed nazwa typu,
+     * bo PrestaShop generuje albo `{id_image}-{typ}`, albo `{id_produktu}-{id_image}-{typ}`.
+     */
+    function imageId(src) {
+        var m = src.match(/\/(?:\d+-)?(\d+)-[A-Za-z0-9_]+(?:\/[^/?#]+|\.[A-Za-z0-9]+)(?:\?[^#]*)?$/);
+        return m ? m[1] : null;
+    }
+
+    /**
+     * Zrodlo powiekszenia. Najpierw oryginal zdjecia (PHP podaje tylko te
+     * mieszczace sie w limicie wagi) — przy zdjeciach pionowych to jedyne
+     * zrodlo naprawde szersze od ramki. Potem podmiana typu na `imageType`:
      *   friendly:     /55036-product_main/nazwa.jpg
      *   bez friendly: /img/p/5/5/0/3/6/55036-product_main.jpg
      * Zwraca null, gdy URL nie wyglada na miniature produktu.
      */
     function bigImageUrl(src) {
-        if (!src || !imageType) { return null; }
+        if (!src) { return null; }
+
+        var id = imageId(src);
+        if (id && originals[id]) { return originals[id]; }
+
+        if (!imageType) { return null; }
 
         // /<id>[-<id_produktu>]-<typ>/nazwa.ext
         var friendly = src.replace(

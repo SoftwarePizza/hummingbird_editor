@@ -99,6 +99,17 @@ class Hummingbird_editor extends Module
     public const CONF_ZOOM_LEVEL   = 'HBE_ZOOM_LEVEL';
 
     /**
+     * Gorna waga oryginalu zdjecia, po ktory zoom moze siegnac.
+     *
+     * Miniatury PrestaShopa skaluja sie "do zmieszczenia w kwadracie", wiec przy
+     * zdjeciach pionowych (izpol: 2:3) typ 1440x1440 daje realnie 960 px
+     * szerokosci — mniej wiecej tyle, ile ma ramka okladki, czyli zadnego zoomu.
+     * Powiekszenie musi wiec brac oryginal. Limit odcina pojedyncze wielkoludy
+     * (na izpolu do 19 MB); 98% katalogu miesci sie ponizej.
+     */
+    public const ZOOM_ORIGINAL_MAX_BYTES = 2097152;
+
+    /**
      * Wyglad miniatury produktu (kafla) — jedno miejsce na cala witryne.
      *
      * Motyw trzyma zdjecie miniatury w 40 px paddingu, karuzele skleja bez
@@ -1135,6 +1146,42 @@ class Hummingbird_editor extends Module
      * nim segment typu w URL-u zdjecia. Kazdy sklep ma swoj zestaw typow, wiec
      * czytamy go z bazy, zamiast wpisywac nazwe na sztywno.
      */
+    /**
+     * Oryginaly zdjec produktu jako [id_image => adres], pominawszy pliki
+     * ciezsze niz ZOOM_ORIGINAL_MAX_BYTES. To zrodlo powiekszenia dla zoomu;
+     * gdy zdjecia tu nie ma, skrypt schodzi do najwiekszej miniatury.
+     *
+     * Adresy sa wzgledne, wiec dzialaja tak samo na kazdej domenie jezykowej.
+     *
+     * @return array<int,string>
+     */
+    private function getZoomOriginals(int $idProduct): array
+    {
+        if ($idProduct <= 0) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach (Image::getImages((int) $this->context->language->id, $idProduct) as $row) {
+            $idImage = (int) $row['id_image'];
+            $folder = Image::getImgFolderStatic($idImage);
+
+            foreach (['jpg', 'png', 'webp'] as $ext) {
+                $file = _PS_PROD_IMG_DIR_ . $folder . $idImage . '.' . $ext;
+                if (!is_file($file)) {
+                    continue;
+                }
+                if (filesize($file) <= self::ZOOM_ORIGINAL_MAX_BYTES) {
+                    $out[$idImage] = __PS_BASE_URI__ . 'img/p/' . $folder . $idImage . '.' . $ext;
+                }
+                break;
+            }
+        }
+
+        return $out;
+    }
+
     public function getLargestProductImageType(): string
     {
         $best = '';
@@ -1249,8 +1296,9 @@ class Hummingbird_editor extends Module
             if ((int) Configuration::get(self::CONF_ZOOM_ENABLED)) {
                 Media::addJsDef([
                     'hbeZoom' => [
-                        'type'  => $this->getLargestProductImageType(),
-                        'level' => (string) Configuration::get(self::CONF_ZOOM_LEVEL),
+                        'type'      => $this->getLargestProductImageType(),
+                        'level'     => (string) Configuration::get(self::CONF_ZOOM_LEVEL),
+                        'originals' => $this->getZoomOriginals((int) Tools::getValue('id_product')),
                     ],
                 ]);
                 $this->context->controller->registerJavascript(

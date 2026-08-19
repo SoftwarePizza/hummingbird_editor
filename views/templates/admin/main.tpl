@@ -1655,18 +1655,14 @@
             <p class="help-block">
               {l s='Po najechaniu myszą na główne zdjęcie produktu powiększenie renderuje się w tej samej ramce — kursor przesuwa kadr. Nic nie wyskakuje poza obrys zdjęcia. Na telefonach i tabletach zoom się nie włącza: tam działa dotknięcie zdjęcia otwierające galerię.' mod='hummingbird_editor'}
             </p>
-            {if $hbe_zoom_source}
-              <p class="help-block">
-                {l s='Powiększenie bierze się z miniatury' mod='hummingbird_editor'}
+            <p class="help-block">
+              {l s='Powiększenie bierze się z oryginału zdjęcia (do 2 MB) — miniatury są za wąskie, bo PrestaShop skaluje je do kwadratu i przy zdjęciach pionowych zostaje z nich ledwie tyle szerokości, ile ma ramka.' mod='hummingbird_editor'}
+              {if $hbe_zoom_source}
+                {l s='Gdy oryginał jest cięższy niż limit, zoom schodzi do miniatury' mod='hummingbird_editor'}
                 <strong>{$hbe_zoom_source|escape:'html':'UTF-8'}</strong>
-                ({$hbe_zoom_source_width|intval} px).
-                {l s='Jeśli produkt nie ma wygenerowanej miniatury tego rozmiaru, zoom zejdzie do zdjęcia z karty — będzie działał, tylko mniej ostro.' mod='hummingbird_editor'}
-              </p>
-            {else}
-              <div class="alert alert-warning">
-                {l s='Sklep nie ma zdefiniowanego żadnego typu miniatur produktu — zoom nie ma z czego wziąć powiększenia.' mod='hummingbird_editor'}
-              </div>
-            {/if}
+                ({$hbe_zoom_source_width|intval} px) — {l s='działa, tylko słabiej powiększa.' mod='hummingbird_editor'}
+              {/if}
+            </p>
             <form id="hbe-zoom-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
               <input type="hidden" name="token" value="{$hbe_token}">
               <table class="table">
