@@ -226,3 +226,27 @@
     }
 }
 
+
+/* ── Zoom na okladce (inner) ──────────────────────────────────────────────
+   Warstwa lezy dokladnie na aktywnym slajdzie karuzeli i nosi powiekszone
+   zdjecie jako tlo — nic nie wychodzi poza obrys, wiec zoom nie rusza ukladu
+   karty. Ladowana leniwie przez product-zoom.js, wiec dopoki klient nie najedzie,
+   warstwa jest pusta i przezroczysta. */
+.hbe-zoom-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-repeat: no-repeat;
+  background-color: var(--c-white, #fff);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.carousel-item.hbe-zoom-on .hbe-zoom-layer.is-ready { opacity: 1; }
+.carousel-item.hbe-zoom-on { cursor: crosshair; }
+
+/* Flagi promocji i przycisk galerii zostaja czytelne nad powiekszeniem. */
+.js-images-container .product-flags,
+.js-images-container .product__zoom,
+.js-images-container .carousel-control-prev,
+.js-images-container .carousel-control-next { z-index: 2; }

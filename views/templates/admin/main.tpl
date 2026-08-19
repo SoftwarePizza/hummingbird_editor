@@ -1642,6 +1642,69 @@
         </div>
       </div>
 
+      {* ══ Zoom na okladce ══════════════════════════════════════════════════ *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-zoom">
+          <h4 class="panel-title clearfix">
+            {l s='Zoom zdjęcia (po najechaniu)' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-zoom" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="help-block">
+              {l s='Po najechaniu myszą na główne zdjęcie produktu powiększenie renderuje się w tej samej ramce — kursor przesuwa kadr. Nic nie wyskakuje poza obrys zdjęcia. Na telefonach i tabletach zoom się nie włącza: tam działa dotknięcie zdjęcia otwierające galerię.' mod='hummingbird_editor'}
+            </p>
+            {if $hbe_zoom_source}
+              <p class="help-block">
+                {l s='Powiększenie bierze się z miniatury' mod='hummingbird_editor'}
+                <strong>{$hbe_zoom_source|escape:'html':'UTF-8'}</strong>
+                ({$hbe_zoom_source_width|intval} px).
+                {l s='Jeśli produkt nie ma wygenerowanej miniatury tego rozmiaru, zoom zejdzie do zdjęcia z karty — będzie działał, tylko mniej ostro.' mod='hummingbird_editor'}
+              </p>
+            {else}
+              <div class="alert alert-warning">
+                {l s='Sklep nie ma zdefiniowanego żadnego typu miniatur produktu — zoom nie ma z czego wziąć powiększenia.' mod='hummingbird_editor'}
+              </div>
+            {/if}
+            <form id="hbe-zoom-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <table class="table">
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>{l s='Włącz zoom na karcie produktu' mod='hummingbird_editor'}</strong>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <div class="checkbox" style="margin:0"><label>
+                        <input type="checkbox" name="zoom_enabled" value="1" {if $hbe_zoom_enabled}checked{/if}>
+                        {l s='Tak' mod='hummingbird_editor'}
+                      </label></div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Siła powiększenia' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='„Naturalna" pokazuje zdjęcie piksel w piksel — najostrzej, jak pozwala plik. Stałe wartości powiększają mocniej, ale przy małych zdjęciach obraz zacznie się rozmywać.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <select name="zoom_level" class="form-control">
+                        <option value="0" {if $hbe_zoom_level === '0'}selected{/if}>{l s='Naturalna rozdzielczość zdjęcia' mod='hummingbird_editor'}</option>
+                        <option value="2" {if $hbe_zoom_level === '2'}selected{/if}>{l s='2×' mod='hummingbird_editor'}</option>
+                        <option value="2.5" {if $hbe_zoom_level === '2.5'}selected{/if}>{l s='2,5×' mod='hummingbird_editor'}</option>
+                        <option value="3" {if $hbe_zoom_level === '3'}selected{/if}>{l s='3×' mod='hummingbird_editor'}</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       {* ══ FAQ (below add-to-cart on product page) ══════════════════════════ *}
       <div class="panel panel-default">
         <div class="panel-heading"><h3 class="panel-title"><i class="icon-question-sign"></i> {l s='Sekcja FAQ (karta produktu)' mod='hummingbird_editor'}</h3></div>

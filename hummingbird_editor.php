@@ -90,6 +90,15 @@ class Hummingbird_editor extends Module
     public const CONF_CHECKOUT_TERMS_BOTTOM = 'HBE_CHECKOUT_TERMS_BOTTOM';
 
     /**
+     * Zoom na okladce karty produktu (powiekszenie w ramce zdjecia).
+     *
+     * ZOOM_LEVEL — '0' oznacza naturalna rozdzielczosc zrodla (piksel w piksel,
+     * najostrzej); '2', '2.5', '3' skaluja wzgledem szerokosci ramki.
+     */
+    public const CONF_ZOOM_ENABLED = 'HBE_ZOOM_ENABLED';
+    public const CONF_ZOOM_LEVEL   = 'HBE_ZOOM_LEVEL';
+
+    /**
      * Wyglad miniatury produktu (kafla) — jedno miejsce na cala witryne.
      *
      * Motyw trzyma zdjecie miniatury w 40 px paddingu, karuzele skleja bez
@@ -155,7 +164,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.13.0';
+        $this->version = '1.14.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -439,6 +448,15 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // Zoom na okladce karty produktu — domyslnie wlaczony, w naturalnej
+        // rozdzielczosci najwiekszej dostepnej miniatury.
+        if (Configuration::get(self::CONF_ZOOM_ENABLED) === false) {
+            Configuration::updateValue(self::CONF_ZOOM_ENABLED, 1);
+        }
+        if (Configuration::get(self::CONF_ZOOM_LEVEL) === false) {
+            Configuration::updateValue(self::CONF_ZOOM_LEVEL, '0');
+        }
+
         // Related products carousel (below FAQ on product page)
         if (Configuration::get('HBE_RELATED_ENABLED') === false) {
             Configuration::updateValue('HBE_RELATED_ENABLED', 1);
@@ -670,6 +688,8 @@ class Hummingbird_editor extends Module
         }
         Configuration::deleteByName('HBE_RELATED_ENABLED');
         Configuration::deleteByName('HBE_RELATED_TITLE');
+        Configuration::deleteByName(self::CONF_ZOOM_ENABLED);
+        Configuration::deleteByName(self::CONF_ZOOM_LEVEL);
         foreach (['HBE_IMGTEXT_ENABLED', 'HBE_IMGTEXT_BG', 'HBE_IMGTEXT_IMAGE', 'HBE_IMGTEXT_IMAGE_MOBILE',
                   'HBE_IMGTEXT_IMAGE_ML', 'HBE_IMGTEXT_TITLE', 'HBE_IMGTEXT_DESC',
                   'HBE_IMGTEXT_CTA_TEXT', 'HBE_IMGTEXT_CTA_URL'] as $k) {
@@ -1110,6 +1130,27 @@ class Hummingbird_editor extends Module
     }
 
     /**
+     * Nazwa najszerszego typu miniatury produktu (na izpol: product_main_2x,
+     * 1440 px). To zrodlo powiekszenia dla zoomu na okladce — skrypt podmienia
+     * nim segment typu w URL-u zdjecia. Kazdy sklep ma swoj zestaw typow, wiec
+     * czytamy go z bazy, zamiast wpisywac nazwe na sztywno.
+     */
+    public function getLargestProductImageType(): string
+    {
+        $best = '';
+        $width = 0;
+
+        foreach (ImageType::getImagesTypes('products') as $type) {
+            if ((int) $type['width'] > $width) {
+                $width = (int) $type['width'];
+                $best = (string) $type['name'];
+            }
+        }
+
+        return $best;
+    }
+
+    /**
      * Configured social profiles, ready to render: only networks with a URL,
      * in SOCIAL_NETWORKS order.
      *
@@ -1198,6 +1239,23 @@ class Hummingbird_editor extends Module
                 $this->context->controller->registerJavascript(
                     'hb-editor-related',
                     'modules/' . $this->name . '/views/js/related-carousel.js',
+                    ['position' => 'bottom', 'priority' => 200]
+                );
+            }
+
+            // Zoom na okladce. Skrypt sam odpada na dotyku; tutaj tylko podajemy
+            // mu nazwe najwiekszego typu miniatury, bo motyw w srcset konczy na
+            // 720 px, a `data-full-size-image-url` wskazuje wrecz home_default.
+            if ((int) Configuration::get(self::CONF_ZOOM_ENABLED)) {
+                Media::addJsDef([
+                    'hbeZoom' => [
+                        'type'  => $this->getLargestProductImageType(),
+                        'level' => (string) Configuration::get(self::CONF_ZOOM_LEVEL),
+                    ],
+                ]);
+                $this->context->controller->registerJavascript(
+                    'hb-editor-product-zoom',
+                    'modules/' . $this->name . '/views/js/product-zoom.js',
                     ['position' => 'bottom', 'priority' => 200]
                 );
             }

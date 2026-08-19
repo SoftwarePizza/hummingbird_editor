@@ -377,6 +377,12 @@ class AdminHbEditorController extends ModuleAdminController
             // Karta produktu: source of the summary under the price
             // ('' = theme standard, 'short', 'full')
             'hbe_product_summary_source' => (string) HbEditorConfig::get('HBE_PRODUCT_SUMMARY_SOURCE'),
+            // Karta produktu: zoom na okladce (+ nazwa typu miniatury, z ktorej
+            // bierze sie powiekszenie — sklep widzi, jak ostry zoom dostanie)
+            'hbe_zoom_enabled'           => (int) Configuration::get(Hummingbird_editor::CONF_ZOOM_ENABLED),
+            'hbe_zoom_level'             => (string) Configuration::get(Hummingbird_editor::CONF_ZOOM_LEVEL),
+            'hbe_zoom_source'            => $this->module->getLargestProductImageType(),
+            'hbe_zoom_source_width'      => $this->getLargestProductImageWidth(),
             // Rosenthal Care promo block (cart)
             'hbe_care_enabled'           => (int) Configuration::get('HBE_CARE_ENABLED'),
             'hbe_care_product_id'        => (int) Configuration::get('HBE_CARE_PRODUCT_ID'),
@@ -2184,6 +2190,34 @@ class AdminHbEditorController extends ModuleAdminController
         HbEditorConfig::set('HBE_PRODUCT_SUMMARY_SOURCE', $source);
 
         $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /** Zapisuje przelaczniki zoomu na okladce karty produktu. */
+    public function ajaxProcessSaveZoomSettings(): void
+    {
+        $level = (string) Tools::getValue('zoom_level', '0');
+        if (!in_array($level, ['0', '2', '2.5', '3'], true)) {
+            $level = '0';
+        }
+
+        Configuration::updateValue(Hummingbird_editor::CONF_ZOOM_ENABLED, (int) Tools::getValue('zoom_enabled', 0));
+        Configuration::updateValue(Hummingbird_editor::CONF_ZOOM_LEVEL, $level);
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /** Szerokosc najwiekszej miniatury produktu — informacyjnie w panelu. */
+    private function getLargestProductImageWidth(): int
+    {
+        $width = 0;
+
+        foreach (ImageType::getImagesTypes('products') as $type) {
+            if ((int) $type['width'] > $width) {
+                $width = (int) $type['width'];
+            }
+        }
+
+        return $width;
     }
 
     public function ajaxProcessSaveCarouselHeaders(): void

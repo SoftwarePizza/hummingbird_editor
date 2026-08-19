@@ -1619,6 +1619,32 @@ $(function () {
         });
     });
 
+    /* ── Karta produktu: zoom na okladce ──────────────────────────────────── */
+    $(document).on('submit', '#hbe-zoom-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = [
+            { name: 'token', value: $form.find('[name=token]').val() },
+            { name: 'zoom_enabled', value: $form.find('[name=zoom_enabled]').is(':checked') ? 1 : 0 },
+            { name: 'zoom_level', value: $form.find('[name=zoom_level]').val() }
+        ];
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveZoomSettings&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     /* ── Rosenthal Care (cart block): save ────────────────────────────────── */
     $(document).on('submit', '#hbe-care-form', function (e) {
         e.preventDefault();
