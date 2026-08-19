@@ -1924,13 +1924,18 @@ class Hummingbird_editor extends Module
      * Arkusz opisujacy wybrany wyglad kafla — pusty, gdy sklep zostaje przy
      * motywie.
      *
-     * Wstrzykiwany za <body>, czyli po wszystkich arkuszach z <head>. To wazne
-     * podwojnie: theme.css hummingbirda jest w @layer, a regula bez warstwy
-     * bije kazda warstwe niezaleznie od specyficznosci, natomiast wobec CSS-a
-     * modulow i recznego custom.css motywu (tez bez warstw) wygrywa kolejnoscia.
-     * Jedyny wyjatek to kolumny listingu, gdzie motywy potrafia miec wlasna
-     * regule z dodatkowa klasa — stad podwojone `.products.products`, ktore
-     * podnosi specyficznosc, zeby wybor z panelu byl ostatnim slowem.
+     * Wstrzykiwany za <body>, czyli po wszystkich arkuszach z <head>. Wobec
+     * theme.css hummingbirda wystarczy sam brak warstwy: theme.css jest
+     * w @layer, a regula bez warstwy bije kazda warstwe niezaleznie od
+     * specyficznosci.
+     *
+     * Z CSS-em modulow (w tym home.css tego modulu) i recznym custom.css motywu
+     * jest inaczej — te tez sa poza warstwami, wiec decyduje specyficznosc,
+     * a dopiero przy remisie kolejnosc. Dlatego kazdy selektor, ktory ma
+     * konkurencje, konczy sie **podwojona klasa**: `.products.products` przebija
+     * `.hbe-products .module-products__carousel .products{gap:0}` z home.css
+     * i wlasne reguly motywow na siatce listingu. Bez tego karuzele edytora
+     * zostawaly sklejone mimo ustawionej przerwy.
      */
     public function getMiniatureCss(): string
     {
@@ -1939,9 +1944,12 @@ class Hummingbird_editor extends Module
             return '';
         }
 
+        $carouselTracks = ':is(' . self::MINIATURE_CAROUSEL_SECTIONS . ')'
+            . ' .module-products__carousel .products.products,'
+            . '.hbe-products .hbe-products__skeleton.hbe-products__skeleton';
         $carouselItems = ':is(' . self::MINIATURE_CAROUSEL_SECTIONS . ')'
-            . ' .module-products__carousel .product-miniature,'
-            . '.hbe-products .hbe-products__skeleton-card';
+            . ' .module-products__carousel .product-miniature.product-miniature,'
+            . '.hbe-products .hbe-products__skeleton-card.hbe-products__skeleton-card';
 
         $css = 'img.product-miniature__image{padding:' . $s['pad'] . 'px';
         if ($s['ratio'] !== '') {
@@ -1963,9 +1971,12 @@ class Hummingbird_editor extends Module
         }
 
         // Ten sam odstep rozdziela siatke listingu i pas karuzeli — kafle maja
-        // wygladac tak samo niezaleznie od miejsca.
+        // wygladac tak samo niezaleznie od miejsca. Karuzele dostaja go osobna
+        // regula, bo ich `gap: 0` jest zapisany selektorem o trzech klasach:
+        // krotkie `.products` przegralo tam specyficznoscia mimo pozniejszej
+        // kolejnosci i pas zostawal sklejony.
         $css .= '.products{gap:' . $s['gap'] . 'px}'
-            . '.hbe-products .hbe-products__skeleton{gap:' . $s['gap'] . 'px}';
+            . $carouselTracks . '{gap:' . $s['gap'] . 'px}';
 
         $css .= $carouselItems . '{'
             . ($s['car_border'] ? '' : 'border:0;')
