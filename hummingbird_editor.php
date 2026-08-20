@@ -1111,6 +1111,73 @@ class Hummingbird_editor extends Module
 
             if (!empty($node['children']) && is_array($node['children'])) {
                 $this->flagMenuNodes($node['children'], $flatDesktop, $flatMobile, $columns, $cascade, $restLabel, $depth + 1);
+
+                // Alfabet tylko pod kaskadą (patrz sortMenuNodes). Robione tutaj,
+                // a nie osobną pętlą po $params['menu']['children'] — tamta pisała
+                // do kopii i sortowanie nie dochodziło do szablonu.
+                if ($node['menu_cascade']) {
+                    $this->sortMenuNodes($node['children']);
+                }
+            }
+        }
+        unset($node);
+    }
+
+    /**
+     * Sort a cascade branch by label, all the way down.
+     *
+     * The menu tree comes ordered by `position` from the category tree, which
+     * has nothing to do with the alphabet — in one column that reads as random.
+     * Only the cascade needs it: the other layouts group by parent, where the
+     * catalogue order still carries meaning.
+     *
+     * Polish collation matters here (ą after a, ł after l, ż last), so intl's
+     * Collator does the comparing when it is available; the fallback folds the
+     * diacritics onto their base letters, which gets the same order for every
+     * language this shop runs.
+     *
+     * @param array<int, array<string, mixed>> $nodes
+     */
+    private function sortMenuNodes(array &$nodes, ?string $locale = null): void
+    {
+        static $collator = null;
+
+        if ($collator === null) {
+            $collator = false;
+            if (class_exists('Collator')) {
+                try {
+                    $collator = new Collator($locale ?: 'pl_PL');
+                } catch (\Throwable $e) {
+                    $collator = false;
+                }
+            }
+        }
+
+        $cmp = static function (array $a, array $b) use ($collator): int {
+            $la = (string) ($a['label'] ?? '');
+            $lb = (string) ($b['label'] ?? '');
+
+            if ($collator instanceof Collator) {
+                return (int) $collator->compare($la, $lb);
+            }
+
+            $fold = static function (string $v): string {
+                return mb_strtolower(strtr($v, [
+                    'ą' => 'a', 'ć' => 'c', 'ę' => 'e', 'ł' => 'l', 'ń' => 'n',
+                    'ó' => 'o', 'ś' => 's', 'ź' => 'z', 'ż' => 'z',
+                    'Ą' => 'A', 'Ć' => 'C', 'Ę' => 'E', 'Ł' => 'L', 'Ń' => 'N',
+                    'Ó' => 'O', 'Ś' => 'S', 'Ź' => 'Z', 'Ż' => 'Z',
+                ]), 'UTF-8');
+            };
+
+            return strcmp($fold($la), $fold($lb));
+        };
+
+        usort($nodes, $cmp);
+
+        foreach ($nodes as &$node) {
+            if (!empty($node['children']) && is_array($node['children'])) {
+                $this->sortMenuNodes($node['children'], $locale);
             }
         }
         unset($node);
@@ -1149,6 +1216,7 @@ class Hummingbird_editor extends Module
         // surface as "Undefined index: flat_mobile" notices inside the rendered
         // navigation.
         $this->flagMenuNodes($params['menu']['children'], $flatDesktop, $flatMobile, $columns, $cascade, $restLabel);
+
 
         // Karta podarunkowa — append a top-level leaf item to the main menu.
         // ($params['menu'] is passed by reference by ps_mainmenu, and PHP keeps
