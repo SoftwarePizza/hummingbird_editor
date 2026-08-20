@@ -3,7 +3,8 @@ declare(strict_types=1);
 /**
  * Endpoint doladowywania karuzel produktowych ze strony glownej.
  *
- * Zwraca JSON {blocks: {id: html}}. Przyjmuje kilka id naraz, bo kazde zadanie
+ * Zwraca JSON {blocks: {id: html}}. Przyjmuje kilka id naraz (`ids=2,3,4`) i
+ * wariant losowania strony (`v=0..n`), bo kazde zadanie
  * to pelny start PrestaShopa — pociagniecie szesciu karuzel jednym zapytaniem
  * kosztuje serwer szescio razy mniej niz szesc osobnych zapytan. Tresc niemal
  * zawsze idzie prosto z cache (HbEditorCarouselCache).
@@ -41,6 +42,14 @@ class Hummingbird_editorCarouselModuleFrontController extends ModuleFrontControl
         }
 
         $ids = $this->requestedIds($isWarmup);
+
+        // Wariant losowania tej wizyty (?v=) — strona przekazuje swoj, zeby karuzele
+        // doladowane przy scrollu wykluczaly dokladnie te produkty, ktore gosc
+        // widzi w karuzelach wyzej. Bez parametru modul losuje sam.
+        $variant = (string) Tools::getValue('v', '');
+        if ($variant !== '' && ctype_digit($variant)) {
+            $this->module->setCarouselVariant((int) $variant);
+        }
 
         if ($isWarmup) {
             $built = 0;

@@ -317,7 +317,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.16.0';
+        $this->version = '1.17.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -1659,7 +1659,10 @@ class Hummingbird_editor extends Module
             if (HbEditorCarouselCache::lazyEnabled()) {
                 Media::addJsDef([
                     'hbeCarouselLazy' => [
-                        'url' => $this->context->link->getModuleLink($this->name, 'carousel', [], true),
+                        'url'     => $this->context->link->getModuleLink($this->name, 'carousel', [], true),
+                        // Ten sam wariant losowania dla karuzel w HTML i doladowanych —
+                        // inaczej wykluczanie produktow „z karuzel wyzej” nie trzyma sie kupy.
+                        'variant' => $this->getCarouselVariant(),
                     ],
                 ]);
             }
@@ -3031,6 +3034,15 @@ class Hummingbird_editor extends Module
 
     /* ── Info bar + Image Hero (displayHome) — ordered ──────────────────── */
 
+    /** Wariant losowania na te wizyte — jeden dla wszystkich karuzel strony (null = jeszcze nie wylosowany). */
+    private $hbeCarouselVariant = null;
+
+    /** Karuzele produktowe strony glownej w kolejnosci wyswietlania (memo na zadanie). */
+    private $hbeCarouselOrder = null;
+
+    /** Id produktow pokazanych przez karuzele: [id_block][wariant] => int[] (memo na zadanie). */
+    private $hbeCarouselIds = [];
+
     public function hookDisplayHome(array $params = []): string
     {
         $rawOrder = (string) Configuration::get('HBE_HOME_ORDER') ?: 'infobar,imghero,cols3,tagline';
@@ -3825,20 +3837,28 @@ class Hummingbird_editor extends Module
      */
 
     /**
-     * Pobiera i prezentuje produkty z kategorii — logika przeniesiona z modulu multislider,
-     * zeby dalo sie go usunac. Uzywa wylacznie klas rdzenia PrestaShop (zadnych API zewnetrznych).
+     * Surowe wiersze produktow z kategorii (bez prezentacji) — wspolne dla budowania
+     * karuzeli i dla wyliczania, co pokazuja karuzele wyzej na stronie. Logika
+     * przeniesiona z modulu multislider; wylacznie klasy rdzenia PrestaShop.
      *
-     * @param int  $idCategory kategoria zrodlowa
-     * @param int  $ile        ile produktow pokazac
-     * @param bool $losowo     czy losowa kolejnosc zamiast wg daty dodania
+     * Wykluczenia: dostawca wyszukiwania nie umie pomijac konkretnych id, wiec
+     * pobieramy o tyle wiecej wierszy, ile jest wykluczen, odsiewamy je i tniemy
+     * do $ile. Dla kolejnosci wg daty daje to dokladnie „pierwsze $ile nowosci
+     * spoza listy”, dla losowej — losowa probke spoza listy.
      *
-     * @return array lista produktow gotowa dla szablonu
+     * @param int   $idCategory kategoria zrodlowa
+     * @param int   $ile        ile produktow pokazac
+     * @param bool  $losowo     czy losowa kolejnosc zamiast wg daty dodania
+     * @param int[] $wyklucz    id produktow, ktorych nie pokazywac
+     *
+     * @return array<int,array> wiersze z kluczem id_product
      */
-    private function hbeGetCategoryProducts(int $idCategory, int $ile, bool $losowo): array
+    private function hbeFetchCategoryProducts(int $idCategory, int $ile, bool $losowo, array $wyklucz = []): array
     {
         if ($ile <= 0) {
             $ile = 8;
         }
+        $wyklucz = array_fill_keys(array_map('intval', $wyklucz), true);
         $category = new Category($idCategory);
 
         $searchProvider = new \PrestaShop\PrestaShop\Adapter\Category\CategoryProductSearchProvider(
@@ -3848,7 +3868,7 @@ class Hummingbird_editor extends Module
         $searchContext = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchContext($this->context);
 
         $query = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchQuery();
-        $query->setResultsPerPage($ile)->setPage(1);
+        $query->setResultsPerPage($ile + count($wyklucz))->setPage(1);
         if ($losowo) {
             $query->setSortOrder(\PrestaShop\PrestaShop\Core\Product\Search\SortOrder::random());
         } else {
@@ -3857,17 +3877,299 @@ class Hummingbird_editor extends Module
 
         $wynik = $searchProvider->runQuery($searchContext, $query);
 
+        $wiersze = [];
+        foreach ($wynik->getProducts() as $surowy) {
+            if (isset($wyklucz[(int) ($surowy['id_product'] ?? 0)])) {
+                continue;
+            }
+            $wiersze[] = $surowy;
+            if (count($wiersze) >= $ile) {
+                break;
+            }
+        }
+
+        return $wiersze;
+    }
+
+    /**
+     * Pobiera i prezentuje produkty z kategorii — gotowa lista dla szablonu.
+     *
+     * @param int[] $wyklucz id produktow, ktorych nie pokazywac
+     *
+     * @return array lista produktow gotowa dla szablonu
+     */
+    private function hbeGetCategoryProducts(int $idCategory, int $ile, bool $losowo, array $wyklucz = []): array
+    {
+        $wiersze = $this->hbeFetchCategoryProducts($idCategory, $ile, $losowo, $wyklucz);
+
         $assembler = new ProductAssembler($this->context);
         $factory = new ProductPresenterFactory($this->context);
         $ustawienia = $factory->getPresentationSettings();
         $presenter = $factory->getPresenter();
 
         $lista = [];
-        foreach ($wynik->getProducts() as $surowy) {
+        foreach ($wiersze as $surowy) {
             $lista[] = $presenter->present($ustawienia, $assembler->assembleProduct($surowy), $this->context->language);
         }
 
         return $lista;
+    }
+
+    /* ── Karuzele: kolejnosc na stronie, wariant wizyty, wykluczanie „tego, co wyzej” ── */
+
+    /**
+     * Ustawia wariant losowania dla tego zadania — endpoint doladowywania dostaje
+     * go od strony (?v=), zeby karuzele dociagniete przy scrollu pasowaly do tych
+     * juz w HTML.
+     */
+    public function setCarouselVariant(int $variant): void
+    {
+        $this->hbeCarouselVariant = max(0, min(HbEditorCarouselCache::variants() - 1, $variant));
+    }
+
+    /**
+     * Wariant losowania na te wizyte. Losowany raz na zadanie, wspolny dla
+     * wszystkich karuzel: karuzela wykluczajaca produkty z karuzel wyzej musi
+     * wiedziec, ktory wariant tamtych gosc ogladal.
+     */
+    public function getCarouselVariant(): int
+    {
+        if ($this->hbeCarouselVariant === null) {
+            $this->hbeCarouselVariant = random_int(0, HbEditorCarouselCache::variants() - 1);
+        }
+
+        return $this->hbeCarouselVariant;
+    }
+
+    /**
+     * Aktywne karuzele produktowe strony glownej biezacego sklepu w kolejnosci
+     * wyswietlania (HBE_HOME_ORDER, bloki spoza listy na koncu wg position) —
+     * ta kolejnosc daje pierwszenstwo przy wykluczaniu produktow pokazanych wyzej.
+     *
+     * @return array<int,array{id_block:int,sd:array}> id_block => dane
+     */
+    private function hbeCarouselOrder(): array
+    {
+        if ($this->hbeCarouselOrder !== null) {
+            return $this->hbeCarouselOrder;
+        }
+
+        $rows = (array) Db::getInstance()->executeS(
+            'SELECT b.`id_block`, b.`section_data`
+             FROM `' . _DB_PREFIX_ . 'hb_editor_block` b
+             INNER JOIN `' . _DB_PREFIX_ . 'hb_editor_block_shop` bs
+                 ON bs.id_block = b.id_block AND bs.id_shop = ' . (int) $this->context->shop->id . '
+             WHERE b.`active` = 1
+               AND b.`hook_name` = "displayHome"
+               AND b.`section_type` = "' . pSQL(HbEditorBlock::STYPE_PRODUCTS) . '"
+             ORDER BY b.`position` ASC, b.`id_block` ASC'
+        );
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $sd = json_decode((string) $row['section_data'], true);
+            $byId[(int) $row['id_block']] = [
+                'id_block' => (int) $row['id_block'],
+                'sd'       => is_array($sd) ? $sd : [],
+            ];
+        }
+
+        // Pozycja w HBE_HOME_ORDER (ta sama, ktorej uzywa hookDisplayHome).
+        $rank = [];
+        foreach (explode(',', (string) Configuration::get('HBE_HOME_ORDER')) as $i => $part) {
+            $part = trim($part);
+            if ($part !== '' && ctype_digit($part)) {
+                $rank[(int) $part] = $i;
+            }
+        }
+
+        $ordered = [];
+        foreach ($byId as $id => $b) {
+            if (isset($rank[$id])) {
+                $ordered[$rank[$id]] = $b;
+            }
+        }
+        ksort($ordered);
+
+        $out = [];
+        foreach ($ordered as $b) {
+            $out[$b['id_block']] = $b;
+        }
+        foreach ($byId as $id => $b) {
+            if (!isset($out[$id])) {
+                $out[$id] = $b;
+            }
+        }
+
+        return $this->hbeCarouselOrder = $out;
+    }
+
+    /**
+     * Karuzele stojace przed dana na stronie glownej. Blok spoza strony glownej
+     * nie ma poprzedniczek.
+     *
+     * @return array<int,array{id_block:int,sd:array}>
+     */
+    private function hbeCarouselPredecessors(int $idBlock): array
+    {
+        $out = [];
+        foreach ($this->hbeCarouselOrder() as $id => $b) {
+            if ($id === $idBlock) {
+                return $out;
+            }
+            $out[$id] = $b;
+        }
+
+        return [];
+    }
+
+    /**
+     * Czy tresc karuzeli zalezy od wariantu losowania: sama losuje albo wyklucza
+     * produkty karuzeli, ktora losuje (wtedy jej lista wykluczen — a wiec i ona —
+     * zmienia sie z wariantem). Taka karuzela trzyma w cache tyle wpisow, ile
+     * jest wariantow, choc sama ma ustalona kolejnosc.
+     */
+    private function hbeCarouselVariantDependent(int $idBlock, array $sd): bool
+    {
+        if (!empty($sd['randomized'])) {
+            return true;
+        }
+        if (empty($sd['exclude_previous'])) {
+            return false;
+        }
+        foreach ($this->hbeCarouselPredecessors($idBlock) as $id => $b) {
+            if ($this->hbeCarouselVariantDependent($id, $b['sd'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Wariant, pod ktorym karuzela faktycznie trzyma cache (0, gdy nie zalezy od losowania). */
+    private function hbeCarouselEffectiveVariant(int $idBlock, array $sd, int $variant): int
+    {
+        return $this->hbeCarouselVariantDependent($idBlock, $sd) ? $variant : 0;
+    }
+
+    /**
+     * Id produktow, ktorych karuzela ma nie pokazywac: suma produktow karuzel
+     * stojacych wyzej na stronie glownej, dla tego samego wariantu losowania.
+     * Pusta tablica, gdy opcja `exclude_previous` jest wylaczona.
+     *
+     * @param bool $buduj czy wolno budowac brakujace karuzele wyzej (kosztowne);
+     *                    przy false brak ktorejkolwiek w cache daje null = „nie wiadomo”
+     *
+     * @return int[]|null
+     */
+    private function hbeCarouselExcludeIds(int $idBlock, array $sd, int $variant, bool $buduj): ?array
+    {
+        if ($idBlock <= 0 || empty($sd['exclude_previous'])) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($this->hbeCarouselPredecessors($idBlock) as $id => $b) {
+            $shown = $this->hbeCarouselProductIds($id, $b['sd'], $variant, $buduj);
+            if ($shown === null) {
+                return null;
+            }
+            foreach ($shown as $p) {
+                $ids[$p] = $p;
+            }
+        }
+        sort($ids);
+
+        return array_values($ids);
+    }
+
+    /**
+     * Id produktow, ktore karuzela pokazuje w danym wariancie.
+     *
+     * Zrodlem prawdy jest jej gotowy HTML (atrybut data-hbe-ids) — z cache albo
+     * zbudowany w tym zadaniu — bo tylko on mowi, co gosc naprawde widzi wyzej.
+     * Bez cache liczymy z samego zapytania (dla karuzel losowych to przyblizenie).
+     *
+     * @return int[]|null null = nieznane (nie ma w cache, a budowac nie wolno)
+     */
+    private function hbeCarouselProductIds(int $idBlock, array $sd, int $variant, bool $buduj): ?array
+    {
+        $v = $this->hbeCarouselEffectiveVariant($idBlock, $sd, $variant);
+        if (isset($this->hbeCarouselIds[$idBlock][$v])) {
+            return $this->hbeCarouselIds[$idBlock][$v];
+        }
+
+        if ((int) ($sd['id_category'] ?? 0) <= 0) {
+            return $this->hbeCarouselIds[$idBlock][$v] = [];
+        }
+
+        if (!HbEditorCarouselCache::isEnabled()) {
+            $exclude = $this->hbeCarouselExcludeIds($idBlock, $sd, $variant, $buduj);
+            if ($exclude === null) {
+                return null;
+            }
+            $rows = $this->hbeFetchCategoryProducts(
+                (int) $sd['id_category'],
+                (int) ($sd['number'] ?? 8),
+                !empty($sd['randomized']),
+                $exclude
+            );
+            $ids = [];
+            foreach ($rows as $row) {
+                $ids[] = (int) $row['id_product'];
+            }
+
+            return $this->hbeCarouselIds[$idBlock][$v] = $ids;
+        }
+
+        if ($buduj) {
+            // renderProductsCarousel() zapisuje memo po drodze (z cache albo z builda).
+            $this->renderProductsCarousel($idBlock, $sd, $variant);
+
+            return $this->hbeCarouselIds[$idBlock][$v] ?? [];
+        }
+
+        $exclude = $this->hbeCarouselExcludeIds($idBlock, $sd, $variant, false);
+        if ($exclude === null) {
+            return null;
+        }
+        $html = HbEditorCarouselCache::get($this->hbeCarouselFile($idBlock, $sd, $v, $exclude));
+        if ($html === null) {
+            return null;
+        }
+
+        return $this->hbeCarouselIds[$idBlock][$v] = $this->hbeExtractIds($html);
+    }
+
+    /**
+     * Plik cache karuzeli. Klucz obejmuje konfiguracje bloku, wariant i liste
+     * wykluczen — gdy karuzela wyzej sie przebuduje i pokaze inne produkty, ta
+     * dostaje nowy klucz i tez sie przebudowuje, zamiast dublowac ja do konca TTL.
+     *
+     * @param int[] $exclude posortowana lista wykluczen
+     */
+    private function hbeCarouselFile(int $idBlock, array $sd, int $v, array $exclude): string
+    {
+        $fingerprint = (string) json_encode($sd);
+        if ($exclude) {
+            $fingerprint .= '|x:' . implode(',', $exclude);
+        }
+
+        return HbEditorCarouselCache::fileForBlock($idBlock, $fingerprint, $v);
+    }
+
+    /**
+     * Id produktow z gotowego HTML karuzeli (atrybut data-hbe-ids na <section>).
+     *
+     * @return int[]
+     */
+    private function hbeExtractIds(string $html): array
+    {
+        if (!preg_match('/\sdata-hbe-ids="([0-9,]*)"/', $html, $m)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('intval', explode(',', $m[1]))));
     }
 
     /**
@@ -3894,10 +4196,15 @@ class Hummingbird_editor extends Module
      * kolejnoscia trzymaja kilka wariantow i losuja miedzy nimi, zeby zamrozony
      * na dobe HTML nie oznaczal tych samych produktow przy kazdej wizycie.
      *
+     * Wykluczanie „tego, co wyzej”: gdy blok ma `exclude_previous`, najpierw
+     * ustala (z cache lub budujac) produkty karuzel stojacych przed nim na
+     * stronie glownej — w tym samym wariancie — i pomija je u siebie.
+     *
      * @param int        $idBlock id bloku (0 = renderuj bez cache)
      * @param array|null $sd      section_data; null = dociagnij z bazy (sciezka AJAX)
+     * @param int|null   $variant wariant losowania; null = wariant tej wizyty
      */
-    public function renderProductsCarousel(int $idBlock, ?array $sd = null): string
+    public function renderProductsCarousel(int $idBlock, ?array $sd = null, ?int $variant = null): string
     {
         if ($sd === null) {
             $block = $this->hbeProductsBlockData($idBlock);
@@ -3911,22 +4218,25 @@ class Hummingbird_editor extends Module
             return '';
         }
 
+        $variant = $variant ?? $this->getCarouselVariant();
+        $v = $this->hbeCarouselEffectiveVariant($idBlock, $sd, $variant);
+        $exclude = $this->hbeCarouselExcludeIds($idBlock, $sd, $variant, true) ?? [];
+
         if ($idBlock <= 0 || !HbEditorCarouselCache::isEnabled()) {
-            return $this->buildProductsCarousel($sd);
+            $html = $this->buildProductsCarousel($sd, $exclude);
+            if ($idBlock > 0) {
+                $this->hbeCarouselIds[$idBlock][$v] = $this->hbeExtractIds($html);
+            }
+
+            return $html;
         }
 
-        $fingerprint = (string) json_encode($sd);
-        $variants = !empty($sd['randomized']) ? HbEditorCarouselCache::variants() : 1;
-        $file = HbEditorCarouselCache::fileForBlock(
-            $idBlock,
-            $fingerprint,
-            $variants > 1 ? random_int(0, $variants - 1) : 0
-        );
+        $file = $this->hbeCarouselFile($idBlock, $sd, $v, $exclude);
 
         $html = HbEditorCarouselCache::get($file);
         if ($html === null) {
             if (HbEditorCarouselCache::claimRebuild($file)) {
-                $html = HbEditorCarouselCache::detokenize($this->buildProductsCarousel($sd));
+                $html = HbEditorCarouselCache::detokenize($this->buildProductsCarousel($sd, $exclude));
                 if ($this->hbeCarouselIsCacheable($html)) {
                     HbEditorCarouselCache::set($file, $html);
                 }
@@ -3937,13 +4247,17 @@ class Hummingbird_editor extends Module
             }
         }
 
+        $this->hbeCarouselIds[$idBlock][$v] = $this->hbeExtractIds($html);
+
         return HbEditorCarouselCache::retokenize($html);
     }
 
     /**
      * Wlasciwe zbudowanie karuzeli — kosztowna czesc, ktora cache ma omijac.
+     *
+     * @param int[] $exclude id produktow do pominiecia (pokazane w karuzelach wyzej)
      */
-    private function buildProductsCarousel(array $sd): string
+    private function buildProductsCarousel(array $sd, array $exclude = []): string
     {
         $idCategory = (int) ($sd['id_category'] ?? 0);
         if ($idCategory <= 0) {
@@ -3953,10 +4267,17 @@ class Hummingbird_editor extends Module
         $produkty = $this->hbeGetCategoryProducts(
             $idCategory,
             (int) ($sd['number'] ?? 8),
-            !empty($sd['randomized'])
+            !empty($sd['randomized']),
+            $exclude
         );
         if (!$produkty) {
             return '';
+        }
+
+        // Lista id w HTML: stad kolejne karuzele (i cache) wiedza, co ta pokazuje.
+        $ids = [];
+        foreach ($produkty as $p) {
+            $ids[] = (int) ($p['id_product'] ?? 0);
         }
 
         $idLang = (int) $this->context->language->id;
@@ -3964,6 +4285,7 @@ class Hummingbird_editor extends Module
             'hbe_products_title'    => $this->hbeSectionLangValue($sd, 'title', $idLang),
             'hbe_products_text'     => $this->hbeSectionLangValue($sd, 'text', $idLang),
             'hbe_products'          => $produkty,
+            'hbe_products_ids'      => implode(',', array_filter($ids)),
             'hbe_products_all_link' => $this->context->link->getCategoryLink($idCategory),
         ]);
 
@@ -3995,11 +4317,21 @@ class Hummingbird_editor extends Module
         // produktow), nie zasluguje na atrape — inaczej przy kazdym wejsciu
         // mignelaby sekcja, ktora zaraz po doladowaniu znika.
         if (HbEditorCarouselCache::isEnabled()) {
-            $cached = HbEditorCarouselCache::get(
-                HbEditorCarouselCache::fileForBlock((int) $block['id_block'], (string) json_encode($sd), 0)
-            );
-            if ($cached !== null && trim($cached) === '') {
-                return '';
+            $idBlock = (int) $block['id_block'];
+            $variant = $this->getCarouselVariant();
+            // Bez budowania czegokolwiek: gdy karuzel wyzej nie ma jeszcze w cache,
+            // klucza nie znamy i atrapa po prostu zostaje.
+            $exclude = $this->hbeCarouselExcludeIds($idBlock, $sd, $variant, false);
+            if ($exclude !== null) {
+                $cached = HbEditorCarouselCache::get($this->hbeCarouselFile(
+                    $idBlock,
+                    $sd,
+                    $this->hbeCarouselEffectiveVariant($idBlock, $sd, $variant),
+                    $exclude
+                ));
+                if ($cached !== null && trim($cached) === '') {
+                    return '';
+                }
             }
         }
 
@@ -4049,23 +4381,16 @@ class Hummingbird_editor extends Module
     }
 
     /**
-     * Id wszystkich aktywnych karuzel produktowych biezacego sklepu — uzywane
-     * przez rozgrzewanie cache z crona.
+     * Id wszystkich aktywnych karuzel produktowych strony glownej biezacego
+     * sklepu, w kolejnosci wyswietlania — uzywane przez rozgrzewanie cache z crona.
      *
      * @return int[]
      */
     public function getProductsCarouselIds(): array
     {
-        $rows = (array) Db::getInstance()->executeS(
-            'SELECT b.`id_block`
-             FROM `' . _DB_PREFIX_ . 'hb_editor_block` b
-             INNER JOIN `' . _DB_PREFIX_ . 'hb_editor_block_shop` bs
-                 ON bs.id_block = b.id_block AND bs.id_shop = ' . (int) $this->context->shop->id . '
-             WHERE b.`active` = 1 AND b.`section_type` = "' . pSQL(HbEditorBlock::STYPE_PRODUCTS) . '"
-             ORDER BY b.`position` ASC'
-        );
-
-        return array_map('intval', array_column($rows, 'id_block'));
+        // Kolejnosc ze strony glownej: rozgrzewanie idzie od gory, wiec kazda
+        // karuzela zastaje swieze listy produktow karuzel wyzej.
+        return array_keys($this->hbeCarouselOrder());
     }
 
     /**
@@ -4087,18 +4412,20 @@ class Hummingbird_editor extends Module
             return 0;
         }
 
-        $fingerprint = (string) json_encode($sd);
-        $variants = !empty($sd['randomized']) ? HbEditorCarouselCache::variants() : 1;
+        $variants = $this->hbeCarouselVariantDependent($idBlock, $sd) ? HbEditorCarouselCache::variants() : 1;
 
         $built = 0;
         for ($variant = 0; $variant < $variants; ++$variant) {
-            $html = HbEditorCarouselCache::detokenize($this->buildProductsCarousel($sd));
+            $exclude = $this->hbeCarouselExcludeIds($idBlock, $sd, $variant, true) ?? [];
+            $html = HbEditorCarouselCache::detokenize($this->buildProductsCarousel($sd, $exclude));
             if (!$this->hbeCarouselIsCacheable($html)) {
                 continue;
             }
-            if (HbEditorCarouselCache::set(HbEditorCarouselCache::fileForBlock($idBlock, $fingerprint, $variant), $html)) {
+            if (HbEditorCarouselCache::set($this->hbeCarouselFile($idBlock, $sd, $variant, $exclude), $html)) {
                 ++$built;
             }
+            // Kolejne karuzele w tym samym rozgrzewaniu maja widziec nowa liste.
+            $this->hbeCarouselIds[$idBlock][$variant] = $this->hbeExtractIds($html);
         }
 
         return $built;

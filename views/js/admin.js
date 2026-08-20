@@ -1168,6 +1168,7 @@ $(function () {
             sd.id_category = parseInt($form.find('[name=pc_id_category]').val(), 10) || 0;
             sd.number      = parseInt($form.find('[name=pc_number]').val(), 10) || 8;
             sd.randomized  = $form.find('[name=pc_randomized]').is(':checked') ? 1 : 0;
+            sd.exclude_previous = $form.find('[name=pc_exclude_previous]').is(':checked') ? 1 : 0;
 
             $form.find('[name^="pc_title["], [name^="pc_text["]').each(function () {
                 var m = this.name.match(/^pc_(title|text)\[(\d+)\]$/);

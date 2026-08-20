@@ -10,7 +10,9 @@
 {block name='module_products_name'}hbe-products{/block}
 
 {block name='module_products'}
-  <section class="hbe-products">
+  {* data-hbe-ids: co ta karuzela pokazuje — kolejne karuzele na stronie (z opcja
+     „pomijaj produkty z karuzel wyzej”) czytaja to z jej HTML w cache. *}
+  <section class="hbe-products" data-hbe-ids="{$hbe_products_ids|default:''|escape:'html':'UTF-8'}">
     <div class="module-products container">
       <div class="module-products__split">
 

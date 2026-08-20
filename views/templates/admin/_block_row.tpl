@@ -117,6 +117,12 @@
                            {if $block.products_cfg.randomized}checked{/if}>
                     {l s='Losowa (zamiast od najnowszych)' mod='hummingbird_editor'}
                   </label></div>
+                  <div class="checkbox"><label>
+                    <input type="checkbox" name="pc_exclude_previous" value="1"
+                           {if $block.products_cfg.exclude_previous}checked{/if}>
+                    {l s='Pomijaj produkty pokazane już w karuzelach wyżej na stronie głównej' mod='hummingbird_editor'}
+                  </label></div>
+                  <p class="help-block" style="margin:2px 0 0">{l s='Produkt z kilku kategorii pojawi się tylko w pierwszej karuzeli (wg kolejności na stronie głównej).' mod='hummingbird_editor'}</p>
                 </div>
               </div>
 

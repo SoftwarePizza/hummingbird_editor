@@ -1535,6 +1535,7 @@ class AdminHbEditorController extends ModuleAdminController
             'id_category' => (int) ($sd['id_category'] ?? 0),
             'number'      => (int) ($sd['number'] ?? 8),
             'randomized'  => empty($sd['randomized']) ? 0 : 1,
+            'exclude_previous' => empty($sd['exclude_previous']) ? 0 : 1,
             'title'       => [],
             'text'        => [],
         ];

@@ -54,6 +54,11 @@
     });
     var url = cfg.url + (cfg.url.indexOf('?') === -1 ? '?' : '&') +
       'ids=' + encodeURIComponent(ids.join(','));
+    /* Wariant losowania tej wizyty — ten sam, ktory dostaly karuzele juz w HTML,
+       zeby doladowane pomijaly dokladnie te produkty, ktore widac wyzej. */
+    if (typeof cfg.variant === 'number') {
+      url += '&v=' + cfg.variant;
+    }
 
     fetch(url, {
       credentials: 'same-origin',

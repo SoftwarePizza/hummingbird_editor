@@ -170,9 +170,10 @@ class HbEditorCarouselCache
             $group = $current ? (int) $current->id : 0;
         }
 
+        // v2: HTML niesie data-hbe-ids (wykluczanie produktow z karuzel wyzej).
         array_unshift(
             $parts,
-            'v1',
+            'v2',
             $ctx ? (int) $ctx->shop->id : 0,
             $ctx ? (int) $ctx->language->id : 0,
             $ctx && $ctx->currency ? (int) $ctx->currency->id : 0,
