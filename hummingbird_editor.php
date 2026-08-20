@@ -102,6 +102,13 @@ class Hummingbird_editor extends Module
     const MENU_BOTTOM_ITEMS_KEY = 'HBE_MENU_BOTTOM_ITEMS';
 
     /**
+     * Configuration key: menu paths (CSV) wyciągane na początek listy, przed
+     * alfabetem. Lustro MENU_BOTTOM_ITEMS_KEY — dla pozycji, które mają być
+     * pierwsze, bo są najważniejsze, a nie dlatego, że tak wypadły w alfabecie.
+     */
+    const MENU_TOP_ITEMS_KEY = 'HBE_MENU_TOP_ITEMS';
+
+    /**
      * Social networks offered in the footer "Kontakt" column, in display order.
      * Key -> label; the profile URL lives in `HBE_SOCIAL_<KEY>` and an empty URL
      * hides that icon. The theme owns the matching SVG per key.
@@ -1095,6 +1102,16 @@ class Hummingbird_editor extends Module
         return $this->getMenuPathList(self::MENU_BOTTOM_ITEMS_KEY);
     }
 
+    /**
+     * Menu paths wyciągane na początek listy.
+     *
+     * @return string[]
+     */
+    public function getMenuTopItems(): array
+    {
+        return $this->getMenuPathList(self::MENU_TOP_ITEMS_KEY);
+    }
+
     /** Wariant wyróżnienia, zawsze jeden z MENU_FEATURED_STYLES. */
     public function getMenuFeaturedStyle(): string
     {
@@ -1177,6 +1194,7 @@ class Hummingbird_editor extends Module
             // pozycji w środku panelu, a nie całej gałęzi.
             $node['menu_featured'] = $id !== '' && in_array($nodePath, $cfg['featured'], true);
             $node['menu_bottom']   = $id !== '' && in_array($nodePath, $cfg['bottom'], true);
+            $node['menu_top']      = $id !== '' && !$node['menu_bottom'] && in_array($nodePath, $cfg['top'], true);
             $node['featured_style'] = $cfg['featuredStyle'];
 
             if (!empty($node['children']) && is_array($node['children'])) {
@@ -1243,13 +1261,22 @@ class Hummingbird_editor extends Module
             return strcmp($fold($la), $fold($lb));
         };
 
-        // Pozycje przypięte na koniec wychodzą poza alfabet — stąd porównanie
-        // flagi PRZED etykietą, a nie osobne przestawianie po sortowaniu.
-        usort($nodes, static function (array $a, array $b) use ($cmp): int {
-            $ab = !empty($a['menu_bottom']);
-            $bb = !empty($b['menu_bottom']);
-            if ($ab !== $bb) {
-                return $ab ? 1 : -1;
+        // Pozycje przypięte wychodzą poza alfabet — stąd porównanie flag PRZED
+        // etykietą, a nie osobne przestawianie po sortowaniu. Trzy koszyki:
+        // przypięte na górę (-1), zwykłe (0), przypięte na dół (1).
+        $bucket = static function (array $n): int {
+            if (!empty($n['menu_bottom'])) {
+                return 1;
+            }
+
+            return !empty($n['menu_top']) ? -1 : 0;
+        };
+
+        usort($nodes, static function (array $a, array $b) use ($cmp, $bucket): int {
+            $ba = $bucket($a);
+            $bb = $bucket($b);
+            if ($ba !== $bb) {
+                return $ba <=> $bb;
             }
 
             return $cmp($a, $b);
@@ -1296,6 +1323,7 @@ class Hummingbird_editor extends Module
             'cascade'       => $this->getMenuCascadeItems(),
             'featured'      => $this->getMenuFeaturedItems(),
             'bottom'        => $this->getMenuBottomItems(),
+            'top'           => $this->getMenuTopItems(),
             'featuredStyle' => $this->getMenuFeaturedStyle(),
             'restLabel'     => $restLabel,
         ];
@@ -1330,6 +1358,7 @@ class Hummingbird_editor extends Module
                     'menu_cascade'       => false,
                     'menu_featured'      => false,
                     'menu_bottom'        => false,
+                    'menu_top'           => false,
                     'featured_style'     => $cfg['featuredStyle'],
                     'rest_label'         => $restLabel,
                 ];

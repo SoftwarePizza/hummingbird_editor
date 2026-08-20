@@ -1517,7 +1517,7 @@ $(function () {
         $form.find('input[name="flat_items_mobile[]"]:checked').each(function () {
             data.push({ name: 'flat_items_mobile[]', value: $(this).val() });
         });
-        ['hidden_items', 'featured_items', 'bottom_items'].forEach(function (field) {
+        ['hidden_items', 'featured_items', 'bottom_items', 'top_items'].forEach(function (field) {
             $form.find('input[name="' + field + '[]"]:checked').each(function () {
                 data.push({ name: field + '[]', value: $(this).val() });
             });

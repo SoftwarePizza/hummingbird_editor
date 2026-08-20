@@ -109,6 +109,9 @@ class AdminHbEditorController extends ModuleAdminController
         $menuBottom  = method_exists($this->module, 'getMenuBottomItems')
             ? $this->module->getMenuBottomItems()
             : [];
+        $menuTop     = method_exists($this->module, 'getMenuTopItems')
+            ? $this->module->getMenuTopItems()
+            : [];
 
         $languages = Language::getLanguages(true);
         $blocks    = HbEditorBlock::getAllForAdmin();
@@ -382,6 +385,7 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_menu_hidden'            => $menuHidden,
             'hbe_menu_featured'          => $menuFeatured,
             'hbe_menu_bottom'            => $menuBottom,
+            'hbe_menu_top'               => $menuTop,
             'hbe_menu_feat_styles'       => hummingbird_editor::MENU_FEATURED_STYLES,
             'hbe_menu_feat_style'        => method_exists($this->module, 'getMenuFeaturedStyle')
                 ? $this->module->getMenuFeaturedStyle()
@@ -2094,6 +2098,10 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue(
             hummingbird_editor::MENU_BOTTOM_ITEMS_KEY,
             $this->cleanMenuPaths(Tools::getValue('bottom_items', []))
+        );
+        Configuration::updateValue(
+            hummingbird_editor::MENU_TOP_ITEMS_KEY,
+            $this->cleanMenuPaths(Tools::getValue('top_items', []))
         );
 
         $featStyle = (string) Tools::getValue('featured_style', '');

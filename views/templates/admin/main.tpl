@@ -1918,6 +1918,7 @@
                 <ul class="text-muted" style="margin-bottom:1rem">
                   <li><strong>{l s='Ukryj' mod='hummingbird_editor'}</strong> — {l s='pozycja znika z menu. Kategoria zostaje w sklepie, działa jej strona i linki. Ukrycie gałęzi ukrywa też wszystko, co pod nią wisi. Przydaje się, gdy ta sama kategoria jest już osobną pozycją górnego paska.' mod='hummingbird_editor'}</li>
                   <li><strong>{l s='Wyróżnij' mod='hummingbird_editor'}</strong> — {l s='oznacza pozycję jako najczęściej szukaną. Wygląd wybierasz niżej, jeden dla całego menu.' mod='hummingbird_editor'}</li>
+                  <li><strong>{l s='Na początek' mod='hummingbird_editor'}</strong> — {l s='wyciąga pozycję na czoło listy, przed alfabet. Dla tych, które mają być pierwsze, bo są najważniejsze.' mod='hummingbird_editor'}</li>
                   <li><strong>{l s='Na koniec' mod='hummingbird_editor'}</strong> — {l s='spycha pozycję pod spód listy, poza alfabet. Dla „zbieraczy" w rodzaju „Inne tkaniny", które alfabetycznie lądują w środku.' mod='hummingbird_editor'}</li>
                 </ul>
 
@@ -1938,6 +1939,7 @@
                       </td>
                       <td class="text-center"><input type="checkbox" name="hidden_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_hidden)} checked{/if}></td>
                       <td class="text-center"><input type="checkbox" name="featured_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_featured)} checked{/if}></td>
+                      <td class="text-center"><input type="checkbox" name="top_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_top)} checked{/if}></td>
                       <td class="text-center"><input type="checkbox" name="bottom_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_bottom)} checked{/if}></td>
                     </tr>
                     {if $node.children|count}
@@ -1953,6 +1955,7 @@
                         <th>{l s='Pozycja' mod='hummingbird_editor'}</th>
                         <th class="text-center" style="width:7rem">{l s='Ukryj' mod='hummingbird_editor'}</th>
                         <th class="text-center" style="width:7rem">{l s='Wyróżnij' mod='hummingbird_editor'}</th>
+                        <th class="text-center" style="width:7rem">{l s='Na początek' mod='hummingbird_editor'}</th>
                         <th class="text-center" style="width:7rem">{l s='Na koniec' mod='hummingbird_editor'}</th>
                       </tr>
                     </thead>
