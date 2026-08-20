@@ -278,7 +278,7 @@ class Hummingbird_editor extends Module
      * sekcje tego modulu. Kazda ma ten sam szkielet HTML.
      */
     private const MINIATURE_CAROUSEL_SECTIONS =
-        '.ps-newproducts,.ps-bestsellers,.ps-featuredproducts,.hbe-products';
+        '.ps-newproducts,.ps-bestsellers,.ps-featuredproducts,.ps-viewedproduct,.hbe-products';
 
     public function __construct()
     {

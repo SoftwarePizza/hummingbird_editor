@@ -1147,7 +1147,7 @@
                 </div>
                 <div class="col-md-2 form-group">
                   <label class="control-label">{l s='Tekst linku' mod='hummingbird_editor'}</label>
-                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='np_link_text' values=$hbe_np_link_text_lang placeholder='np. Zobacz wszystkie'}
+                  {include file="{$hbe_tpl_dir}_ml_input.tpl" name='np_link_text' values=$hbe_np_link_text_lang placeholder='np. Więcej tkanin'}
                 </div>
                 <div class="col-md-3 form-group">
                   <label class="control-label">{l s='URL linku' mod='hummingbird_editor'}</label>
