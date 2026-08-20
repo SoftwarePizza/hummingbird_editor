@@ -1511,11 +1511,14 @@ $(function () {
         var data = [
             { name: 'token', value: $form.find('[name=token]').val() }
         ];
-        $form.find('input[name="flat_items[]"]:checked').each(function () {
-            data.push({ name: 'flat_items[]', value: $(this).val() });
+        $form.find('select.hbe-menu-layout').each(function () {
+            data.push({ name: 'menu_layout[' + $(this).data('item-id') + ']', value: $(this).val() });
         });
         $form.find('input[name="flat_items_mobile[]"]:checked').each(function () {
             data.push({ name: 'flat_items_mobile[]', value: $(this).val() });
+        });
+        $form.find('input[name="hidden_items[]"]:checked').each(function () {
+            data.push({ name: 'hidden_items[]', value: $(this).val() });
         });
         $.ajax({
             url: hbeAjaxUrl + 'action=SaveMenuFlat&ajax=1',

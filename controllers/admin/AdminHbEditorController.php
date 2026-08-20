@@ -95,6 +95,15 @@ class AdminHbEditorController extends ModuleAdminController
             ? $this->module->getMenuFlatItems('mobile')
             : [];
 
+        // Desktop layout is one choice per item, not three independent
+        // checkboxes — the layouts are mutually exclusive and picking two used
+        // to depend on which flag the template tested first.
+        $menuLayouts = $this->getMenuDesktopLayouts($menuTopItems, $menuFlatSelected);
+        $menuTree    = $this->getMenuTreeForAdmin();
+        $menuHidden  = method_exists($this->module, 'getMenuHiddenItems')
+            ? $this->module->getMenuHiddenItems()
+            : [];
+
         $languages = Language::getLanguages(true);
         $blocks    = HbEditorBlock::getAllForAdmin();
 
@@ -361,6 +370,10 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_menu_top_items'         => $menuTopItems,
             'hbe_menu_flat_items'        => $menuFlatSelected,
             'hbe_menu_flat_items_mobile' => $menuFlatSelectedMobile,
+            'hbe_menu_layouts'           => $menuLayouts,
+            'hbe_menu_layout_choices'    => $this->getMenuLayoutChoices(),
+            'hbe_menu_tree'              => $menuTree,
+            'hbe_menu_hidden'            => $menuHidden,
             // Wishlist preview drawer — unset means "on" (matches isWishlistPreviewEnabled()).
             'hbe_wishlist_preview'      => Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED') === false
                 ? 1 : (int) Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED'),
@@ -2023,15 +2036,141 @@ class AdminHbEditorController extends ModuleAdminController
     }
 
     /**
-     * Saves which top-level menu items use the flat submenu layout (no left
-     * tabs). The hummingbird_editor module applies the flag at render time via
-     * the actionMainMenuModifier hook, so ps_mainmenu itself is never modified.
+     * Saves the desktop submenu layout picked for each top-level menu item, plus
+     * the (independent) mobile flat toggle. The hummingbird_editor module applies
+     * the flags at render time via the actionMainMenuModifier hook, so
+     * ps_mainmenu itself is never modified.
+     *
+     * One posted value per item ('tabs'|'flat'|'columns'|'cascade') is fanned out
+     * into the three CSV configs the module reads. 'tabs' is the theme default and
+     * simply means "in none of the lists".
      */
     public function ajaxProcessSaveMenuFlat(): void
     {
-        Configuration::updateValue('HBE_MENU_FLAT_ITEMS',        $this->cleanFlatItems(Tools::getValue('flat_items', [])));
+        $posted  = Tools::getValue('menu_layout', []);
+        $buckets = ['flat' => [], 'columns' => [], 'cascade' => []];
+
+        if (is_array($posted)) {
+            foreach ($posted as $id => $mode) {
+                $id = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string) $id);
+                $mode = (string) $mode;
+                if ($id === '' || !isset($buckets[$mode])) {
+                    continue;
+                }
+                $buckets[$mode][] = $id;
+            }
+        }
+
+        Configuration::updateValue('HBE_MENU_FLAT_ITEMS', implode(',', array_values(array_unique($buckets['flat']))));
+        Configuration::updateValue(
+            hummingbird_editor::MENU_COLUMNS_ITEMS_KEY,
+            implode(',', array_values(array_unique($buckets['columns'])))
+        );
+        Configuration::updateValue(
+            hummingbird_editor::MENU_CASCADE_ITEMS_KEY,
+            implode(',', array_values(array_unique($buckets['cascade'])))
+        );
         Configuration::updateValue('HBE_MENU_FLAT_ITEMS_MOBILE', $this->cleanFlatItems(Tools::getValue('flat_items_mobile', [])));
+        Configuration::updateValue(
+            hummingbird_editor::MENU_HIDDEN_ITEMS_KEY,
+            $this->cleanMenuPaths(Tools::getValue('hidden_items', []))
+        );
+
+        $this->clearMenuCaches();
+
         $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /** Desktop layout modes offered per menu item, in display order. */
+    private function getMenuLayoutChoices(): array
+    {
+        return [
+            'tabs'    => $this->l('Zakładki ze zdjęciami (domyślny)'),
+            'flat'    => $this->l('Kafelki ze zdjęciami, bez zakładek'),
+            'columns' => $this->l('Kolumny — wszystko naraz'),
+            'cascade' => $this->l('Kaskada — lista, obok panel z zagnieżdżeniem'),
+        ];
+    }
+
+    /**
+     * Current desktop layout of every top-level item, as [page_identifier => mode].
+     * Reads the same precedence the module applies at render time: cascade wins
+     * over columns, and anything unlisted falls back to the tabbed default.
+     *
+     * @param array<int, array{id: string, label: string}> $topItems
+     * @param string[]                                     $flatDesktop
+     *
+     * @return array<string, string>
+     */
+    private function getMenuDesktopLayouts(array $topItems, array $flatDesktop): array
+    {
+        $columns = method_exists($this->module, 'getMenuColumnItems')
+            ? $this->module->getMenuColumnItems()
+            : [];
+        $cascade = method_exists($this->module, 'getMenuCascadeItems')
+            ? $this->module->getMenuCascadeItems()
+            : [];
+
+        $layouts = [];
+        foreach ($topItems as $item) {
+            $id = (string) $item['id'];
+            if (in_array($id, $cascade, true)) {
+                $layouts[$id] = 'cascade';
+            } elseif (in_array($id, $columns, true)) {
+                $layouts[$id] = 'columns';
+            } elseif (in_array($id, $flatDesktop, true)) {
+                $layouts[$id] = 'flat';
+            } else {
+                $layouts[$id] = 'tabs';
+            }
+        }
+
+        return $layouts;
+    }
+
+    /**
+     * Bez tego zapis w panelu wygląda na nieskuteczny.
+     *
+     * ps_mainmenu trzyma zbudowane drzewo we WŁASNYM katalogu
+     * (var/cache/prod/ps_mainmenu, jeden plik JSON na sklep i język) i sięga po
+     * nie, zanim odpali hook actionMainMenuModifier. Dopóki ten plik żyje, nasze
+     * ustawienia w ogóle nie mają okazji zadziałać — moduł ma metodę
+     * clearMenuCache(), ale `protected`, więc sprzątamy sami. Do tego dochodzi
+     * cache Smarty'ego z wyrenderowanym HTML-em nawigacji.
+     */
+    private function clearMenuCaches(): void
+    {
+        $dir = rtrim(_PS_CACHE_DIR_, '/\\') . DIRECTORY_SEPARATOR . 'ps_mainmenu';
+
+        if (is_dir($dir)) {
+            $items = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($items as $item) {
+                $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+            }
+        }
+
+        Tools::clearSmartyCache();
+    }
+
+    /**
+     * Sanitise a posted list of menu paths into a clean CSV string. Same as
+     * cleanFlatItems, plus '>' — the separator between levels of a path.
+     */
+    private function cleanMenuPaths($raw): string
+    {
+        $items = is_array($raw) ? $raw : [];
+        $clean = [];
+        foreach ($items as $path) {
+            $path = preg_replace('/[^a-zA-Z0-9_\->]/', '', (string) $path);
+            if ($path !== '') {
+                $clean[] = $path;
+            }
+        }
+
+        return implode(',', array_values(array_unique($clean)));
     }
 
     /** Sanitise a posted list of page identifiers into a clean CSV string. */
@@ -2047,6 +2186,61 @@ class AdminHbEditorController extends ModuleAdminController
         }
 
         return implode(',', array_values(array_unique($clean)));
+    }
+
+    /**
+     * The whole menu tree as ps_mainmenu would render it, for the "hide from
+     * menu" picker: [['id' => …, 'label' => …, 'children' => [...]], …].
+     *
+     * Read straight from the module's widget variables, so the picker lists
+     * exactly what the front lists — including entries already hidden, which
+     * must stay visible in the form or there would be no way to bring them back.
+     */
+    private function getMenuTreeForAdmin(): array
+    {
+        try {
+            $mainmenu = Module::getInstanceByName('ps_mainmenu');
+            if (!$mainmenu || !method_exists($mainmenu, 'getWidgetVariables')) {
+                return [];
+            }
+
+            $this->module->skipMenuPrune = true;
+            try {
+                $menu = $mainmenu->getWidgetVariables('displayTop', []);
+            } finally {
+                $this->module->skipMenuPrune = false;
+            }
+
+            return $this->mapMenuTree($menu['children'] ?? []);
+        } catch (\Throwable $e) {
+            $this->module->skipMenuPrune = false;
+
+            return [];
+        }
+    }
+
+    /** @param array<int, array<string, mixed>> $nodes */
+    private function mapMenuTree(array $nodes, string $path = ''): array
+    {
+        $out = [];
+        foreach ($nodes as $node) {
+            if (empty($node['page_identifier'])) {
+                continue;
+            }
+            $id = (string) $node['page_identifier'];
+            $nodePath = ($path === '') ? $id : $path . '>' . $id;
+            $out[] = [
+                'id'       => $id,
+                'path'     => $nodePath,
+                'label'    => (string) ($node['label'] ?? $id),
+                'children' => $this->mapMenuTree(
+                    (!empty($node['children']) && is_array($node['children'])) ? $node['children'] : [],
+                    $nodePath
+                ),
+            ];
+        }
+
+        return $out;
     }
 
     /**

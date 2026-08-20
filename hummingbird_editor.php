@@ -42,6 +42,39 @@ class Hummingbird_editor extends Module
     const MENU_COLUMNS_REST_LABEL_DEFAULT = 'Pozostałe rodzaje';
 
     /**
+     * Configuration key: page identifiers (CSV) of menu items rendered as a
+     * two-pane cascade — sub-categories listed on the left, the hovered one's
+     * children on the right. Same problem as the column layout solves, but the
+     * opposite trade-off: the panel stays short instead of showing everything
+     * at once. Childless children are collected under MENU_COLUMNS_REST_LABEL_KEY
+     * as one extra left-hand entry, so no entry ever opens an empty pane.
+     * Takes precedence over MENU_COLUMNS_ITEMS_KEY when an id is in both.
+     */
+    const MENU_CASCADE_ITEMS_KEY = 'HBE_MENU_CASCADE_ITEMS';
+
+    /**
+     * Configuration key: menu PATHS (CSV) pruned from the main menu. A path is
+     * the chain of page identifiers from the top level down, joined by '>' —
+     * e.g. `category-22>category-119`. The category stays live in the shop; it
+     * just stops being a menu entry, which ps_mainmenu itself has no setting
+     * for (it renders the whole tree under its configured roots). Removing a
+     * branch removes what hangs under it.
+     *
+     * Paths, not bare identifiers, because the same category legitimately
+     * appears in two places: „Tkaniny na.." is both a top-level entry and a
+     * child of „Tkaniny". Matching on the identifier alone would take out both.
+     */
+    const MENU_HIDDEN_ITEMS_KEY = 'HBE_MENU_HIDDEN_ITEMS';
+
+    /**
+     * Set by the back-office picker before it asks ps_mainmenu for the tree.
+     * Without it the picker would receive the ALREADY pruned menu, so a hidden
+     * entry would disappear from the form and there would be no way to bring
+     * it back — the checkbox that unhides it has to exist.
+     */
+    public $skipMenuPrune = false;
+
+    /**
      * Social networks offered in the footer "Kontakt" column, in display order.
      * Key -> label; the profile URL lives in `HBE_SOCIAL_<KEY>` and an empty URL
      * hides that icon. The theme owns the matching SVG per key.
@@ -990,6 +1023,68 @@ class Hummingbird_editor extends Module
     }
 
     /**
+     * Page identifiers rendered as a two-pane cascade on desktop.
+     *
+     * @return string[]
+     */
+    public function getMenuCascadeItems(): array
+    {
+        $raw = (string) Configuration::get(self::MENU_CASCADE_ITEMS_KEY);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    /**
+     * Page identifiers pruned from the menu, at any depth.
+     *
+     * @return string[]
+     */
+    public function getMenuHiddenItems(): array
+    {
+        $raw = (string) Configuration::get(self::MENU_HIDDEN_ITEMS_KEY);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
+    /**
+     * Drop the configured nodes from the tree. Runs before the layout flags are
+     * stamped, so a hidden branch never reaches the templates and cannot
+     * influence "does this pane have children" decisions.
+     *
+     * @param array<int, array<string, mixed>> $nodes
+     * @param string[]                         $hidden Paths, see MENU_HIDDEN_ITEMS_KEY
+     */
+    private function pruneMenuNodes(array &$nodes, array $hidden, string $path = ''): void
+    {
+        foreach ($nodes as $key => &$node) {
+            $id = (string) ($node['page_identifier'] ?? '');
+            $nodePath = ($path === '') ? $id : $path . '>' . $id;
+
+            if ($id !== '' && in_array($nodePath, $hidden, true)) {
+                unset($nodes[$key]);
+                continue;
+            }
+
+            if (!empty($node['children']) && is_array($node['children'])) {
+                $this->pruneMenuNodes($node['children'], $hidden, $nodePath);
+            }
+        }
+        unset($node);
+
+        // Renumber: the templates iterate with foreach, but a sparse array
+        // would leak the gaps into anything that later indexes by position.
+        $nodes = array_values($nodes);
+    }
+
+    /**
      * Walk the whole menu tree and stamp every node with the layout flags the
      * theme templates read. Only top-level identifiers can opt into a layout;
      * deeper nodes always get `false`, which is what the templates expect —
@@ -1000,7 +1095,7 @@ class Hummingbird_editor extends Module
      * @param string[]                         $flatMobile
      * @param string[]                         $columns
      */
-    private function flagMenuNodes(array &$nodes, array $flatDesktop, array $flatMobile, array $columns, string $restLabel, int $depth = 0): void
+    private function flagMenuNodes(array &$nodes, array $flatDesktop, array $flatMobile, array $columns, array $cascade, string $restLabel, int $depth = 0): void
     {
         foreach ($nodes as &$node) {
             $id = (string) ($node['page_identifier'] ?? '');
@@ -1008,11 +1103,14 @@ class Hummingbird_editor extends Module
 
             $node['flat_desktop']  = $isTop && in_array($id, $flatDesktop, true);
             $node['flat_mobile']   = $isTop && in_array($id, $flatMobile, true);
-            $node['menu_columns']  = $isTop && in_array($id, $columns, true);
+            $node['menu_cascade']  = $isTop && in_array($id, $cascade, true);
+            // Cascade wins: the two layouts render the same branch, so an id
+            // left in both configs must not produce two panels.
+            $node['menu_columns']  = $isTop && !$node['menu_cascade'] && in_array($id, $columns, true);
             $node['rest_label']    = $restLabel;
 
             if (!empty($node['children']) && is_array($node['children'])) {
-                $this->flagMenuNodes($node['children'], $flatDesktop, $flatMobile, $columns, $restLabel, $depth + 1);
+                $this->flagMenuNodes($node['children'], $flatDesktop, $flatMobile, $columns, $cascade, $restLabel, $depth + 1);
             }
         }
         unset($node);
@@ -1030,9 +1128,15 @@ class Hummingbird_editor extends Module
             return;
         }
 
+        $hidden = $this->getMenuHiddenItems();
+        if ($hidden && !$this->skipMenuPrune) {
+            $this->pruneMenuNodes($params['menu']['children'], $hidden);
+        }
+
         $flatDesktop = $this->getMenuFlatItems('desktop');
         $flatMobile  = $this->getMenuFlatItems('mobile');
         $columns     = $this->getMenuColumnItems();
+        $cascade     = $this->getMenuCascadeItems();
         $restLabel   = trim((string) Configuration::get(self::MENU_COLUMNS_REST_LABEL_KEY));
 
         if ($restLabel === '') {
@@ -1044,7 +1148,7 @@ class Hummingbird_editor extends Module
         // exist on every node — not just the top level. Missing keys used to
         // surface as "Undefined index: flat_mobile" notices inside the rendered
         // navigation.
-        $this->flagMenuNodes($params['menu']['children'], $flatDesktop, $flatMobile, $columns, $restLabel);
+        $this->flagMenuNodes($params['menu']['children'], $flatDesktop, $flatMobile, $columns, $cascade, $restLabel);
 
         // Karta podarunkowa — append a top-level leaf item to the main menu.
         // ($params['menu'] is passed by reference by ps_mainmenu, and PHP keeps
@@ -1065,6 +1169,7 @@ class Hummingbird_editor extends Module
                     'flat_desktop'       => false,
                     'flat_mobile'        => false,
                     'menu_columns'       => false,
+                    'menu_cascade'       => false,
                     'rest_label'         => $restLabel,
                 ];
             }

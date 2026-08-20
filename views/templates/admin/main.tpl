@@ -1867,14 +1867,23 @@
       <div class="panel panel-default hbe-collapse-panel">
         <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-menuflat">
           <h4 class="panel-title clearfix">
-            {l s='Menu — układ płaski (bez zakładek)' mod='hummingbird_editor'}
+            {l s='Menu — układ rozwijanego panelu' mod='hummingbird_editor'}
             <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
           </h4>
         </div>
         <div id="hbe-c-menuflat" class="panel-collapse collapse in">
           <div class="panel-body">
             <p class="text-muted" style="margin-bottom:1rem">
-              {l s='Zaznaczone pozycje menu nie pokażą lewej kolumny z zakładkami — ich podkategorie wyświetlą się od razu jako kafelki ze zdjęciami.' mod='hummingbird_editor'}
+              {l s='Każda pozycja menu może mieć inny układ panelu na desktopie:' mod='hummingbird_editor'}
+            </p>
+            <ul class="text-muted" style="margin-bottom:1rem">
+              <li><strong>{l s='Zakładki' mod='hummingbird_editor'}</strong> — {l s='lewa kolumna z podkategoriami, po prawej kafelki ze zdjęciami. Domyślny układ motywu; zostawia pusty panel dla podkategorii, które nie mają własnych dzieci.' mod='hummingbird_editor'}</li>
+              <li><strong>{l s='Kafelki' mod='hummingbird_editor'}</strong> — {l s='bez lewej kolumny, same kafelki ze zdjęciami.' mod='hummingbird_editor'}</li>
+              <li><strong>{l s='Kolumny' mod='hummingbird_editor'}</strong> — {l s='wszystkie podkategorie naraz jako lista w kolumnach. Dobre dla gałęzi szerokich i płytkich.' mod='hummingbird_editor'}</li>
+              <li><strong>{l s='Kaskada' mod='hummingbird_editor'}</strong> — {l s='lista podkategorii, a obok panel z ich zawartością; schodzi tyle poziomów w głąb, ile ich naprawdę jest. Panel zostaje niski nawet przy dużym drzewie.' mod='hummingbird_editor'}</li>
+            </ul>
+            <p class="text-muted" style="margin-bottom:1rem">
+              {l s='Kolumna „Mobile" jest niezależna — na telefonie działa tylko układ kafelkowy.' mod='hummingbird_editor'}
             </p>
             <form id="hbe-menuflat-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
               <input type="hidden" name="token" value="{$hbe_token}">
@@ -1883,20 +1892,55 @@
                   <thead>
                     <tr>
                       <th>{l s='Pozycja menu' mod='hummingbird_editor'}</th>
-                      <th class="text-center">{l s='Desktop' mod='hummingbird_editor'}</th>
-                      <th class="text-center">{l s='Mobile' mod='hummingbird_editor'}</th>
+                      <th style="width:22rem">{l s='Układ na desktopie' mod='hummingbird_editor'}</th>
+                      <th class="text-center" style="width:9rem">{l s='Mobile: kafelki' mod='hummingbird_editor'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {foreach from=$hbe_menu_top_items item=mi}
+                      {assign var=miLayout value=$hbe_menu_layouts[$mi.id]|default:'tabs'}
                       <tr>
                         <td><strong>{$mi.label|escape:'html':'UTF-8'}</strong></td>
-                        <td class="text-center"><input type="checkbox" name="flat_items[]" value="{$mi.id|escape:'html':'UTF-8'}"{if in_array($mi.id, $hbe_menu_flat_items)} checked{/if}></td>
+                        <td>
+                          <select class="form-control hbe-menu-layout" data-item-id="{$mi.id|escape:'html':'UTF-8'}">
+                            {foreach from=$hbe_menu_layout_choices key=lk item=ll}
+                              <option value="{$lk|escape:'html':'UTF-8'}"{if $miLayout === $lk} selected{/if}>{$ll|escape:'html':'UTF-8'}</option>
+                            {/foreach}
+                          </select>
+                        </td>
                         <td class="text-center"><input type="checkbox" name="flat_items_mobile[]" value="{$mi.id|escape:'html':'UTF-8'}"{if in_array($mi.id, $hbe_menu_flat_items_mobile)} checked{/if}></td>
                       </tr>
                     {/foreach}
                   </tbody>
                 </table>
+                <hr>
+                <h4 style="margin-top:1.5rem">{l s='Ukryj pozycje w menu' mod='hummingbird_editor'}</h4>
+                <p class="text-muted" style="margin-bottom:1rem">
+                  {l s='Zaznaczona pozycja znika z menu — kategoria zostaje w sklepie, działa jej strona i linki, przestaje tylko być pozycją menu. Ukrycie gałęzi ukrywa też wszystko, co pod nią wisi.' mod='hummingbird_editor'}
+                </p>
+
+                {function name="hbeMenuHideTree" nodes=[] level=0}
+                  <ul style="list-style:none;margin:0;padding-left:{if $level}1.5rem{else}0{/if}">
+                    {foreach from=$nodes item=node}
+                      <li style="padding:.15rem 0">
+                        <label style="font-weight:{if $level}400{else}700{/if};margin:0">
+                          <input type="checkbox" name="hidden_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_hidden)} checked{/if}>
+                          {$node.label|escape:'html':'UTF-8'}
+                        </label>
+                        {if $node.children|count}
+                          {hbeMenuHideTree nodes=$node.children level=$level+1}
+                        {/if}
+                      </li>
+                    {/foreach}
+                  </ul>
+                {/function}
+
+                {if $hbe_menu_tree}
+                  {hbeMenuHideTree nodes=$hbe_menu_tree level=0}
+                {else}
+                  <p class="text-warning">{l s='Nie udało się pobrać drzewa menu.' mod='hummingbird_editor'}</p>
+                {/if}
+
                 <button type="submit" class="btn btn-success" style="margin-top:1rem"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
                 <div class="hbe-alerts"></div>
               {else}
