@@ -133,8 +133,8 @@ class HbEditorCarouselCache
 
     /**
      * Sciezka pliku dla jednej karuzeli. Klucz obejmuje wszystko, co zmienia
-     * wyrenderowany HTML: sklep, jezyk, waluta, kraj (podatek) i grupa klienta
-     * (ceny), plus odcisk konfiguracji bloku — dzieki niemu edycja karuzeli w
+     * wyrenderowany HTML: domene, sklep, jezyk, walute, kraj (podatek) i grupe
+     * klienta (ceny), plus odcisk konfiguracji bloku — dzieki niemu edycja karuzeli w
      * edytorze daje nowy klucz i zmiana jest widoczna od razu, bez czyszczenia.
      */
     public static function fileForBlock(int $idBlock, string $sectionData, int $variant = 0): string
@@ -171,9 +171,13 @@ class HbEditorCarouselCache
         }
 
         // v2: HTML niesie data-hbe-ids (wykluczanie produktow z karuzel wyzej).
+        // Host: linki w kartach sa bezwzgledne, a kilka domen dzieli jezyk i walute
+        // (izpol.be/izpol.nl, izpol.uk/izpol.eu/en) — bez hosta w kluczu gosc
+        // jednej domeny dostawalby linki prowadzace na druga.
         array_unshift(
             $parts,
             'v2',
+            (string) Tools::getHttpHost(),
             $ctx ? (int) $ctx->shop->id : 0,
             $ctx ? (int) $ctx->language->id : 0,
             $ctx && $ctx->currency ? (int) $ctx->currency->id : 0,
