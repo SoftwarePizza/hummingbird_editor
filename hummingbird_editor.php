@@ -1658,6 +1658,17 @@ class Hummingbird_editor extends Module
 
         if ($page === 'order') {
             // Arkusz kasy leci na kazda strone `order`, nie tylko przy wlaczonej
+        // Uklad karuzel produktowych — wszedzie tam, gdzie hookDisplayAfterBodyOpeningTag
+        // dorzuca carousel-drag.js: na glownej (.hbe-products, ps_newproducts...) i na
+        // karcie produktu (ps_viewedproduct w displayFooterProduct).
+        if (in_array($page, ['index', 'product'], true)) {
+            $this->context->controller->registerStylesheet(
+                'hb-editor-carousel',
+                'modules/' . $this->name . '/views/css/carousel.css',
+                ['media' => 'all', 'priority' => 200]
+            );
+        }
+
             // skorce: niesie tez bramke, ktora wygasza wkompilowana w theme.css
             // regule "pokaz wszystkie kroki naraz". Bez niego sklep z gotowym
             // motywem zostalby z ta regula na stale.
