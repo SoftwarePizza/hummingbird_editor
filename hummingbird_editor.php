@@ -313,6 +313,13 @@ class Hummingbird_editor extends Module
     private const MINIATURE_CAROUSEL_SECTIONS =
         '.ps-newproducts,.ps-bestsellers,.ps-featuredproducts,.ps-viewedproduct,.hbe-products';
 
+    /**
+     * Strony, na ktorych moze stanac karuzela produktowa — dostaja carousel.css
+     * i carousel-drag.js. ps_viewedproduct ("Juz obejrzane") siedzi na displayHome,
+     * displayFooterProduct i displayShoppingCartFooter, stad koszyk na liscie.
+     */
+    private const CAROUSEL_PAGES = ['index', 'product', 'cart'];
+
     public function __construct()
     {
         $this->name    = 'hummingbird_editor';
@@ -1668,10 +1675,9 @@ class Hummingbird_editor extends Module
             }
         }
 
-        // Uklad karuzel produktowych — wszedzie tam, gdzie hookDisplayAfterBodyOpeningTag
-        // dorzuca carousel-drag.js: na glownej (.hbe-products, ps_newproducts...) i na
-        // karcie produktu (ps_viewedproduct w displayFooterProduct).
-        if (in_array($page, ['index', 'product'], true)) {
+        // Uklad karuzel produktowych — te same strony, na ktorych
+        // hookDisplayAfterBodyOpeningTag dorzuca carousel-drag.js.
+        if (in_array($page, self::CAROUSEL_PAGES, true)) {
             $this->context->controller->registerStylesheet(
                 'hb-editor-carousel',
                 'modules/' . $this->name . '/views/css/carousel.css',
@@ -2973,8 +2979,8 @@ class Hummingbird_editor extends Module
         }
 
         // Drag-scroll + arrow nav for product carousels (featured/bestsellers on
-        // home, categoryproducts/accessories on product).
-        if (in_array($page, ['index', 'product'], true)) {
+        // home, categoryproducts/accessories on product, viewed products in cart).
+        if (in_array($page, self::CAROUSEL_PAGES, true)) {
             $output .= $jsTag('carousel-drag.js');
         }
 
