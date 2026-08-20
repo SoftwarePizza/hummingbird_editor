@@ -1914,29 +1914,52 @@
                   </tbody>
                 </table>
                 <hr>
-                <h4 style="margin-top:1.5rem">{l s='Ukryj pozycje w menu' mod='hummingbird_editor'}</h4>
-                <p class="text-muted" style="margin-bottom:1rem">
-                  {l s='Zaznaczona pozycja znika z menu — kategoria zostaje w sklepie, działa jej strona i linki, przestaje tylko być pozycją menu. Ukrycie gałęzi ukrywa też wszystko, co pod nią wisi.' mod='hummingbird_editor'}
-                </p>
+                <h4 style="margin-top:1.5rem">{l s='Pozycje menu — co ukryć, co wyróżnić' mod='hummingbird_editor'}</h4>
+                <ul class="text-muted" style="margin-bottom:1rem">
+                  <li><strong>{l s='Ukryj' mod='hummingbird_editor'}</strong> — {l s='pozycja znika z menu. Kategoria zostaje w sklepie, działa jej strona i linki. Ukrycie gałęzi ukrywa też wszystko, co pod nią wisi. Przydaje się, gdy ta sama kategoria jest już osobną pozycją górnego paska.' mod='hummingbird_editor'}</li>
+                  <li><strong>{l s='Wyróżnij' mod='hummingbird_editor'}</strong> — {l s='oznacza pozycję jako najczęściej szukaną. Wygląd wybierasz niżej, jeden dla całego menu.' mod='hummingbird_editor'}</li>
+                  <li><strong>{l s='Na koniec' mod='hummingbird_editor'}</strong> — {l s='spycha pozycję pod spód listy, poza alfabet. Dla „zbieraczy" w rodzaju „Inne tkaniny", które alfabetycznie lądują w środku.' mod='hummingbird_editor'}</li>
+                </ul>
 
-                {function name="hbeMenuHideTree" nodes=[] level=0}
-                  <ul style="list-style:none;margin:0;padding-left:{if $level}1.5rem{else}0{/if}">
-                    {foreach from=$nodes item=node}
-                      <li style="padding:.15rem 0">
-                        <label style="font-weight:{if $level}400{else}700{/if};margin:0">
-                          <input type="checkbox" name="hidden_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_hidden)} checked{/if}>
-                          {$node.label|escape:'html':'UTF-8'}
-                        </label>
-                        {if $node.children|count}
-                          {hbeMenuHideTree nodes=$node.children level=$level+1}
-                        {/if}
-                      </li>
+                <div class="form-group" style="max-width:34rem">
+                  <label for="hbe-feat-style">{l s='Jak wyglądają wyróżnione pozycje' mod='hummingbird_editor'}</label>
+                  <select class="form-control" id="hbe-feat-style" name="featured_style">
+                    {foreach from=$hbe_menu_feat_styles key=fk item=fl}
+                      <option value="{$fk|escape:'html':'UTF-8'}"{if $hbe_menu_feat_style === $fk} selected{/if}>{$fl|escape:'html':'UTF-8'}</option>
                     {/foreach}
-                  </ul>
+                  </select>
+                </div>
+
+                {function name="hbeMenuTree" nodes=[] level=0}
+                  {foreach from=$nodes item=node}
+                    <tr>
+                      <td style="padding-left:{$level*1.5+0.5}rem">
+                        <span style="font-weight:{if $level}400{else}700{/if}">{$node.label|escape:'html':'UTF-8'}</span>
+                      </td>
+                      <td class="text-center"><input type="checkbox" name="hidden_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_hidden)} checked{/if}></td>
+                      <td class="text-center"><input type="checkbox" name="featured_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_featured)} checked{/if}></td>
+                      <td class="text-center"><input type="checkbox" name="bottom_items[]" value="{$node.path|escape:'html':'UTF-8'}"{if in_array($node.path, $hbe_menu_bottom)} checked{/if}></td>
+                    </tr>
+                    {if $node.children|count}
+                      {hbeMenuTree nodes=$node.children level=$level+1}
+                    {/if}
+                  {/foreach}
                 {/function}
 
                 {if $hbe_menu_tree}
-                  {hbeMenuHideTree nodes=$hbe_menu_tree level=0}
+                  <table class="table table-condensed">
+                    <thead>
+                      <tr>
+                        <th>{l s='Pozycja' mod='hummingbird_editor'}</th>
+                        <th class="text-center" style="width:7rem">{l s='Ukryj' mod='hummingbird_editor'}</th>
+                        <th class="text-center" style="width:7rem">{l s='Wyróżnij' mod='hummingbird_editor'}</th>
+                        <th class="text-center" style="width:7rem">{l s='Na koniec' mod='hummingbird_editor'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hbeMenuTree nodes=$hbe_menu_tree level=0}
+                    </tbody>
+                  </table>
                 {else}
                   <p class="text-warning">{l s='Nie udało się pobrać drzewa menu.' mod='hummingbird_editor'}</p>
                 {/if}

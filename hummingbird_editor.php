@@ -75,6 +75,33 @@ class Hummingbird_editor extends Module
     public $skipMenuPrune = false;
 
     /**
+     * Configuration key: menu paths (CSV, jak MENU_HIDDEN_ITEMS_KEY) oznaczone
+     * jako najczęściej szukane. Sam fakt wyróżnienia jest tu, a jego WYGLĄD
+     * osobno — żeby zmiana stylu nie wymagała przeklikiwania listy od nowa.
+     */
+    const MENU_FEATURED_ITEMS_KEY = 'HBE_MENU_FEATURED_ITEMS';
+
+    /** Configuration key: wariant wyróżnienia — patrz MENU_FEATURED_STYLES. */
+    const MENU_FEATURED_STYLE_KEY = 'HBE_MENU_FEATURED_STYLE';
+
+    /** Warianty wyróżnienia: klucz -> etykieta w panelu. */
+    const MENU_FEATURED_STYLES = [
+        'bold'      => 'Wytłuszczenie — sama nazwa ciemniejsza i grubsza',
+        'dot'       => 'Kropka — znacznik przed nazwą',
+        'highlight' => 'Zakreślenie — miękkie tło pod nazwą',
+    ];
+
+    /** Domyślny wariant, gdy MENU_FEATURED_STYLE_KEY jest pusty lub nieznany. */
+    const MENU_FEATURED_STYLE_DEFAULT = 'dot';
+
+    /**
+     * Configuration key: menu paths (CSV) spychane na koniec listy, niezależnie
+     * od alfabetu. Dla pozycji-śmietników w rodzaju „Inne tkaniny", które
+     * alfabetycznie lądują w środku, a znaczeniowo są na końcu.
+     */
+    const MENU_BOTTOM_ITEMS_KEY = 'HBE_MENU_BOTTOM_ITEMS';
+
+    /**
      * Social networks offered in the footer "Kontakt" column, in display order.
      * Key -> label; the profile URL lives in `HBE_SOCIAL_<KEY>` and an empty URL
      * hides that icon. The theme owns the matching SVG per key.
@@ -1045,7 +1072,43 @@ class Hummingbird_editor extends Module
      */
     public function getMenuHiddenItems(): array
     {
-        $raw = (string) Configuration::get(self::MENU_HIDDEN_ITEMS_KEY);
+        return $this->getMenuPathList(self::MENU_HIDDEN_ITEMS_KEY);
+    }
+
+    /**
+     * Menu paths oznaczone jako najczęściej szukane.
+     *
+     * @return string[]
+     */
+    public function getMenuFeaturedItems(): array
+    {
+        return $this->getMenuPathList(self::MENU_FEATURED_ITEMS_KEY);
+    }
+
+    /**
+     * Menu paths spychane na koniec listy.
+     *
+     * @return string[]
+     */
+    public function getMenuBottomItems(): array
+    {
+        return $this->getMenuPathList(self::MENU_BOTTOM_ITEMS_KEY);
+    }
+
+    /** Wariant wyróżnienia, zawsze jeden z MENU_FEATURED_STYLES. */
+    public function getMenuFeaturedStyle(): string
+    {
+        $style = (string) Configuration::get(self::MENU_FEATURED_STYLE_KEY);
+
+        return isset(self::MENU_FEATURED_STYLES[$style])
+            ? $style
+            : self::MENU_FEATURED_STYLE_DEFAULT;
+    }
+
+    /** @return string[] */
+    private function getMenuPathList(string $key): array
+    {
+        $raw = (string) Configuration::get($key);
 
         if ($raw === '') {
             return [];
@@ -1095,22 +1158,29 @@ class Hummingbird_editor extends Module
      * @param string[]                         $flatMobile
      * @param string[]                         $columns
      */
-    private function flagMenuNodes(array &$nodes, array $flatDesktop, array $flatMobile, array $columns, array $cascade, string $restLabel, int $depth = 0): void
+    private function flagMenuNodes(array &$nodes, array $cfg, int $depth = 0, string $path = ''): void
     {
         foreach ($nodes as &$node) {
             $id = (string) ($node['page_identifier'] ?? '');
             $isTop = ($depth === 0 && $id !== '');
+            $nodePath = ($path === '') ? $id : $path . '>' . $id;
 
-            $node['flat_desktop']  = $isTop && in_array($id, $flatDesktop, true);
-            $node['flat_mobile']   = $isTop && in_array($id, $flatMobile, true);
-            $node['menu_cascade']  = $isTop && in_array($id, $cascade, true);
+            $node['flat_desktop']  = $isTop && in_array($id, $cfg['flatDesktop'], true);
+            $node['flat_mobile']   = $isTop && in_array($id, $cfg['flatMobile'], true);
+            $node['menu_cascade']  = $isTop && in_array($id, $cfg['cascade'], true);
             // Cascade wins: the two layouts render the same branch, so an id
             // left in both configs must not produce two panels.
-            $node['menu_columns']  = $isTop && !$node['menu_cascade'] && in_array($id, $columns, true);
-            $node['rest_label']    = $restLabel;
+            $node['menu_columns']  = $isTop && !$node['menu_cascade'] && in_array($id, $cfg['columns'], true);
+            $node['rest_label']    = $cfg['restLabel'];
+
+            // Te dwa działają na KAŻDYM poziomie i po ścieżce, bo dotyczą
+            // pozycji w środku panelu, a nie całej gałęzi.
+            $node['menu_featured'] = $id !== '' && in_array($nodePath, $cfg['featured'], true);
+            $node['menu_bottom']   = $id !== '' && in_array($nodePath, $cfg['bottom'], true);
+            $node['featured_style'] = $cfg['featuredStyle'];
 
             if (!empty($node['children']) && is_array($node['children'])) {
-                $this->flagMenuNodes($node['children'], $flatDesktop, $flatMobile, $columns, $cascade, $restLabel, $depth + 1);
+                $this->flagMenuNodes($node['children'], $cfg, $depth + 1, $nodePath);
 
                 // Alfabet tylko pod kaskadą (patrz sortMenuNodes). Robione tutaj,
                 // a nie osobną pętlą po $params['menu']['children'] — tamta pisała
@@ -1173,7 +1243,17 @@ class Hummingbird_editor extends Module
             return strcmp($fold($la), $fold($lb));
         };
 
-        usort($nodes, $cmp);
+        // Pozycje przypięte na koniec wychodzą poza alfabet — stąd porównanie
+        // flagi PRZED etykietą, a nie osobne przestawianie po sortowaniu.
+        usort($nodes, static function (array $a, array $b) use ($cmp): int {
+            $ab = !empty($a['menu_bottom']);
+            $bb = !empty($b['menu_bottom']);
+            if ($ab !== $bb) {
+                return $ab ? 1 : -1;
+            }
+
+            return $cmp($a, $b);
+        });
 
         foreach ($nodes as &$node) {
             if (!empty($node['children']) && is_array($node['children'])) {
@@ -1200,22 +1280,32 @@ class Hummingbird_editor extends Module
             $this->pruneMenuNodes($params['menu']['children'], $hidden);
         }
 
-        $flatDesktop = $this->getMenuFlatItems('desktop');
-        $flatMobile  = $this->getMenuFlatItems('mobile');
-        $columns     = $this->getMenuColumnItems();
-        $cascade     = $this->getMenuCascadeItems();
-        $restLabel   = trim((string) Configuration::get(self::MENU_COLUMNS_REST_LABEL_KEY));
+        $restLabel = trim((string) Configuration::get(self::MENU_COLUMNS_REST_LABEL_KEY));
 
         if ($restLabel === '') {
             $restLabel = self::MENU_COLUMNS_REST_LABEL_DEFAULT;
         }
+
+        // Jeden worek zamiast siedmiu argumentów — flagMenuNodes schodzi
+        // rekurencyjnie i każdy nowy przełącznik dokładał kolejny parametr
+        // do przepisania w trzech miejscach.
+        $cfg = [
+            'flatDesktop'   => $this->getMenuFlatItems('desktop'),
+            'flatMobile'    => $this->getMenuFlatItems('mobile'),
+            'columns'       => $this->getMenuColumnItems(),
+            'cascade'       => $this->getMenuCascadeItems(),
+            'featured'      => $this->getMenuFeaturedItems(),
+            'bottom'        => $this->getMenuBottomItems(),
+            'featuredStyle' => $this->getMenuFeaturedStyle(),
+            'restLabel'     => $restLabel,
+        ];
 
         // The theme reads these flags on every nesting level (the submenu
         // functions recurse and pass each node down as $parent), so they have to
         // exist on every node — not just the top level. Missing keys used to
         // surface as "Undefined index: flat_mobile" notices inside the rendered
         // navigation.
-        $this->flagMenuNodes($params['menu']['children'], $flatDesktop, $flatMobile, $columns, $cascade, $restLabel);
+        $this->flagMenuNodes($params['menu']['children'], $cfg);
 
 
         // Karta podarunkowa — append a top-level leaf item to the main menu.
@@ -1238,6 +1328,9 @@ class Hummingbird_editor extends Module
                     'flat_mobile'        => false,
                     'menu_columns'       => false,
                     'menu_cascade'       => false,
+                    'menu_featured'      => false,
+                    'menu_bottom'        => false,
+                    'featured_style'     => $cfg['featuredStyle'],
                     'rest_label'         => $restLabel,
                 ];
             }

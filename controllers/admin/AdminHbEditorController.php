@@ -103,6 +103,12 @@ class AdminHbEditorController extends ModuleAdminController
         $menuHidden  = method_exists($this->module, 'getMenuHiddenItems')
             ? $this->module->getMenuHiddenItems()
             : [];
+        $menuFeatured = method_exists($this->module, 'getMenuFeaturedItems')
+            ? $this->module->getMenuFeaturedItems()
+            : [];
+        $menuBottom  = method_exists($this->module, 'getMenuBottomItems')
+            ? $this->module->getMenuBottomItems()
+            : [];
 
         $languages = Language::getLanguages(true);
         $blocks    = HbEditorBlock::getAllForAdmin();
@@ -374,6 +380,12 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_menu_layout_choices'    => $this->getMenuLayoutChoices(),
             'hbe_menu_tree'              => $menuTree,
             'hbe_menu_hidden'            => $menuHidden,
+            'hbe_menu_featured'          => $menuFeatured,
+            'hbe_menu_bottom'            => $menuBottom,
+            'hbe_menu_feat_styles'       => hummingbird_editor::MENU_FEATURED_STYLES,
+            'hbe_menu_feat_style'        => method_exists($this->module, 'getMenuFeaturedStyle')
+                ? $this->module->getMenuFeaturedStyle()
+                : hummingbird_editor::MENU_FEATURED_STYLE_DEFAULT,
             // Wishlist preview drawer — unset means "on" (matches isWishlistPreviewEnabled()).
             'hbe_wishlist_preview'      => Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED') === false
                 ? 1 : (int) Configuration::get('HBE_WISHLIST_PREVIEW_ENABLED'),
@@ -2075,6 +2087,20 @@ class AdminHbEditorController extends ModuleAdminController
             hummingbird_editor::MENU_HIDDEN_ITEMS_KEY,
             $this->cleanMenuPaths(Tools::getValue('hidden_items', []))
         );
+        Configuration::updateValue(
+            hummingbird_editor::MENU_FEATURED_ITEMS_KEY,
+            $this->cleanMenuPaths(Tools::getValue('featured_items', []))
+        );
+        Configuration::updateValue(
+            hummingbird_editor::MENU_BOTTOM_ITEMS_KEY,
+            $this->cleanMenuPaths(Tools::getValue('bottom_items', []))
+        );
+
+        $featStyle = (string) Tools::getValue('featured_style', '');
+        if (!isset(hummingbird_editor::MENU_FEATURED_STYLES[$featStyle])) {
+            $featStyle = hummingbird_editor::MENU_FEATURED_STYLE_DEFAULT;
+        }
+        Configuration::updateValue(hummingbird_editor::MENU_FEATURED_STYLE_KEY, $featStyle);
 
         $this->clearMenuCaches();
 

@@ -1517,9 +1517,12 @@ $(function () {
         $form.find('input[name="flat_items_mobile[]"]:checked').each(function () {
             data.push({ name: 'flat_items_mobile[]', value: $(this).val() });
         });
-        $form.find('input[name="hidden_items[]"]:checked').each(function () {
-            data.push({ name: 'hidden_items[]', value: $(this).val() });
+        ['hidden_items', 'featured_items', 'bottom_items'].forEach(function (field) {
+            $form.find('input[name="' + field + '[]"]:checked').each(function () {
+                data.push({ name: field + '[]', value: $(this).val() });
+            });
         });
+        data.push({ name: 'featured_style', value: $form.find('[name=featured_style]').val() || '' });
         $.ajax({
             url: hbeAjaxUrl + 'action=SaveMenuFlat&ajax=1',
             type: 'POST',
