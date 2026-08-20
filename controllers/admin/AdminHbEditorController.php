@@ -718,6 +718,7 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_cc_ttl_hours' => rtrim(rtrim(number_format(HbEditorCarouselCache::ttl() / 3600, 2, '.', ''), '0'), '.'),
             'hbe_cc_eager'     => HbEditorCarouselCache::eagerCount(),
             'hbe_cc_variants'  => HbEditorCarouselCache::variants(),
+            'hbe_cc_max_age'   => HbEditorCarouselCache::maxAgeMonths(),
             'hbe_cc_stats'     => $this->carouselCacheStats(),
             'hbe_cc_warm_url'  => $this->context->link->getModuleLink(
                 'hummingbird_editor',
@@ -1568,6 +1569,10 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue(
             HbEditorCarouselCache::CONF_VARIANTS,
             max(1, min(10, (int) Tools::getValue('variants', 3)))
+        );
+        Configuration::updateValue(
+            HbEditorCarouselCache::CONF_MAX_AGE,
+            max(0, min(600, (int) Tools::getValue('max_age_months', 0)))
         );
 
         $this->hbeAjaxDie(json_encode(['success' => true, 'stats' => $this->carouselCacheStats()]));

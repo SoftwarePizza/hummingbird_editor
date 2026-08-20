@@ -3844,54 +3844,61 @@ class Hummingbird_editor extends Module
 
     /**
      * Surowe wiersze produktow z kategorii (bez prezentacji) — wspolne dla budowania
-     * karuzeli i dla wyliczania, co pokazuja karuzele wyzej na stronie. Logika
-     * przeniesiona z modulu multislider; wylacznie klasy rdzenia PrestaShop.
+     * karuzeli i dla wyliczania, co pokazuja karuzele wyzej na stronie.
      *
-     * Wykluczenia: dostawca wyszukiwania nie umie pomijac konkretnych id, wiec
-     * pobieramy o tyle wiecej wierszy, ile jest wykluczen, odsiewamy je i tniemy
-     * do $ile. Dla kolejnosci wg daty daje to dokladnie „pierwsze $ile nowosci
-     * spoza listy”, dla losowej — losowa probke spoza listy.
+     * Wlasne zapytanie zamiast CategoryProductSearchProvider: dostawca rdzenia nie
+     * umie ani pomijac konkretnych id, ani filtrowac po dacie dodania, a obu
+     * potrzebujemy (opcja „pomijaj produkty z karuzel wyzej” i regula „nie starsze
+     * niz N miesiecy”). Warunki sa te same, ktore stosuje Category::getProducts()
+     * na froncie: sklep, aktywny, widocznosc both/catalog, dostep grupy do
+     * kategorii. Dalej wiersz z samym id_product wystarcza — ProductAssembler
+     * dociaga reszte.
      *
      * @param int   $idCategory kategoria zrodlowa
      * @param int   $ile        ile produktow pokazac
      * @param bool  $losowo     czy losowa kolejnosc zamiast wg daty dodania
      * @param int[] $wyklucz    id produktow, ktorych nie pokazywac
      *
-     * @return array<int,array> wiersze z kluczem id_product
+     * @return array<int,array{id_product:int}>
      */
     private function hbeFetchCategoryProducts(int $idCategory, int $ile, bool $losowo, array $wyklucz = []): array
     {
         if ($ile <= 0) {
             $ile = 8;
         }
-        $wyklucz = array_fill_keys(array_map('intval', $wyklucz), true);
         $category = new Category($idCategory);
-
-        $searchProvider = new \PrestaShop\PrestaShop\Adapter\Category\CategoryProductSearchProvider(
-            $this->context->getTranslator(),
-            $category
-        );
-        $searchContext = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchContext($this->context);
-
-        $query = new \PrestaShop\PrestaShop\Core\Product\Search\ProductSearchQuery();
-        $query->setResultsPerPage($ile + count($wyklucz))->setPage(1);
-        if ($losowo) {
-            $query->setSortOrder(\PrestaShop\PrestaShop\Core\Product\Search\SortOrder::random());
-        } else {
-            $query->setSortOrder(new \PrestaShop\PrestaShop\Core\Product\Search\SortOrder('product', 'date_add', 'desc'));
+        if (!Validate::isLoadedObject($category)
+            || !$category->checkAccess((int) ($this->context->customer->id ?? 0))) {
+            return [];
         }
 
-        $wynik = $searchProvider->runQuery($searchContext, $query);
+        $where = 'cp.`id_category` = ' . (int) $idCategory . '
+            AND product_shop.`active` = 1
+            AND product_shop.`visibility` IN ("both", "catalog")';
+
+        $wyklucz = array_values(array_filter(array_map('intval', $wyklucz)));
+        if ($wyklucz) {
+            $where .= ' AND p.`id_product` NOT IN (' . implode(',', $wyklucz) . ')';
+        }
+
+        $cutoff = HbEditorCarouselCache::maxAgeCutoff();
+        if ($cutoff !== null) {
+            $where .= ' AND p.`date_add` >= "' . pSQL($cutoff) . '"';
+        }
+
+        $rows = (array) Db::getInstance()->executeS(
+            'SELECT p.`id_product`
+             FROM `' . _DB_PREFIX_ . 'category_product` cp
+             INNER JOIN `' . _DB_PREFIX_ . 'product` p ON p.`id_product` = cp.`id_product`
+             ' . Shop::addSqlAssociation('product', 'p') . '
+             WHERE ' . $where . '
+             ORDER BY ' . ($losowo ? 'RAND()' : 'p.`date_add` DESC, p.`id_product` DESC') . '
+             LIMIT ' . (int) $ile
+        );
 
         $wiersze = [];
-        foreach ($wynik->getProducts() as $surowy) {
-            if (isset($wyklucz[(int) ($surowy['id_product'] ?? 0)])) {
-                continue;
-            }
-            $wiersze[] = $surowy;
-            if (count($wiersze) >= $ile) {
-                break;
-            }
+        foreach ($rows as $row) {
+            $wiersze[] = ['id_product' => (int) $row['id_product']];
         }
 
         return $wiersze;
@@ -4148,8 +4155,8 @@ class Hummingbird_editor extends Module
     }
 
     /**
-     * Plik cache karuzeli. Klucz obejmuje konfiguracje bloku, wariant i liste
-     * wykluczen — gdy karuzela wyzej sie przebuduje i pokaze inne produkty, ta
+     * Plik cache karuzeli. Klucz obejmuje konfiguracje bloku, wariant, liste
+     * wykluczen i date graniczna reguly wieku — gdy karuzela wyzej sie przebuduje i pokaze inne produkty, ta
      * dostaje nowy klucz i tez sie przebudowuje, zamiast dublowac ja do konca TTL.
      *
      * @param int[] $exclude posortowana lista wykluczen
@@ -4159,6 +4166,13 @@ class Hummingbird_editor extends Module
         $fingerprint = (string) json_encode($sd);
         if ($exclude) {
             $fingerprint .= '|x:' . implode(',', $exclude);
+        }
+        // Regula wieku: data graniczna przesuwa sie co dobe, wiec wpis musi sie
+        // wtedy przekrecic — inaczej produkt, ktory wlasnie „postarzal sie” ponad
+        // limit, wisialby w karuzeli do konca TTL.
+        $cutoff = HbEditorCarouselCache::maxAgeCutoff();
+        if ($cutoff !== null) {
+            $fingerprint .= '|age:' . substr($cutoff, 0, 10);
         }
 
         return HbEditorCarouselCache::fileForBlock($idBlock, $fingerprint, $v);

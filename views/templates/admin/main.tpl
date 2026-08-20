@@ -1104,6 +1104,14 @@
               </div>
             </div>
 
+            <div class="row">
+              <div class="col-md-4 form-group">
+                <label class="control-label">{l s='Nie pokazuj produktów starszych niż (miesięcy)' mod='hummingbird_editor'}</label>
+                <input type="number" class="form-control" name="max_age_months" min="0" max="600" value="{$hbe_cc_max_age|intval}">
+                <p class="help-block">{l s='Reguła doboru dla wszystkich karuzel produktowych strony głównej: liczy się data dodania produktu. 0 = bez limitu, 24 = dwa lata.' mod='hummingbird_editor'}</p>
+              </div>
+            </div>
+
             <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz ustawienia' mod='hummingbird_editor'}</button>
             <button type="button" id="hbe-cc-purge" class="btn btn-default"><i class="icon-trash"></i> {l s='Wyczyść cache teraz' mod='hummingbird_editor'}</button>
             <div class="hbe-alerts"></div>

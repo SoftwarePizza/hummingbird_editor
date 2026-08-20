@@ -31,6 +31,8 @@ class HbEditorCarouselCache
     const CONF_LAZY      = 'HBE_CAROUSEL_LAZY';
     const CONF_EAGER     = 'HBE_CAROUSEL_EAGER';
     const CONF_WARM_KEY  = 'HBE_CAROUSEL_WARM_KEY';
+    /** Maksymalny wiek produktu w karuzelach (miesiace; 0 = bez limitu). */
+    const CONF_MAX_AGE   = 'HBE_CAROUSEL_MAX_AGE_MONTHS';
 
     /** Doba — tyle zyje wpis, zanim zostanie przebudowany. */
     const DEFAULT_TTL = 86400;
@@ -84,6 +86,33 @@ class HbEditorCarouselCache
         $v = Configuration::get(self::CONF_EAGER);
 
         return $v === false ? self::DEFAULT_EAGER : max(0, (int) $v);
+    }
+
+    /**
+     * Regula doboru: produkt w karuzeli nie moze byc starszy niz tyle miesiecy
+     * (liczy sie data dodania produktu). 0 = bez limitu. Wspolne dla wszystkich
+     * karuzel produktowych — to zasada sklepu, nie pojedynczej sekcji.
+     */
+    public static function maxAgeMonths(): int
+    {
+        $v = Configuration::get(self::CONF_MAX_AGE);
+
+        return $v === false ? 0 : max(0, (int) $v);
+    }
+
+    /**
+     * Data graniczna dla reguly wieku (poczatek dnia, format SQL) albo null,
+     * gdy limitu nie ma. Dzienna ziarnistosc: wchodzi do klucza cache, wiec
+     * wpisy przekrecaja sie raz na dobe, a nie z kazda sekunda.
+     */
+    public static function maxAgeCutoff(): ?string
+    {
+        $months = self::maxAgeMonths();
+        if ($months <= 0) {
+            return null;
+        }
+
+        return date('Y-m-d 00:00:00', strtotime('-' . $months . ' months'));
     }
 
     /**
