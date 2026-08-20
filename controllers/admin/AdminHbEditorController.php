@@ -358,6 +358,13 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_mini_ratios'  => $this->miniatureRatioLabels(),
             // Footer social icons: [key => ['label' => ..., 'url' => ...]]
             'hbe_social'                => $this->getSocialForForm(),
+            // Zakladka "Stopka": pasek prawny + dane kontaktowe. Telefon i
+            // e-mail to te same wartosci, ktore edytuje BO > Ustawienia sklepu
+            // > Kontakt — dlatego podajemy tez link do tamtego ekranu.
+            'hbe_footer_links'          => $this->getFooterLinksForForm($languages),
+            'hbe_shop_phone'            => (string) Configuration::get('PS_SHOP_PHONE'),
+            'hbe_shop_email'            => (string) Configuration::get('PS_SHOP_EMAIL'),
+            'hbe_stores_link'           => $this->context->link->getAdminLink('AdminStores'),
             'hbe_menu_top_items'         => $menuTopItems,
             'hbe_menu_flat_items'        => $menuFlatSelected,
             'hbe_menu_flat_items_mobile' => $menuFlatSelectedMobile,
@@ -2017,6 +2024,89 @@ class AdminHbEditorController extends ModuleAdminController
                 'success' => false,
                 'error'   => 'Adres musi zaczynać się od http:// lub https:// — popraw: ' . implode(', ', $errors),
             ]));
+        }
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Sloty paska prawnego stopki w formie gotowej dla formularza:
+     * [['slot' => 1, 'label' => [idLang => ...], 'url' => [idLang => ...]], ...]
+     *
+     * @param array<int,array<string,mixed>> $languages
+     *
+     * @return array<int,array{slot:int,label:array<int,string>,url:array<int,string>}>
+     */
+    private function getFooterLinksForForm(array $languages): array
+    {
+        $rows = [];
+
+        for ($i = 1; $i <= Hummingbird_editor::FOOTER_LINK_SLOTS; $i++) {
+            $rows[] = [
+                'slot'  => $i,
+                'label' => $this->getConfigPerLang(Hummingbird_editor::footerLinkKey($i, 'label'), $languages),
+                'url'   => $this->getConfigPerLang(Hummingbird_editor::footerLinkKey($i, 'url'), $languages),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Zapisuje pasek prawny na dole stopki. Pusta etykieta = pozycja znika,
+     * wiec kasowanie linku to po prostu wyczyszczenie pola.
+     */
+    public function ajaxProcessSaveFooterLinks(): void
+    {
+        for ($i = 1; $i <= Hummingbird_editor::FOOTER_LINK_SLOTS; $i++) {
+            $this->saveLocalizedFromForm(
+                Hummingbird_editor::footerLinkKey($i, 'label'),
+                Tools::getValue('label_' . $i, '')
+            );
+            // Bez $isUrl: adresy w tym pasku sa zwykle wzgledne ("/content/2-…"),
+            // a doklejanie "https://" psulo by tez zapis "#". Modul normalizuje
+            // je przy renderowaniu.
+            $this->saveLocalizedFromForm(
+                Hummingbird_editor::footerLinkKey($i, 'url'),
+                Tools::getValue('url_' . $i, '')
+            );
+        }
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Telefon i e-mail w kolumnie "Kontakt". Piszemy do tych samych kluczy, co
+     * BO > Ustawienia sklepu > Kontakt, bo stamtad czyta je ps_contactinfo —
+     * dzieki temu edytor i tamten ekran nigdy sie nie rozjada.
+     */
+    public function ajaxProcessSaveFooterContact(): void
+    {
+        $phone = trim((string) Tools::getValue('shop_phone', ''));
+        $email = trim((string) Tools::getValue('shop_email', ''));
+
+        if ($email !== '' && !Validate::isEmail($email)) {
+            $this->hbeAjaxDie(json_encode([
+                'success' => false,
+                'error'   => 'Niepoprawny adres e-mail.',
+            ]));
+        }
+
+        if ($phone !== '' && !Validate::isPhoneNumber($phone)) {
+            $this->hbeAjaxDie(json_encode([
+                'success' => false,
+                'error'   => 'Niepoprawny numer telefonu — dozwolone sa cyfry, spacje oraz + - . ( )',
+            ]));
+        }
+
+        Configuration::updateValue('PS_SHOP_PHONE', $phone);
+        Configuration::updateValue('PS_SHOP_EMAIL', $email);
+
+        // ps_contactinfo cache'uje wyrenderowany szablon stopki — bez tego
+        // front pokazywalby stary numer az do wyczyszczenia cache.
+        $contactInfo = Module::getInstanceByName('ps_contactinfo');
+        if ($contactInfo instanceof Module && method_exists($contactInfo, 'hookActionAdminStoresControllerUpdate_optionsAfter')) {
+            $contactInfo->hookActionAdminStoresControllerUpdate_optionsAfter();
         }
 
         $this->hbeAjaxDie(json_encode(['success' => true]));

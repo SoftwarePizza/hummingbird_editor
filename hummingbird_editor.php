@@ -62,6 +62,35 @@ class Hummingbird_editor extends Module
         return 'HBE_SOCIAL_' . strtoupper($network);
     }
 
+    /**
+     * Pasek prawny na samym dole stopki (Polityka prywatnosci, Regulamin,
+     * GPSR...). Stala liczba slotow, bo tak samo dzialaja logotypy marek i
+     * ikony 4-kolumnowe — pusta etykieta znaczy "slot wolny", wiec sklep
+     * uzywa tylu pozycji, ile potrzebuje.
+     */
+    const FOOTER_LINK_SLOTS = 8;
+
+    /**
+     * Zestaw startowy paska prawnego: strony CMS, ktore do wersji 1.15.0 byly
+     * wpisane na sztywno w szablonie motywu. Klucz = id strony CMS, wartosc =
+     * etykieta dokladnie taka, jaka pokazywala stopka przed zmiana (tytul CMS
+     * bywa inny — np. "Programy lojalnosciowe" zamiast "Programy i karty").
+     * Strony, ktorej w danym sklepie nie ma, po prostu nie zasiewamy.
+     */
+    const FOOTER_LINK_SEED = [
+        2  => 'Polityka prywatności',
+        3  => 'Regulamin',
+        14 => 'Informacje o RODO',
+        25 => 'Programy i karty',
+        71 => 'Informacje GPSR',
+    ];
+
+    /** Configuration key holding one part ('label'|'url') of a footer legal link. */
+    public static function footerLinkKey(int $slot, string $part): string
+    {
+        return 'HBE_FOOTER_LINK_' . (int) $slot . '_' . strtoupper($part);
+    }
+
     /** How the free-shipping threshold shown on the cart progress bar is resolved. */
     public const FREE_SHIPPING_MODE_AUTO   = 'auto';
     public const FREE_SHIPPING_MODE_MANUAL = 'manual';
@@ -175,7 +204,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.14.0';
+        $this->version = '1.15.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -416,6 +445,17 @@ class Hummingbird_editor extends Module
                 }
             }
         }
+
+        // Pasek prawny na dole stopki
+        for ($i = 1; $i <= self::FOOTER_LINK_SLOTS; $i++) {
+            foreach (['label', 'url'] as $part) {
+                $k = self::footerLinkKey($i, $part);
+                if (Configuration::get($k) === false) {
+                    Configuration::updateValue($k, '');
+                }
+            }
+        }
+        $this->seedFooterLegalLinks();
 
         // Carousel section headers
         foreach (['HBE_NP', 'HBE_BS', 'HBE_CP'] as $prefix) {
@@ -1222,12 +1262,93 @@ class Hummingbird_editor extends Module
         return $links;
     }
 
+    /**
+     * Pasek prawny na dole stopki. Motyw renderuje wylacznie to, co tu wroci,
+     * wiec pusta etykieta = pozycja ukryta.
+     *
+     * @return array<int,array{label:string,url:string}>
+     */
+    public function getFooterLegalLinks(): array
+    {
+        $links = [];
+
+        for ($i = 1; $i <= self::FOOTER_LINK_SLOTS; $i++) {
+            $label = trim($this->hbeLocConfig(self::footerLinkKey($i, 'label')));
+            if ($label === '') {
+                continue;
+            }
+
+            $url = trim($this->hbeLocConfig(self::footerLinkKey($i, 'url')));
+            $links[] = [
+                'label' => $label,
+                'url'   => $url === '' ? '#' : $this->hbeSliderValidateUrl($url),
+            ];
+        }
+
+        return $links;
+    }
+
+    /**
+     * Jednorazowo wypelnia pasek prawny stronami CMS tego sklepu. Adresy
+     * budujemy przez Link, bo id-ki stron sa wspolne dla Rosenthala i
+     * Karenskiego, ale `link_rewrite` juz nie (GPSR: "informacje-gpsr" vs
+     * "informacja-gpsr"). Jesli cokolwiek jest juz ustawione, nie ruszamy —
+     * wybor sklepu jest wazniejszy niz nasz zestaw startowy.
+     */
+    public function seedFooterLegalLinks(): void
+    {
+        for ($i = 1; $i <= self::FOOTER_LINK_SLOTS; $i++) {
+            if (trim((string) Configuration::get(self::footerLinkKey($i, 'label'))) !== '') {
+                return;
+            }
+        }
+
+        $link = $this->context->link ?? new Link();
+        $base = $link->getBaseLink();
+        $languages = Language::getLanguages(true);
+        $slot = 0;
+
+        foreach (self::FOOTER_LINK_SEED as $idCms => $label) {
+            $labels = [];
+            $urls = [];
+
+            foreach ($languages as $lang) {
+                $idLang = (int) $lang['id_lang'];
+                $cms = new CMS((int) $idCms, $idLang);
+                if (!Validate::isLoadedObject($cms)) {
+                    // Strony nie ma w tym sklepie — pomijamy cala pozycje.
+                    continue 2;
+                }
+                $labels[$idLang] = $label;
+                // Zapisujemy adres wzgledny, zeby przetrwal zmiane domeny
+                // (klon dev, cutover) — modul dokleja baze przy renderowaniu.
+                $urls[$idLang] = '/' . ltrim(
+                    str_replace($base, '', $link->getCMSLink($cms, null, null, $idLang)),
+                    '/'
+                );
+            }
+
+            if (!$labels) {
+                continue;
+            }
+
+            ++$slot;
+            Configuration::updateValue(self::footerLinkKey($slot, 'label'), $labels, true);
+            Configuration::updateValue(self::footerLinkKey($slot, 'label'), reset($labels));
+            Configuration::updateValue(self::footerLinkKey($slot, 'url'), $urls, true);
+            Configuration::updateValue(self::footerLinkKey($slot, 'url'), reset($urls));
+        }
+    }
+
     public function hookActionFrontControllerSetMedia(): void
     {
         $page = $this->currentPage();
 
         // Footer social icons — the theme's ps_contactinfo override renders them.
         $this->context->smarty->assign('hbe_social_links', $this->getSocialLinks());
+
+        // Pasek prawny na dole stopki — renderuje go motyw (_partials/footer.tpl).
+        $this->context->smarty->assign('hbe_footer_links', $this->getFooterLegalLinks());
 
         // Single source of truth for the "free shipping from X" copy (product page perk).
         $this->context->smarty->assign(
