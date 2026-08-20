@@ -157,6 +157,48 @@ class Hummingbird_editor extends Module
     public const CONF_CHECKOUT_TERMS_BOTTOM = 'HBE_CHECKOUT_TERMS_BOTTOM';
 
     /**
+     * Przewoznicy, ktorzy sa odbiorem osobistym (lista `id_reference` po
+     * przecinku, wybierana w BO -> Hummingbird -> Kasa).
+     *
+     * Sluzy jednej rzeczy: gdy taka dostawa nic nie kosztuje, zamiast golego
+     * "Za darmo!" pokazujemy "Darmowy odbior osobisty" — w liscie przewoznikow,
+     * w podsumowaniu zamowienia i w wierszu "Wysylka" w koszyku. PrestaShop nie
+     * ma zadnego znacznika "to jest odbior w sklepie", stad recznie wskazana
+     * lista; pusta = modul nie rusza zadnej etykiety.
+     *
+     * Trzymamy `id_reference`, a nie `id_carrier`, bo edycja przewoznika w BO
+     * tworzy nowy wiersz z nowym `id_carrier` i tym samym `id_reference` —
+     * inaczej ustawienie gubiloby sie przy kazdej zmianie ceny czy strefy.
+     */
+    public const CONF_PICKUP_CARRIERS = 'HBE_PICKUP_CARRIERS';
+
+    /**
+     * Domyslna etykieta darmowego odbioru osobistego w jezykach sklepu.
+     *
+     * Fraza idzie normalnie przez tlumaczenia modulu (BO -> Tlumaczenia), a ten
+     * slownik jest tylko fallbackiem, zeby sklep wielojezyczny nie zostal z
+     * angielskim kluczem, dopoki nikt nic nie przetlumaczyl.
+     */
+    public const PICKUP_LABELS = [
+        'pl' => 'Darmowy odbiór osobisty',
+        'en' => 'Free store pickup',
+        'de' => 'Kostenlose Abholung vor Ort',
+        'es' => 'Recogida gratuita en tienda',
+        'fr' => 'Retrait gratuit en magasin',
+        'it' => 'Ritiro gratuito in negozio',
+        'nl' => 'Gratis afhalen in de winkel',
+        'cs' => 'Osobní odběr zdarma',
+        'da' => 'Gratis afhentning i butikken',
+        'hu' => 'Ingyenes személyes átvétel',
+        'lt' => 'Nemokamas atsiėmimas parduotuvėje',
+        'ro' => 'Ridicare gratuită din magazin',
+        'sv' => 'Gratis upphämtning i butik',
+        'uk' => 'Безкоштовний самовивіз',
+        'lv' => 'Bezmaksas saņemšana veikalā',
+        'et' => 'Tasuta kättesaamine kauplusest',
+    ];
+
+    /**
      * Zoom na okladce karty produktu (powiekszenie w ramce zdjecia).
      *
      * ZOOM_LEVEL — '0' oznacza naturalna rozdzielczosc zrodla (piksel w piksel,
@@ -242,7 +284,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.14.0';
+        $this->version = '1.15.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -653,6 +695,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('displayShoppingCartFooter')
             && $this->registerHook('displayFooter')
             && $this->registerHook('actionMainMenuModifier')
+            && $this->registerHook('actionPresentCart')
             && $this->installTab();
     }
 
@@ -786,7 +829,8 @@ class Hummingbird_editor extends Module
             Configuration::deleteByName($k);
         }
         Configuration::deleteByName('HBE_PRODUCT_SUMMARY_SOURCE');
-        foreach ([self::CONF_CHECKOUT_SKIN, self::CONF_CHECKOUT_ONEPAGE, self::CONF_CHECKOUT_TERMS_BOTTOM] as $k) {
+        foreach ([self::CONF_CHECKOUT_SKIN, self::CONF_CHECKOUT_ONEPAGE, self::CONF_CHECKOUT_TERMS_BOTTOM,
+                  self::CONF_PICKUP_CARRIERS] as $k) {
             Configuration::deleteByName($k);
         }
         foreach ([
@@ -2121,6 +2165,214 @@ class Hummingbird_editor extends Module
         }
 
         return false;
+    }
+
+    /* ── Darmowy odbior osobisty ──────────────────────────────────────────
+       PrestaShop pisze przy bezplatnej dostawie samo "Za darmo!" — tak samo
+       przy kurierze objetym progiem darmowej wysylki, jak przy odbiorze
+       osobistym, gdzie nic nie jest wysylane. Przy przewoznikach wskazanych w
+       BO jako odbior osobisty podmieniamy ten napis na "Darmowy odbior
+       osobisty". Wchodzi w trzech miejscach: lista przewoznikow w kroku
+       "Przesylka" i podsumowanie zamowienia (override DeliveryOptionsFinder,
+       ktory oba te widoki zasila) oraz wiersz "Wysylka" w koszyku
+       (hook actionPresentCart). Pusta lista = modul nie rusza niczego.
+    ─────────────────────────────────────────────────────────────────────── */
+
+    /**
+     * `id_reference` przewoznikow oznaczonych jako odbior osobisty.
+     *
+     * @return int[]
+     */
+    public static function getPickupCarrierReferences(): array
+    {
+        $raw = HbEditorConfig::get(self::CONF_PICKUP_CARRIERS);
+        if (!is_string($raw) || $raw === '') {
+            return [];
+        }
+
+        $refs = [];
+        foreach (explode(',', $raw) as $ref) {
+            $ref = (int) trim($ref);
+            if ($ref > 0) {
+                $refs[$ref] = $ref;
+            }
+        }
+
+        return array_values($refs);
+    }
+
+    /**
+     * Czy dany przewoznik (po `id_carrier`) jest odbiorem osobistym.
+     *
+     * Porownanie idzie po `id_reference`, bo kazda edycja przewoznika w BO
+     * tworzy nowy `id_carrier`.
+     */
+    public static function isPickupCarrier(int $idCarrier): bool
+    {
+        static $references = [];
+
+        $configured = self::getPickupCarrierReferences();
+        if (!$configured || $idCarrier <= 0) {
+            return false;
+        }
+
+        if (!isset($references[$idCarrier])) {
+            $references[$idCarrier] = (int) Db::getInstance()->getValue(
+                'SELECT `id_reference` FROM `' . _DB_PREFIX_ . 'carrier` WHERE `id_carrier` = ' . (int) $idCarrier
+            );
+        }
+
+        return in_array($references[$idCarrier], $configured, true);
+    }
+
+    /**
+     * Etykieta darmowego odbioru osobistego w jezyku klienta.
+     *
+     * Najpierw normalne tlumaczenie modulu (da sie nadpisac w BO), a gdy go nie
+     * ma — wbudowany slownik, zeby sklep wielojezyczny nie zostal z angielskim
+     * kluczem.
+     */
+    public function getFreePickupLabel(): string
+    {
+        $key = 'Free store pickup';
+        $label = $this->trans($key, [], 'Modules.Hummingbirdeditor.Shop');
+        if ($label !== $key) {
+            return $label;
+        }
+
+        $iso = strtolower((string) ($this->context->language->iso_code ?? ''));
+
+        return self::PICKUP_LABELS[$iso] ?? $key;
+    }
+
+    /**
+     * Czy napis jest tym, ktorym PrestaShop oznacza bezplatna dostawe.
+     *
+     * Porownujemy z ta sama fraza, ktorej uzywa rdzen (`Free` z
+     * Shop.Theme.Checkout), zamiast zgadywac zrodlo darmowosci — dzieki temu
+     * podmiana lapie wszystkie przypadki i tylko te, w ktorych klient widzi
+     * "Za darmo!".
+     */
+    private function isFreeShippingLabel($value): bool
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return false;
+        }
+
+        return $value === trim(
+            $this->context->getTranslator()->trans('Free', [], 'Shop.Theme.Checkout')
+        );
+    }
+
+    /**
+     * Podmienia etykiete ceny w opcjach dostawy zwroconych przez
+     * DeliveryOptionsFinder (krok "Przesylka" + podsumowanie zamowienia).
+     * Wolane z override'u rdzenia; przy pustej konfiguracji nie zmienia nic.
+     *
+     * @param array<string,array<string,mixed>> $options
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    public function relabelFreePickupOptions(array $options): array
+    {
+        if (!$options || !self::getPickupCarrierReferences()) {
+            return $options;
+        }
+
+        $label = null;
+        foreach ($options as $key => $carrier) {
+            if (!is_array($carrier)) {
+                continue;
+            }
+
+            $idCarrier = (int) ($carrier['id'] ?? $carrier['id_carrier'] ?? 0);
+            $price = (string) ($carrier['price'] ?? '');
+
+            if (!$this->isFreeShippingLabel($price) || !self::isPickupCarrier($idCarrier)) {
+                continue;
+            }
+
+            $label = $label ?? $this->getFreePickupLabel();
+
+            // `label` to gotowy napis "nazwa - termin - cena" (uzywany przez
+            // niektore motywy i moduly), wiec przepisujemy w nim sama cene.
+            if (isset($carrier['label'])) {
+                $options[$key]['label'] = str_replace($price, $label, (string) $carrier['label']);
+            }
+
+            $options[$key]['price'] = $label;
+        }
+
+        return $options;
+    }
+
+    /**
+     * Wiersz "Wysylka" w koszyku (i w prawej kolumnie kasy) — ten sam napis, co
+     * przy wyborze przewoznika. Podmieniamy tylko wtedy, gdy dostawa nic nie
+     * kosztuje i **wszystkie** paczki ida odbiorem osobistym; przy zwyklym
+     * przewozniku z progiem darmowej wysylki zostaje "Za darmo!".
+     */
+    public function hookActionPresentCart(array $params): void
+    {
+        $presentedCart = $params['presentedCart'] ?? null;
+        if (!$presentedCart instanceof ArrayAccess || !self::getPickupCarrierReferences()) {
+            return;
+        }
+
+        $cart = $this->context->cart;
+        if (!Validate::isLoadedObject($cart) || $cart->isVirtualCart()) {
+            return;
+        }
+
+        $subtotals = $presentedCart['subtotals'];
+        if (!is_array($subtotals) || empty($subtotals['shipping'])) {
+            return;
+        }
+
+        $shipping = $subtotals['shipping'];
+        if ((float) ($shipping['amount'] ?? 0) != 0.0 || !$this->isFreeShippingLabel($shipping['value'] ?? '')) {
+            return;
+        }
+
+        $carrierIds = $this->getCartCarrierIds($cart);
+        if (!$carrierIds) {
+            return;
+        }
+
+        foreach ($carrierIds as $idCarrier) {
+            if (!self::isPickupCarrier($idCarrier)) {
+                return;
+            }
+        }
+
+        $subtotals['shipping']['value'] = $this->getFreePickupLabel();
+        $presentedCart['subtotals'] = $subtotals;
+    }
+
+    /**
+     * Przewoznicy wybrani w koszyku (klucz opcji dostawy to lista `id_carrier`
+     * po przecinku — po jednym na paczke).
+     *
+     * @return int[]
+     */
+    private function getCartCarrierIds(Cart $cart): array
+    {
+        $ids = [];
+        foreach ((array) $cart->getDeliveryOption(null, false, false) as $optionKey) {
+            foreach (explode(',', (string) $optionKey) as $idCarrier) {
+                $idCarrier = (int) $idCarrier;
+                if ($idCarrier > 0) {
+                    $ids[$idCarrier] = $idCarrier;
+                }
+            }
+        }
+
+        if (!$ids && (int) $cart->id_carrier > 0) {
+            $ids[(int) $cart->id_carrier] = (int) $cart->id_carrier;
+        }
+
+        return array_values($ids);
     }
 
     /**

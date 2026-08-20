@@ -53,6 +53,7 @@ Moduł ma własną zakładkę w panelu administracyjnym. Interfejs jest podzielo
 - `Karuzele` - nagłówki dla zestawów produktowych / karuzel,
 - `Slider` - zarządzanie slajdami i ustawieniami slidera,
 - `Koszyk` - ustawienia podglądu koszyka,
+- `Kasa` - wygląd kroków zamówienia oraz przewoźnicy będący odbiorem osobistym (przy bezpłatnej dostawie takim przewoźnikiem klient widzi „Darmowy odbiór osobisty” zamiast samego „Za darmo!” — w kroku „Przesyłka”, w podsumowaniu zamówienia i w koszyku),
 - `Miniatury` - wygląd kafla produktu (zdjęcie, kadr, odstępy, kolumny) w całym sklepie,
 - `Ustawienia` - dodatkowe opcje globalne.
 

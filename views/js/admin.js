@@ -1583,6 +1583,11 @@ $(function () {
             { name: 'checkout_onepage',      value: $form.find('[name=checkout_onepage]').is(':checked')      ? 1 : 0 },
             { name: 'checkout_terms_bottom', value: $form.find('[name=checkout_terms_bottom]').is(':checked') ? 1 : 0 }
         ];
+        // Przewoznicy oznaczeni jako odbior osobisty (moga byc puste — wtedy
+        // modul nie rusza etykiety "Za darmo!").
+        $form.find('input[name="pickup_carriers[]"]:checked').each(function () {
+            data.push({ name: 'pickup_carriers[]', value: $(this).val() });
+        });
         $.ajax({
             url: hbeAjaxUrl + 'action=SaveCheckoutSettings&ajax=1',
             type: 'POST',

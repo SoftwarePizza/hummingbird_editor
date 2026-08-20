@@ -423,6 +423,9 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_checkout_skin'          => (int) HbEditorConfig::get(Hummingbird_editor::CONF_CHECKOUT_SKIN),
             'hbe_checkout_onepage'       => (int) HbEditorConfig::get(Hummingbird_editor::CONF_CHECKOUT_ONEPAGE),
             'hbe_checkout_terms_bottom'  => (int) HbEditorConfig::get(Hummingbird_editor::CONF_CHECKOUT_TERMS_BOTTOM),
+            // Kasa: przewoznicy bedacy odbiorem osobistym (lista `id_reference`)
+            'hbe_pickup_carriers'        => Hummingbird_editor::getPickupCarrierReferences(),
+            'hbe_carriers'               => $this->getCarrierChoices(),
             // Image hero banner
             'hbe_imghero_enabled'  => (int) Configuration::get('HBE_IMGHERO_ENABLED'),
             'hbe_imghero_image'    => (string) Configuration::get('HBE_IMGHERO_IMAGE'),
@@ -2402,7 +2405,51 @@ class AdminHbEditorController extends ModuleAdminController
         HbEditorConfig::set(Hummingbird_editor::CONF_CHECKOUT_ONEPAGE, (int) Tools::getValue('checkout_onepage', 0));
         HbEditorConfig::set(Hummingbird_editor::CONF_CHECKOUT_TERMS_BOTTOM, (int) Tools::getValue('checkout_terms_bottom', 0));
 
+        // Odbior osobisty: zapisujemy `id_reference` przewoznikow, bo edycja
+        // przewoznika w BO podmienia `id_carrier`, a referencja zostaje.
+        $references = [];
+        foreach ((array) Tools::getValue('pickup_carriers', []) as $reference) {
+            $reference = (int) $reference;
+            if ($reference > 0) {
+                $references[$reference] = $reference;
+            }
+        }
+        HbEditorConfig::set(Hummingbird_editor::CONF_PICKUP_CARRIERS, implode(',', $references));
+
         $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Przewoznicy sklepu do wyboru w zakladce "Kasa" — po jednym wierszu na
+     * `id_reference` (BO przy kazdej edycji przewoznika zaklada nowy
+     * `id_carrier` i chowa poprzedni, wiec sama lista `id_carrier` pokazalaby
+     * te sama dostawe kilka razy).
+     *
+     * @return array<int,array{reference:int, name:string, active:bool, selected:bool}>
+     */
+    private function getCarrierChoices(): array
+    {
+        $selected = Hummingbird_editor::getPickupCarrierReferences();
+
+        $rows = Db::getInstance()->executeS(
+            'SELECT c.`id_reference`, MAX(c.`name`) AS `name`, MAX(c.`active`) AS `active`
+             FROM `' . _DB_PREFIX_ . 'carrier` c
+             WHERE c.`deleted` = 0
+             GROUP BY c.`id_reference`
+             ORDER BY `active` DESC, `name`'
+        );
+
+        $choices = [];
+        foreach ($rows ?: [] as $row) {
+            $choices[] = [
+                'reference' => (int) $row['id_reference'],
+                'name'      => (string) $row['name'],
+                'active'    => (bool) $row['active'],
+                'selected'  => in_array((int) $row['id_reference'], $selected, true),
+            ];
+        }
+
+        return $choices;
     }
 
     /**

@@ -1590,6 +1590,29 @@
                   </tr>
                 </tbody>
               </table>
+                  <tr>
+                    <td>
+                      <strong>{l s='Odbiór osobisty zamiast „Za darmo!”' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">
+                        {l s='Zaznacz przewoźników, którzy są odbiorem osobistym. Gdy taka dostawa nic nie kosztuje, klient zamiast samego „Za darmo!” zobaczy „Darmowy odbiór osobisty” — przy wyborze przewoźnika, w podsumowaniu zamówienia i w wierszu „Wysyłka” w koszyku. Zwykłych przewoźników to nie dotyczy: darmowa wysyłka z progu kwotowego dalej pokazuje się jako „Za darmo!”.' mod='hummingbird_editor'}
+                      </div>
+                      <div class="hbe-pickup-carriers" style="margin-top:8px">
+                        {if $hbe_carriers|@count}
+                          {foreach from=$hbe_carriers item=carrier}
+                            <label class="checkbox-inline" style="display:block;margin:0 0 4px">
+                              <input type="checkbox" name="pickup_carriers[]" value="{$carrier.reference|intval}"
+                                {if $carrier.selected}checked{/if}>
+                              {$carrier.name|escape:'html':'UTF-8'}
+                              {if !$carrier.active}<span class="text-muted"> — {l s='wyłączony' mod='hummingbird_editor'}</span>{/if}
+                            </label>
+                          {/foreach}
+                        {else}
+                          <span class="text-muted">{l s='Sklep nie ma jeszcze żadnego przewoźnika.' mod='hummingbird_editor'}</span>
+                        {/if}
+                      </div>
+                    </td>
+                    <td style="width:90px"></td>
+                  </tr>
               <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
               <div class="hbe-alerts"></div>
             </form>
