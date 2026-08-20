@@ -208,6 +208,39 @@ class Hummingbird_editor extends Module
     public const CONF_ZOOM_LEVEL   = 'HBE_ZOOM_LEVEL';
 
     /**
+     * Podpowiedz stanu magazynowego pod przyciskiem koszyka.
+     *
+     * STOCK_HINT_THRESHOLD — ile jednostek (na izpolu: metrow) moze zostac na
+     * belce, zeby zamiast zwyklej informacji o stanie pokazac zachete do
+     * zabrania calosci. Blok renderuje motyw
+     * (catalog/_partials/product-add-to-cart.tpl), tu jest tylko sterowanie.
+     */
+    public const CONF_STOCK_HINT_ENABLED   = 'HBE_STOCK_HINT_ENABLED';
+    public const CONF_STOCK_HINT_THRESHOLD = 'HBE_STOCK_HINT_THRESHOLD';
+
+    /**
+     * Rabat za zabranie calego dostepnego stanu produktu.
+     *
+     * Naliczamy go wylacznie na pozycjach koszyka (hook
+     * actionProductPriceCalculation dostaje cene przez referencje) — ceny
+     * katalogowe na listingu i karcie zostaja nietkniete, bo rabat nalezy sie
+     * za ILOSC, a nie za sam produkt. Wyjatkiem sa produkty sprzedawane ponad
+     * stan: tam "calosc" nie istnieje i rabat sie nie pojawia.
+     */
+    public const CONF_ALLSTOCK_DISCOUNT_ENABLED   = 'HBE_ALLSTOCK_DISCOUNT_ENABLED';
+    public const CONF_ALLSTOCK_DISCOUNT_RATE      = 'HBE_ALLSTOCK_DISCOUNT_RATE';
+    public const CONF_ALLSTOCK_DISCOUNT_RATE_SALE = 'HBE_ALLSTOCK_DISCOUNT_RATE_SALE';
+
+    /** Tolerancja przy porownywaniu ilosci ulamkowych (pproperties: krok 0,1). */
+    private const ALLSTOCK_EPSILON = 0.000001;
+
+    /** Ilosci pozycji koszyka w obrebie zadania (klucz: koszyk-produkt-wariant). */
+    private static $allStockCartQuantities = [];
+
+    /** Czy cart_product ma kolumne quantity_fractional (pproperties). */
+    private static $allStockFractionalColumn = null;
+
+    /**
      * Gorna waga oryginalu zdjecia, po ktory zoom moze siegnac.
      *
      * Miniatury PrestaShopa skaluja sie "do zmieszczenia w kwadracie", wiec przy
@@ -284,7 +317,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.15.0';
+        $this->version = '1.16.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -577,6 +610,30 @@ class Hummingbird_editor extends Module
             Configuration::updateValue(self::CONF_ZOOM_LEVEL, '0');
         }
 
+        // Podpowiedz stanu magazynowego — wlaczona, z progiem zachety 3
+        // jednostki. Na sklepach bez tego bloku w motywie ustawienie nic nie
+        // robi, wiec wlaczenie go z gory niczego nie zmienia.
+        if (Configuration::get(self::CONF_STOCK_HINT_ENABLED) === false) {
+            Configuration::updateValue(self::CONF_STOCK_HINT_ENABLED, 1);
+        }
+        if (Configuration::get(self::CONF_STOCK_HINT_THRESHOLD) === false) {
+            Configuration::updateValue(self::CONF_STOCK_HINT_THRESHOLD, '3');
+        }
+
+        // Rabat za zabranie calosci — DOMYSLNIE WYLACZONY. Wlacza go sklep
+        // swiadomie, bo to realne pieniadze, a nie zmiana wygladu.
+        if (Configuration::get(self::CONF_ALLSTOCK_DISCOUNT_ENABLED) === false) {
+            Configuration::updateValue(self::CONF_ALLSTOCK_DISCOUNT_ENABLED, 0);
+        }
+        if (Configuration::get(self::CONF_ALLSTOCK_DISCOUNT_RATE) === false) {
+            Configuration::updateValue(self::CONF_ALLSTOCK_DISCOUNT_RATE, '5');
+        }
+        // Produkt juz przeceniony dostaje mniej — rabaty by sie inaczej
+        // nakladaly i konczylo sie to sprzedaza ponizej progu oplacalnosci.
+        if (Configuration::get(self::CONF_ALLSTOCK_DISCOUNT_RATE_SALE) === false) {
+            Configuration::updateValue(self::CONF_ALLSTOCK_DISCOUNT_RATE_SALE, '2');
+        }
+
         // Related products carousel (below FAQ on product page)
         if (Configuration::get('HBE_RELATED_ENABLED') === false) {
             Configuration::updateValue('HBE_RELATED_ENABLED', 1);
@@ -696,6 +753,8 @@ class Hummingbird_editor extends Module
             && $this->registerHook('displayFooter')
             && $this->registerHook('actionMainMenuModifier')
             && $this->registerHook('actionPresentCart')
+            && $this->registerHook('actionProductPriceCalculation')
+            && $this->registerHook('actionCartUpdateQuantityBefore')
             && $this->installTab();
     }
 
@@ -811,6 +870,11 @@ class Hummingbird_editor extends Module
         Configuration::deleteByName('HBE_RELATED_TITLE');
         Configuration::deleteByName(self::CONF_ZOOM_ENABLED);
         Configuration::deleteByName(self::CONF_ZOOM_LEVEL);
+        Configuration::deleteByName(self::CONF_STOCK_HINT_ENABLED);
+        Configuration::deleteByName(self::CONF_STOCK_HINT_THRESHOLD);
+        Configuration::deleteByName(self::CONF_ALLSTOCK_DISCOUNT_ENABLED);
+        Configuration::deleteByName(self::CONF_ALLSTOCK_DISCOUNT_RATE);
+        Configuration::deleteByName(self::CONF_ALLSTOCK_DISCOUNT_RATE_SALE);
         foreach (['HBE_IMGTEXT_ENABLED', 'HBE_IMGTEXT_BG', 'HBE_IMGTEXT_IMAGE', 'HBE_IMGTEXT_IMAGE_MOBILE',
                   'HBE_IMGTEXT_IMAGE_ML', 'HBE_IMGTEXT_TITLE', 'HBE_IMGTEXT_DESC',
                   'HBE_IMGTEXT_CTA_TEXT', 'HBE_IMGTEXT_CTA_URL'] as $k) {
@@ -1601,6 +1665,17 @@ class Hummingbird_editor extends Module
             }
         }
 
+        // Uklad karuzel produktowych — wszedzie tam, gdzie hookDisplayAfterBodyOpeningTag
+        // dorzuca carousel-drag.js: na glownej (.hbe-products, ps_newproducts...) i na
+        // karcie produktu (ps_viewedproduct w displayFooterProduct).
+        if (in_array($page, ['index', 'product'], true)) {
+            $this->context->controller->registerStylesheet(
+                'hb-editor-carousel',
+                'modules/' . $this->name . '/views/css/carousel.css',
+                ['media' => 'all', 'priority' => 200]
+            );
+        }
+
         if ($page === 'product') {
             $this->context->controller->registerStylesheet(
                 'hb-editor-product',
@@ -1658,17 +1733,6 @@ class Hummingbird_editor extends Module
 
         if ($page === 'order') {
             // Arkusz kasy leci na kazda strone `order`, nie tylko przy wlaczonej
-        // Uklad karuzel produktowych — wszedzie tam, gdzie hookDisplayAfterBodyOpeningTag
-        // dorzuca carousel-drag.js: na glownej (.hbe-products, ps_newproducts...) i na
-        // karcie produktu (ps_viewedproduct w displayFooterProduct).
-        if (in_array($page, ['index', 'product'], true)) {
-            $this->context->controller->registerStylesheet(
-                'hb-editor-carousel',
-                'modules/' . $this->name . '/views/css/carousel.css',
-                ['media' => 'all', 'priority' => 200]
-            );
-        }
-
             // skorce: niesie tez bramke, ktora wygasza wkompilowana w theme.css
             // regule "pokaz wszystkie kroki naraz". Bez niego sklep z gotowym
             // motywem zostalby z ta regula na stale.
@@ -2324,6 +2388,135 @@ class Hummingbird_editor extends Module
      * kosztuje i **wszystkie** paczki ida odbiorem osobistym; przy zwyklym
      * przewozniku z progiem darmowej wysylki zostaje "Za darmo!".
      */
+    /**
+     * Rabat za zabranie calego dostepnego stanu produktu.
+     *
+     * Rdzen podaje tu cene przez referencje (classes/Product.php, koniec
+     * priceCalculation), wiec nie trzeba na to ani reguly koszyka, ani wiersza
+     * w specific_price — nic nie zostaje w bazie i nie ma czego sprzatac, gdy
+     * klient zmieni ilosc albo sklep przyjmie dostawe.
+     *
+     * Liczymy WYLACZNIE dla pozycji koszyka ($params['id_cart']): na listingu
+     * i karcie produktu rdzen wola te metode bez koszyka, wiec ceny katalogowe
+     * zostaja nietkniete. Inaczej produkt, ktorego zostala jedna sztuka, mialby
+     * na listingu na stale obnizona cene — bo "calosc" to wtedy 1 szt.
+     *
+     * Klucz cache cen rdzenia zawiera i ilosc, i id koszyka, wiec zrabatowana
+     * cena nie przecieka do innych wywolan w tym samym zadaniu.
+     */
+    public function hookActionProductPriceCalculation($params)
+    {
+        if (empty($params['id_cart']) || empty($params['id_product'])) {
+            return;
+        }
+        if (!(int) Configuration::get(self::CONF_ALLSTOCK_DISCOUNT_ENABLED)) {
+            return;
+        }
+
+        // Produkt juz przeceniony (specific price z obnizka — promocja, wyprzedaz,
+        // cena katalogowa nizsza od bazowej) dostaje wlasna, mniejsza stawke.
+        // Rdzen podaje tu ta obnizke w $params['specific_price'], wiec nie trzeba
+        // dopytywac bazy. Zerowa stawka = na przecenionych rabatu nie ma.
+        $specificPrice = $params['specific_price'] ?? null;
+        $onSale = is_array($specificPrice) && (float) ($specificPrice['reduction'] ?? 0) > 0;
+
+        $rate = (float) str_replace(
+            ',',
+            '.',
+            (string) Configuration::get($onSale ? self::CONF_ALLSTOCK_DISCOUNT_RATE_SALE : self::CONF_ALLSTOCK_DISCOUNT_RATE)
+        );
+        if ($rate <= 0 || $rate >= 100) {
+            return;
+        }
+
+        $price = (float) ($params['price'] ?? 0);
+        if ($price <= 0) {
+            return;
+        }
+
+        $idProduct   = (int) $params['id_product'];
+        $idAttribute = (int) ($params['id_product_attribute'] ?? 0);
+        $idShop      = (int) ($params['id_shop'] ?? 0) ?: null;
+
+        // Ilosci NIE bierzemy z $params['quantity']: rdzen liczy cene jednostkowa
+        // pozycji koszyka przez getCartPriceFromCatalogCore(), ktore ma ilosc
+        // zadeklarowana jako int — przy 6,2 m dostajemy 6 i rabat wchodzilby
+        // tylko w kwote pozycji, a cena jednostkowa w koszyku zostawalaby stara.
+        // Prawdziwa ilosc lezy w cart_product (pproperties: quantity_fractional).
+        $quantity = $this->getAllStockCartQuantity((int) $params['id_cart'], $idProduct, $idAttribute);
+        if ($quantity <= 0) {
+            $quantity = (float) ($params['quantity'] ?? 0);
+        }
+        if ($quantity <= 0) {
+            return;
+        }
+
+        // Produkt sprzedawany ponad stan nie ma "calosci" — nie ma czego zabrac.
+        if (Product::isAvailableWhenOutOfStock((int) StockAvailable::outOfStock($idProduct, $idShop))) {
+            return;
+        }
+
+        // SUM(quantity + quantity_remainder), z cache w pamieci — a wiec takze
+        // ulamki, ktorymi izpol sprzedaje tkaniny (6,2 m).
+        $stock = (float) StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop);
+        if ($stock <= 0 || $quantity + self::ALLSTOCK_EPSILON < $stock) {
+            return;
+        }
+
+        $params['price'] = $price * (1 - $rate / 100);
+    }
+
+    /**
+     * Ilosc danego produktu w koszyku — realna, wiec z czescia ulamkowa.
+     *
+     * `cart_product.quantity` trzyma na sklepie z pproperties liczbe pozycji
+     * (zawsze 1), a metry siedza w `quantity_fractional`. Na sklepie bez tego
+     * modulu kolumny nie ma i liczy sie zwykle `quantity` — stad sprawdzenie
+     * schematu raz na zadanie.
+     *
+     * Wynik cache'ujemy, bo rdzen wola hook cenowy kilka razy na pozycje
+     * (netto, brutto, kwota); cache znika przy kazdej zmianie ilosci w koszyku
+     * (hookActionCartUpdateQuantityBefore).
+     */
+    private function getAllStockCartQuantity(int $idCart, int $idProduct, int $idAttribute): float
+    {
+        if ($idCart <= 0 || $idProduct <= 0) {
+            return 0.0;
+        }
+
+        $key = $idCart . '-' . $idProduct . '-' . $idAttribute;
+        if (array_key_exists($key, self::$allStockCartQuantities)) {
+            return self::$allStockCartQuantities[$key];
+        }
+
+        if (self::$allStockFractionalColumn === null) {
+            self::$allStockFractionalColumn = (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
+                'SHOW COLUMNS FROM `' . _DB_PREFIX_ . 'cart_product` LIKE \'quantity_fractional\''
+            );
+        }
+
+        $column = self::$allStockFractionalColumn
+            ? 'IF(cp.`quantity_fractional` > 0, cp.`quantity_fractional`, cp.`quantity`)'
+            : 'cp.`quantity`';
+
+        $quantity = (float) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
+            'SELECT SUM(' . $column . ') FROM `' . _DB_PREFIX_ . 'cart_product` cp'
+            . ' WHERE cp.`id_cart` = ' . $idCart
+            . ' AND cp.`id_product` = ' . $idProduct
+            . ' AND cp.`id_product_attribute` = ' . $idAttribute
+        );
+
+        self::$allStockCartQuantities[$key] = $quantity;
+
+        return $quantity;
+    }
+
+    /** Zmiana ilosci w koszyku uniewaznia zapamietane ilosci (patrz wyzej). */
+    public function hookActionCartUpdateQuantityBefore($params)
+    {
+        self::$allStockCartQuantities = [];
+    }
+
     public function hookActionPresentCart(array $params): void
     {
         $presentedCart = $params['presentedCart'] ?? null;

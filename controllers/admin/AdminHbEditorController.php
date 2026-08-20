@@ -410,6 +410,16 @@ class AdminHbEditorController extends ModuleAdminController
             // bierze sie powiekszenie — sklep widzi, jak ostry zoom dostanie)
             'hbe_zoom_enabled'           => (int) Configuration::get(Hummingbird_editor::CONF_ZOOM_ENABLED),
             'hbe_zoom_level'             => (string) Configuration::get(Hummingbird_editor::CONF_ZOOM_LEVEL),
+            // Brak wpisu w konfiguracji czyta sie tak samo jak w szablonie motywu:
+            // blok wlaczony, prog 3. Inaczej panel pokazywalby "wylaczone" na
+            // sklepie, ktory na froncie ma podpowiedz stanu widoczna.
+            'hbe_stock_hint_enabled'     => Configuration::get(Hummingbird_editor::CONF_STOCK_HINT_ENABLED) === false
+                ? 1
+                : (int) Configuration::get(Hummingbird_editor::CONF_STOCK_HINT_ENABLED),
+            'hbe_stock_hint_threshold'   => (string) (Configuration::get(Hummingbird_editor::CONF_STOCK_HINT_THRESHOLD) ?: '3'),
+            'hbe_allstock_discount_enabled' => (int) Configuration::get(Hummingbird_editor::CONF_ALLSTOCK_DISCOUNT_ENABLED),
+            'hbe_allstock_discount_rate'    => (string) (Configuration::get(Hummingbird_editor::CONF_ALLSTOCK_DISCOUNT_RATE) ?: '5'),
+            'hbe_allstock_discount_rate_sale' => (string) (Configuration::get(Hummingbird_editor::CONF_ALLSTOCK_DISCOUNT_RATE_SALE) ?: '2'),
             'hbe_zoom_source'            => $this->module->getLargestProductImageType(),
             'hbe_zoom_source_width'      => $this->getLargestProductImageWidth(),
             // Rosenthal Care promo block (cart)
@@ -2477,6 +2487,66 @@ class AdminHbEditorController extends ModuleAdminController
 
         Configuration::updateValue(Hummingbird_editor::CONF_ZOOM_ENABLED, (int) Tools::getValue('zoom_enabled', 0));
         Configuration::updateValue(Hummingbird_editor::CONF_ZOOM_LEVEL, $level);
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Zapisuje podpowiedz stanu magazynowego pod przyciskiem koszyka.
+     *
+     * Prog trzymamy jako tekst z kropka dziesietna — panel przyjmuje takze
+     * przecinek, bo w polskim polu liczbowym wpisze go kazdy. Zero i wartosci
+     * ujemne nie maja sensu (zacheta nigdy by sie nie pokazala), wiec
+     * schodzimy do 0,1; gora to 100 jednostek, zeby literowka nie zrobila
+     * z zachety stalego elementu karty.
+     */
+    public function ajaxProcessSaveStockHintSettings(): void
+    {
+        $threshold = str_replace(',', '.', (string) Tools::getValue('stock_hint_threshold', '3'));
+        $threshold = (float) $threshold;
+        if (!is_finite($threshold) || $threshold <= 0) {
+            $threshold = 3.0;
+        }
+        $threshold = min(100.0, max(0.1, $threshold));
+
+        Configuration::updateValue(
+            Hummingbird_editor::CONF_STOCK_HINT_ENABLED,
+            (int) Tools::getValue('stock_hint_enabled', 0)
+        );
+        Configuration::updateValue(
+            Hummingbird_editor::CONF_STOCK_HINT_THRESHOLD,
+            rtrim(rtrim(number_format($threshold, 2, '.', ''), '0'), '.')
+        );
+
+        // Rabat za zabranie calosci — w tym samym formularzu, bo to ta sama
+        // decyzja sprzedazowa. Gora 50%: wyzej to juz nie rabat, tylko pomylka
+        // w polu, a ta kosztuje realne pieniadze przy kazdym zamowieniu.
+        $rate = (float) str_replace(',', '.', (string) Tools::getValue('allstock_discount_rate', '5'));
+        if (!is_finite($rate) || $rate <= 0) {
+            $rate = 5.0;
+        }
+        $rate = min(50.0, max(0.1, $rate));
+
+        Configuration::updateValue(
+            Hummingbird_editor::CONF_ALLSTOCK_DISCOUNT_ENABLED,
+            (int) Tools::getValue('allstock_discount_enabled', 0)
+        );
+        // Stawka dla produktow juz przecenionych. Zero jest tu dozwolone i znaczy
+        // "na przecenionych bez rabatu" — stad inna walidacja niz wyzej.
+        $rateSale = (float) str_replace(',', '.', (string) Tools::getValue('allstock_discount_rate_sale', '2'));
+        if (!is_finite($rateSale) || $rateSale < 0) {
+            $rateSale = 2.0;
+        }
+        $rateSale = min(50.0, $rateSale);
+
+        Configuration::updateValue(
+            Hummingbird_editor::CONF_ALLSTOCK_DISCOUNT_RATE,
+            rtrim(rtrim(number_format($rate, 2, '.', ''), '0'), '.')
+        );
+        Configuration::updateValue(
+            Hummingbird_editor::CONF_ALLSTOCK_DISCOUNT_RATE_SALE,
+            rtrim(rtrim(number_format($rateSale, 2, '.', ''), '0'), '.')
+        );
 
         $this->hbeAjaxDie(json_encode(['success' => true]));
     }

@@ -1724,6 +1724,91 @@
         </div>
       </div>
 
+      {* ══ Stan magazynowy przy przycisku koszyka ═══════════════════════════ *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-stockhint">
+          <h4 class="panel-title clearfix">
+            {l s='Stan magazynowy przy koszyku' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-stockhint" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="help-block">
+              {l s='Pod przyciskiem „Dodaj do koszyka" klient widzi, ile zostało na stanie („Na stanie: 6,2 m — tyle maksymalnie możesz dodać"). Gdy po jego zamówieniu zostałaby końcówka krótsza niż próg poniżej, komunikat zmienia się w zachętę „Zostanie tylko 1,2 m — weź całość!" razem z przyciskiem, który wpisuje pełny stan w pole ilości.' mod='hummingbird_editor'}
+            </p>
+            <p class="help-block">
+              {l s='Blok pokazuje się tylko tam, gdzie ma sens: przy włączonym magazynie, gdy produktu nie można zamawiać ponad stan i coś jeszcze na nim jest.' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-stockhint-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <table class="table">
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong>{l s='Pokazuj stan magazynowy pod przyciskiem koszyka' mod='hummingbird_editor'}</strong>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <div class="checkbox" style="margin:0"><label>
+                        <input type="checkbox" name="stock_hint_enabled" value="1" {if $hbe_stock_hint_enabled}checked{/if}>
+                        {l s='Tak' mod='hummingbird_editor'}
+                      </label></div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Zachęcaj do zabrania całości, gdy zostałoby mniej niż' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='W jednostkach produktu — na tkaninach są to metry, na kuponach i dodatkach sztuki. Wartość 3 znaczy: pokaż zachętę, gdy po zamówieniu zostanie mniej niż 3 m (albo mniej niż 3 szt). Można wpisać ułamek, np. 1,5.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <div class="input-group">
+                        <input type="text" name="stock_hint_threshold" class="form-control" style="text-align:right"
+                               value="{$hbe_stock_hint_threshold|escape:'html':'UTF-8'}">
+                        <span class="input-group-addon">{l s='m / szt' mod='hummingbird_editor'}</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Rabat za zabranie całego stanu' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">
+                        {l s='Klient, który weźmie wszystko, co zostało z danego produktu, dostaje na niego rabat. Liczy się go na pozycji koszyka — ceny na listingu i na karcie produktu zostają bez zmian, a rabat widać po dodaniu do koszyka (i dalej w zamówieniu oraz na fakturze).' mod='hummingbird_editor'}
+                      </div>
+                      <div class="help-block">
+                        {l s='Produkt, który ma już obniżoną cenę (promocja, wyprzedaż), dostaje osobną, mniejszą stawkę — inaczej rabaty nakładałyby się na siebie. Zero w tym polu znaczy: na przecenionych bez rabatu.' mod='hummingbird_editor'}
+                      </div>
+                      <div class="help-block">
+                        {l s='Rabatu nie dostaną produkty, które można zamawiać ponad stan — tam „całość" nie istnieje.' mod='hummingbird_editor'}
+                      </div>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <div class="checkbox" style="margin:0 0 8px"><label>
+                        <input type="checkbox" name="allstock_discount_enabled" value="1" {if $hbe_allstock_discount_enabled}checked{/if}>
+                        {l s='Włącz rabat' mod='hummingbird_editor'}
+                      </label></div>
+                      <div class="input-group" style="margin-bottom:6px">
+                        <span class="input-group-addon" style="font-weight:600">{l s='w cenie zwykłej' mod='hummingbird_editor'}</span>
+                        <input type="text" name="allstock_discount_rate" class="form-control" style="text-align:right"
+                               value="{$hbe_allstock_discount_rate|escape:'html':'UTF-8'}">
+                        <span class="input-group-addon">%</span>
+                      </div>
+                      <div class="input-group">
+                        <span class="input-group-addon" style="font-weight:600">{l s='już przecenione' mod='hummingbird_editor'}</span>
+                        <input type="text" name="allstock_discount_rate_sale" class="form-control" style="text-align:right"
+                               value="{$hbe_allstock_discount_rate_sale|escape:'html':'UTF-8'}">
+                        <span class="input-group-addon">%</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       {* ══ FAQ (below add-to-cart on product page) ══════════════════════════ *}
       <div class="panel panel-default">
         <div class="panel-heading"><h3 class="panel-title"><i class="icon-question-sign"></i> {l s='Sekcja FAQ (karta produktu)' mod='hummingbird_editor'}</h3></div>

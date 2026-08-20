@@ -90,7 +90,14 @@
   background: var(--c-white, #fff);
 }
 
+.hbe-wishlist-preview__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .hbe-wishlist-preview__name {
+  display: block;
   margin: 0 0 0.25rem;
   font-family: var(--font-heading, georgia, serif);
   font-size: var(--fs-body-l, 1.125rem);
@@ -103,6 +110,7 @@
 }
 
 .hbe-wishlist-preview__price {
+  display: block;
   margin: 0;
   font-size: var(--fs-body-s, 0.875rem);
   color: var(--c-black, #242424);

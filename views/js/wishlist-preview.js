@@ -9,6 +9,11 @@
  * after a product is added to a wishlist (blockwishlist's global
  * WishlistEventBus 'addedToWishlist' event).
  *
+ * The header heart badge ([data-ps-ref="wishlist-count"], rendered by the
+ * theme) is filled from the same getAllWishlist response: the sum of
+ * nbProducts over the customer's lists. blockwishlist has no header hook of
+ * its own, so this is the only place the count is known client-side.
+ *
  * Config: window.hbeWishlistPreview = {getAllWishlistUrl, loginUrl, i18n:{...}}
  */
 (function () {
@@ -21,6 +26,7 @@
     cta: '[data-ps-ref="wishlist-preview-cta"]',
     open: '[data-ps-action="wishlist-preview-open"]',
     close: '[data-ps-action="wishlist-preview-close"]',
+    count: '[data-ps-ref="wishlist-count"]',
   };
 
   var HEART_SELECTOR = '.wishlist-button-add';
@@ -45,7 +51,7 @@
     bindWishlistBus();
 
     if (isLogged()) {
-      ensureListsLoaded();
+      ensureListsLoaded().then(updateCount);
     }
   }
 
@@ -89,6 +95,13 @@
         }
         open();
       });
+      // Removing a product (filled heart) emits no dedicated event — only the
+      // success toast — so that is the signal to refresh the badge.
+      window.WishlistEventBus.$on('showToast', function (event) {
+        if (event && event.detail && event.detail.type === 'success') {
+          ensureListsLoaded().then(updateCount);
+        }
+      });
       return;
     }
     if (window.prestashop && typeof window.prestashop.on === 'function') {
@@ -121,6 +134,21 @@
       .then(function (resp) { return resp.json(); })
       .then(function (data) { lists = (data && data.wishlists) || []; return lists; })
       .catch(function () { lists = lists || []; return lists; });
+  }
+
+  /** Header badge: products across all of the customer's lists; hidden at 0. */
+  function updateCount() {
+    var badges = document.querySelectorAll(SELECTORS.count);
+    if (!badges.length) {
+      return;
+    }
+    var total = (lists || []).reduce(function (sum, l) {
+      return sum + (parseInt(l.nbProducts, 10) || 0);
+    }, 0);
+    Array.prototype.forEach.call(badges, function (badge) {
+      badge.textContent = String(total);
+      badge.classList.toggle('empty_list', total === 0);
+    });
   }
 
   /** Which list a one-click add should target, or 0 to fall back to the modal. */
@@ -250,6 +278,7 @@
       .then(function (data) {
         if (data && data.wishlists) {
           lists = data.wishlists; // keep the one-click-add cache fresh
+          updateCount();
         }
         if (!data || !data.wishlists || !data.wishlists.length) {
           if (data && data.success === false) {
