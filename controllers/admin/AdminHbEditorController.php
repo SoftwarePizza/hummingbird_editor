@@ -362,6 +362,8 @@ class AdminHbEditorController extends ModuleAdminController
             // e-mail to te same wartosci, ktore edytuje BO > Ustawienia sklepu
             // > Kontakt — dlatego podajemy tez link do tamtego ekranu.
             'hbe_footer_links'          => $this->getFooterLinksForForm($languages),
+            'hbe_footer_blocks'         => $this->getFooterLinkBlocksForForm($languages),
+            'hbe_cfg_url_linklist'      => $this->moduleConfigureLink('ps_linklist'),
             'hbe_shop_phone'            => (string) Configuration::get('PS_SHOP_PHONE'),
             'hbe_shop_email'            => (string) Configuration::get('PS_SHOP_EMAIL'),
             'hbe_stores_link'           => $this->context->link->getAdminLink('AdminStores'),
@@ -2050,6 +2052,143 @@ class AdminHbEditorController extends ModuleAdminController
         }
 
         return $rows;
+    }
+
+    /**
+     * Kolumny linkow w stopce (bloki ps_linklist podpiete pod displayFooter),
+     * w formie gotowej dla formularza. Czytamy wylacznie `custom_content` —
+     * listy "etykieta + adres" per jezyk; strukturalne `content` (id stron CMS,
+     * skroty produktowe) jest jednorazowo konwertowane na te liste skryptem
+     * wdrozeniowym, zeby edytor mial jeden, zrozumialy dla obslugi format.
+     *
+     * @param array<int,array<string,mixed>> $languages
+     *
+     * @return array<int,array{id:int,position:int,name:array<int,string>,rows:array<int,array{row:int,label:array<int,string>,url:array<int,string>}>}>
+     */
+    private function getFooterLinkBlocksForForm(array $languages): array
+    {
+        $idHook = (int) Hook::getIdByName('displayFooter');
+        if (!$idHook) {
+            return [];
+        }
+
+        $idShop = (int) $this->context->shop->id;
+        $blocks = Db::getInstance()->executeS(
+            'SELECT lb.id_link_block, lb.position
+             FROM ' . _DB_PREFIX_ . 'link_block lb
+             INNER JOIN ' . _DB_PREFIX_ . 'link_block_shop lbs
+                     ON lbs.id_link_block = lb.id_link_block AND lbs.id_shop = ' . $idShop . '
+             WHERE lb.id_hook = ' . $idHook . '
+             ORDER BY lb.position'
+        );
+
+        if (!$blocks) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($blocks as $block) {
+            $id = (int) $block['id_link_block'];
+            $names = [];
+            $links = [];
+
+            foreach ($languages as $lang) {
+                $idLang = (int) $lang['id_lang'];
+                $row = Db::getInstance()->getRow(
+                    'SELECT name, custom_content FROM ' . _DB_PREFIX_ . 'link_block_lang
+                     WHERE id_link_block = ' . $id . ' AND id_lang = ' . $idLang
+                );
+                $names[$idLang] = (string) ($row['name'] ?? '');
+                $decoded = json_decode((string) ($row['custom_content'] ?? ''), true);
+                $links[$idLang] = is_array($decoded) ? array_values($decoded) : [];
+            }
+
+            $rows = [];
+            for ($i = 0; $i < Hummingbird_editor::FOOTER_BLOCK_ROWS; $i++) {
+                $label = [];
+                $url = [];
+                foreach ($languages as $lang) {
+                    $idLang = (int) $lang['id_lang'];
+                    $label[$idLang] = (string) ($links[$idLang][$i]['title'] ?? '');
+                    $url[$idLang] = (string) ($links[$idLang][$i]['url'] ?? '');
+                }
+                $rows[] = ['row' => $i + 1, 'label' => $label, 'url' => $url];
+            }
+
+            $out[] = [
+                'id'       => $id,
+                'position' => (int) $block['position'],
+                'name'     => $names,
+                'rows'     => $rows,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Zapisuje kolumny linkow w stopce. Puste pola wypadaja z listy, wiec
+     * kasowanie pozycji to wyczyszczenie etykiety. Strukturalne `content`
+     * zerujemy, zeby ps_linklist nie dokladal linkow obok naszych.
+     */
+    public function ajaxProcessSaveFooterBlocks(): void
+    {
+        $ids = Tools::getValue('block_ids', '');
+        $ids = array_filter(array_map('intval', explode(',', (string) $ids)));
+        if (!$ids) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Brak kolumn do zapisania.']));
+        }
+
+        $db = Db::getInstance();
+        $languages = Language::getLanguages(true);
+        $emptyContent = json_encode(['cms' => [false], 'product' => [false], 'static' => [false], 'category' => [false]]);
+
+        foreach ($ids as $id) {
+            // Pola wielojezyczne przychodza jako tablice: nazwa[id_lang].
+            $nameRaw = Tools::getValue('block_name_' . $id, []);
+            $labelRaw = [];
+            $urlRaw = [];
+            for ($i = 1; $i <= Hummingbird_editor::FOOTER_BLOCK_ROWS; $i++) {
+                $labelRaw[$i] = Tools::getValue('block_' . $id . '_label_' . $i, []);
+                $urlRaw[$i] = Tools::getValue('block_' . $id . '_url_' . $i, []);
+            }
+
+            foreach ($languages as $lang) {
+                $idLang = (int) $lang['id_lang'];
+
+                $name = trim((string) (is_array($nameRaw) ? ($nameRaw[$idLang] ?? '') : $nameRaw));
+
+                $links = [];
+                for ($i = 1; $i <= Hummingbird_editor::FOOTER_BLOCK_ROWS; $i++) {
+                    $label = trim((string) (is_array($labelRaw[$i]) ? ($labelRaw[$i][$idLang] ?? '') : $labelRaw[$i]));
+                    $url = trim((string) (is_array($urlRaw[$i]) ? ($urlRaw[$i][$idLang] ?? '') : $urlRaw[$i]));
+                    if ($label === '') {
+                        continue;
+                    }
+                    $links[] = ['title' => $label, 'url' => $url === '' ? '#' : $url];
+                }
+
+                $db->update(
+                    'link_block_lang',
+                    [
+                        'name'           => pSQL(Tools::substr($name, 0, 40)),
+                        'custom_content' => pSQL(json_encode($links, JSON_UNESCAPED_UNICODE)),
+                    ],
+                    'id_link_block = ' . $id . ' AND id_lang = ' . $idLang
+                );
+            }
+
+            $db->update('link_block', ['content' => pSQL($emptyContent)], 'id_link_block = ' . $id);
+        }
+
+        // ps_linklist cache'uje wyrenderowana stopke.
+        $linklist = Module::getInstanceByName('ps_linklist');
+        if ($linklist instanceof Module && method_exists($linklist, 'hookActionGeneralPageSave')) {
+            $linklist->hookActionGeneralPageSave();
+        }
+        Tools::clearSmartyCache();
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
     }
 
     /**

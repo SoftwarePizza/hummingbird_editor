@@ -2092,6 +2092,69 @@
         </div>
       </div>
 
+      {* ── Kolumny linkow w stopce (bloki ps_linklist) ──────────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-footer-blocks">
+          <h4 class="panel-title clearfix">
+            {l s='Kolumny linków w stopce' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-footer-blocks" class="panel-collapse collapse in">
+          <div class="panel-body">
+            {if $hbe_footer_blocks|count}
+              <p class="text-muted" style="margin-bottom:1rem">
+                {l s='Środkowe kolumny stopki (np. „ZAKUPY ONLINE", „ROSENTHAL"). Pusta nazwa pozycji = link znika. Adres może być względny, np. /content/8-faq, albo pełny — https://… Dodawanie i usuwanie całych kolumn zostaje w' mod='hummingbird_editor'}
+                <a href="{$hbe_cfg_url_linklist|escape:'html':'UTF-8'}" target="_blank" rel="noopener">{l s='module Lista linków' mod='hummingbird_editor'}</a>.
+              </p>
+              <form id="hbe-footer-blocks-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+                <input type="hidden" name="token" value="{$hbe_token}">
+                <input type="hidden" name="block_ids" value="{foreach from=$hbe_footer_blocks item=hbeBlock name=blk}{$hbeBlock.id}{if !$smarty.foreach.blk.last},{/if}{/foreach}">
+
+                {foreach from=$hbe_footer_blocks item=hbeBlock}
+                  <fieldset style="border:1px solid #ddd;padding:1rem;margin-bottom:1.25rem">
+                    <legend style="width:auto;border:0;margin-bottom:.5rem;font-size:.9rem;font-weight:600">
+                      {l s='Kolumna' mod='hummingbird_editor'} {$hbeBlock.position + 1}
+                    </legend>
+
+                    <div class="form-group">
+                      <label class="control-label">{l s='Nagłówek kolumny' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name="block_name_`$hbeBlock.id`" values=$hbeBlock.name placeholder='ZAKUPY ONLINE'}
+                    </div>
+
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th style="width:3rem">#</th>
+                          <th>{l s='Nazwa' mod='hummingbird_editor'}</th>
+                          <th>{l s='Adres' mod='hummingbird_editor'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {foreach from=$hbeBlock.rows item=hbeBlockRow}
+                          <tr>
+                            <td class="text-muted">{$hbeBlockRow.row}</td>
+                            <td>{include file="{$hbe_tpl_dir}_ml_input.tpl" name="block_`$hbeBlock.id`_label_`$hbeBlockRow.row`" values=$hbeBlockRow.label placeholder='Nowości'}</td>
+                            <td>{include file="{$hbe_tpl_dir}_ml_input.tpl" name="block_`$hbeBlock.id`_url_`$hbeBlockRow.row`" values=$hbeBlockRow.url placeholder='/nowe-produkty'}</td>
+                          </tr>
+                        {/foreach}
+                      </tbody>
+                    </table>
+                  </fieldset>
+                {/foreach}
+
+                <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+                <div class="hbe-alerts"></div>
+              </form>
+            {else}
+              <p class="text-muted">
+                {l s='Ten sklep nie ma kolumn linków podpiętych do stopki. Dodasz je w' mod='hummingbird_editor'}
+                <a href="{$hbe_cfg_url_linklist|escape:'html':'UTF-8'}" target="_blank" rel="noopener">{l s='module Lista linków' mod='hummingbird_editor'}</a>.
+              </p>
+            {/if}
+          </div>
+        </div>
+      </div>
       {* ── Pasek prawny na samym dole stopki ───────────────────────────────── *}
       <div class="panel panel-default hbe-collapse-panel">
         <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-footer-links">

@@ -91,6 +91,13 @@ class Hummingbird_editor extends Module
         return 'HBE_FOOTER_LINK_' . (int) $slot . '_' . strtoupper($part);
     }
 
+    /**
+     * Ile pozycji da sie wpisac w jedna kolumne linkow w stopce (ZAKUPY ONLINE,
+     * ROSENTHAL...). Kolumny nalezaja do ps_linklist — edytor rusza wylacznie
+     * `custom_content`, czyli liste "etykieta + adres" per jezyk.
+     */
+    const FOOTER_BLOCK_ROWS = 10;
+
     /** How the free-shipping threshold shown on the cart progress bar is resolved. */
     public const FREE_SHIPPING_MODE_AUTO   = 'auto';
     public const FREE_SHIPPING_MODE_MANUAL = 'manual';
