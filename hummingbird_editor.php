@@ -2589,6 +2589,14 @@ class Hummingbird_editor extends Module
         $idAttribute = (int) ($params['id_product_attribute'] ?? 0);
         $idShop      = (int) ($params['id_shop'] ?? 0) ?: null;
 
+        // Rabat za calosc tylko dla tkanin na CENTYMETRY (ilosc ulamkowa,
+        // pproperties qty_policy = 2). Sztuki/kupony (qty_policy 0) i produkty
+        // bez szablonu pproperties go nie dostaja — "wziecie calosci" 3 sztuk
+        // to nie ta sama sytuacja, co koncowka belki.
+        if (!$this->isAllStockFractionalProduct($idProduct)) {
+            return;
+        }
+
         // Ilosci NIE bierzemy z $params['quantity']: rdzen liczy cene jednostkowa
         // pozycji koszyka przez getCartPriceFromCatalogCore(), ktore ma ilosc
         // zadeklarowana jako int — przy 6,2 m dostajemy 6 i rabat wchodzilby
@@ -2633,6 +2641,13 @@ class Hummingbird_editor extends Module
      */
     private function allStockConditionMet(int $idCart, int $idProduct, int $idAttribute, ?int $idShop): bool
     {
+        // Rabat (i plakietka w koszyku) tylko dla tkanin na centymetry — patrz
+        // hookActionProductPriceCalculation. Ten sam warunek trzyma plakietke
+        // zgodna z faktycznie naliczona cena.
+        if (!$this->isAllStockFractionalProduct($idProduct)) {
+            return false;
+        }
+
         if (Product::isAvailableWhenOutOfStock((int) StockAvailable::outOfStock($idProduct, $idShop))) {
             return false;
         }
@@ -2785,6 +2800,39 @@ class Hummingbird_editor extends Module
      * (netto, brutto, kwota); cache znika przy kazdej zmianie ilosci w koszyku
      * (hookActionCartUpdateQuantityBefore).
      */
+    /**
+     * Czy produkt jest sprzedawany na CENTYMETRY (ilosc ulamkowa) — tylko takim
+     * nalezy sie rabat za wziecie calosci belki.
+     *
+     * Zrodlo prawdy to pproperties: `pp_template.qty_policy` = 2 (ulamki).
+     * 0 = sztuki/kupony; brak przypisanego szablonu (id_pp_template = 0) => brak
+     * wiersza w JOIN => traktujemy jak brak ulamkow. Czytamy wprost z tabeli
+     * (modul nie zaleze od klasy PP), z cache na czas zadania i try/catch, zeby
+     * ewentualny brak tabeli nigdy nie wywrocil liczenia ceny — w najgorszym
+     * razie rabatu po prostu nie ma.
+     */
+    private function isAllStockFractionalProduct(int $idProduct): bool
+    {
+        static $cache = [];
+        if (!array_key_exists($idProduct, $cache)) {
+            $fractional = false;
+            try {
+                $qtyPolicy = (int) Db::getInstance()->getValue(
+                    'SELECT t.`qty_policy`
+                     FROM `' . _DB_PREFIX_ . 'product` p
+                     JOIN `' . _DB_PREFIX_ . 'pp_template` t ON t.`id_pp_template` = p.`id_pp_template`
+                     WHERE p.`id_product` = ' . (int) $idProduct
+                );
+                $fractional = ($qtyPolicy === 2);
+            } catch (Throwable $e) {
+                $fractional = false;
+            }
+            $cache[$idProduct] = $fractional;
+        }
+
+        return $cache[$idProduct];
+    }
+
     private function getAllStockCartQuantity(int $idCart, int $idProduct, int $idAttribute): float
     {
         if ($idCart <= 0 || $idProduct <= 0) {
