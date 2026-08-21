@@ -2380,10 +2380,10 @@ class AdminHbEditorController extends ModuleAdminController
     private function getMenuLayoutChoices(): array
     {
         return [
-            'tabs'    => $this->l('Zakładki ze zdjęciami (domyślny)'),
-            'flat'    => $this->l('Kafelki ze zdjęciami, bez zakładek'),
-            'columns' => $this->l('Kolumny — wszystko naraz'),
-            'cascade' => $this->l('Kaskada — lista, obok panel z zagnieżdżeniem'),
+            'tabs'    => $this->module->l('Zakładki ze zdjęciami (domyślny)'),
+            'flat'    => $this->module->l('Kafelki ze zdjęciami, bez zakładek'),
+            'columns' => $this->module->l('Kolumny — wszystko naraz'),
+            'cascade' => $this->module->l('Kaskada — lista, obok panel z zagnieżdżeniem'),
         ];
     }
 
