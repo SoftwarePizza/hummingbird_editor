@@ -1484,6 +1484,69 @@ $(function () {
         });
     })();
 
+    /* ── Stopka: dane kontaktowe (PS_SHOP_PHONE / PS_SHOP_EMAIL) ──────────── */
+    $(document).on('submit', '#hbe-footer-contact-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveFooterContact&ajax=1',
+            type: 'POST',
+            data: $form.serialize(),
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    /* ── Stopka: kolumny linkow (bloki ps_linklist) ───────────────────────── */
+    $(document).on('submit', '#hbe-footer-blocks-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveFooterBlocks&ajax=1',
+            type: 'POST',
+            data: $form.serialize(),
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    /* ── Stopka: pasek prawny na dole ─────────────────────────────────────── */
+    $(document).on('submit', '#hbe-footer-links-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveFooterLinks&ajax=1',
+            type: 'POST',
+            data: $form.serialize(),
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     /* ── Footer social links: save ────────────────────────────────────────── */
     $(document).on('submit', '#hbe-social-form', function (e) {
         e.preventDefault();

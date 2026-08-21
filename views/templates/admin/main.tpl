@@ -122,6 +122,9 @@
       <a href="#hbe-tab-menu" data-toggle="tab" role="tab"><i class="icon-sitemap"></i> {l s='Menu' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-footer" data-toggle="tab" role="tab"><i class="icon-align-justify"></i> {l s='Stopka' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-giftcard" data-toggle="tab" role="tab"><i class="icon-gift"></i> {l s='Karta podarunkowa' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
@@ -2235,6 +2238,187 @@
 
     </div>{* /tab-giftcard *}
 
+    {* ═══════════════════════════════════════════════════════════════════════
+       Tab — Stopka (dane kontaktowe, pasek prawny, social media)
+    ═══════════════════════════════════════════════════════════════════════ *}
+    <div id="hbe-tab-footer" class="tab-pane" role="tabpanel">
+
+      {* ── Dane kontaktowe w kolumnie „Kontakt" ────────────────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-footer-contact">
+          <h4 class="panel-title clearfix">
+            {l s='Dane kontaktowe (kolumna „Kontakt")' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-footer-contact" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="text-muted" style="margin-bottom:1rem">
+              {l s='To ta sama wartość, którą zmienia' mod='hummingbird_editor'}
+              <a href="{$hbe_stores_link|escape:'html':'UTF-8'}" target="_blank" rel="noopener">{l s='Ustawienia sklepu → Kontakt' mod='hummingbird_editor'}</a>{l s=' — zapis tutaj podmienia ją wszędzie tam, gdzie sklep pokazuje kontakt. Puste pole = wiersz znika ze stopki.' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-footer-contact-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <div class="row">
+                <div class="col-md-4 form-group">
+                  <label class="control-label" for="hbe-shop-phone">{l s='Telefon' mod='hummingbird_editor'}</label>
+                  <input type="text" class="form-control" id="hbe-shop-phone" name="shop_phone"
+                         value="{$hbe_shop_phone|escape:'html':'UTF-8'}" placeholder="+48 730 900 116">
+                </div>
+                <div class="col-md-4 form-group">
+                  <label class="control-label" for="hbe-shop-email">{l s='E-mail' mod='hummingbird_editor'}</label>
+                  <input type="email" class="form-control" id="hbe-shop-email" name="shop_email"
+                         value="{$hbe_shop_email|escape:'html':'UTF-8'}" placeholder="sklep@example.pl">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {* ── Kolumny linkow w stopce (bloki ps_linklist) ──────────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-footer-blocks">
+          <h4 class="panel-title clearfix">
+            {l s='Kolumny linków w stopce' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-footer-blocks" class="panel-collapse collapse in">
+          <div class="panel-body">
+            {if $hbe_footer_blocks|count}
+              <p class="text-muted" style="margin-bottom:1rem">
+                {l s='Środkowe kolumny stopki (np. „ZAKUPY ONLINE", „ROSENTHAL"). Pusta nazwa pozycji = link znika. Adres może być względny, np. /content/8-faq, albo pełny — https://… Dodawanie i usuwanie całych kolumn zostaje w' mod='hummingbird_editor'}
+                <a href="{$hbe_cfg_url_linklist|escape:'html':'UTF-8'}" target="_blank" rel="noopener">{l s='module Lista linków' mod='hummingbird_editor'}</a>.
+              </p>
+              <form id="hbe-footer-blocks-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+                <input type="hidden" name="token" value="{$hbe_token}">
+                <input type="hidden" name="block_ids" value="{foreach from=$hbe_footer_blocks item=hbeBlock name=blk}{$hbeBlock.id}{if !$smarty.foreach.blk.last},{/if}{/foreach}">
+
+                {foreach from=$hbe_footer_blocks item=hbeBlock}
+                  <fieldset style="border:1px solid #ddd;padding:1rem;margin-bottom:1.25rem">
+                    <legend style="width:auto;border:0;margin-bottom:.5rem;font-size:.9rem;font-weight:600">
+                      {l s='Kolumna' mod='hummingbird_editor'} {$hbeBlock.position + 1}
+                    </legend>
+
+                    <div class="form-group">
+                      <label class="control-label">{l s='Nagłówek kolumny' mod='hummingbird_editor'}</label>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name="block_name_`$hbeBlock.id`" values=$hbeBlock.name placeholder='ZAKUPY ONLINE'}
+                    </div>
+
+                    <table class="table">
+                      <thead>
+                        <tr>
+                          <th style="width:3rem">#</th>
+                          <th>{l s='Nazwa' mod='hummingbird_editor'}</th>
+                          <th>{l s='Adres' mod='hummingbird_editor'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {foreach from=$hbeBlock.rows item=hbeBlockRow}
+                          <tr>
+                            <td class="text-muted">{$hbeBlockRow.row}</td>
+                            <td>{include file="{$hbe_tpl_dir}_ml_input.tpl" name="block_`$hbeBlock.id`_label_`$hbeBlockRow.row`" values=$hbeBlockRow.label placeholder='Nowości'}</td>
+                            <td>{include file="{$hbe_tpl_dir}_ml_input.tpl" name="block_`$hbeBlock.id`_url_`$hbeBlockRow.row`" values=$hbeBlockRow.url placeholder='/nowe-produkty'}</td>
+                          </tr>
+                        {/foreach}
+                      </tbody>
+                    </table>
+                  </fieldset>
+                {/foreach}
+
+                <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+                <div class="hbe-alerts"></div>
+              </form>
+            {else}
+              <p class="text-muted">
+                {l s='Ten sklep nie ma kolumn linków podpiętych do stopki. Dodasz je w' mod='hummingbird_editor'}
+                <a href="{$hbe_cfg_url_linklist|escape:'html':'UTF-8'}" target="_blank" rel="noopener">{l s='module Lista linków' mod='hummingbird_editor'}</a>.
+              </p>
+            {/if}
+          </div>
+        </div>
+      </div>
+      {* ── Pasek prawny na samym dole stopki ───────────────────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-footer-links">
+          <h4 class="panel-title clearfix">
+            {l s='Linki na dole stopki (pasek prawny)' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-footer-links" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="text-muted" style="margin-bottom:1rem">
+              {l s='Rząd małych linków pod kolumnami stopki (Polityka prywatności, Regulamin, RODO…). Pusta nazwa = pozycja znika. Adres może być względny, np. /content/2-polityka-prywatnosci, albo pełny — https://…' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-footer-links-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width:3rem">#</th>
+                    <th>{l s='Nazwa' mod='hummingbird_editor'}</th>
+                    <th>{l s='Adres' mod='hummingbird_editor'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {foreach from=$hbe_footer_links item=hbeFooterLink}
+                    <tr>
+                      <td class="text-muted">{$hbeFooterLink.slot}</td>
+                      <td>{include file="{$hbe_tpl_dir}_ml_input.tpl" name="label_`$hbeFooterLink.slot`" values=$hbeFooterLink.label placeholder='Polityka prywatności'}</td>
+                      <td>{include file="{$hbe_tpl_dir}_ml_input.tpl" name="url_`$hbeFooterLink.slot`" values=$hbeFooterLink.url placeholder='/content/2-polityka-prywatnosci'}</td>
+                    </tr>
+                  {/foreach}
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {* ── Ikony social media w stopce (kolumna „Kontakt") ─────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-social">
+          <h4 class="panel-title clearfix">
+            {l s='Social media (stopka)' mod='hummingbird_editor'}
+            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+          </h4>
+        </div>
+        <div id="hbe-c-social" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="text-muted" style="margin-bottom:1rem">
+              {l s='Ikony pokazują się w stopce, pod danymi kontaktowymi. Pusty adres = ikona ukryta. Adres musi być pełny, np. https://www.instagram.com/rosenthal_polska' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-social-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              {foreach from=$hbe_social key=hbeSocialKey item=hbeSocial}
+                <div class="form-group">
+                  <label class="control-label col-lg-2" for="hbe-social-{$hbeSocialKey}">{$hbeSocial.label}</label>
+                  <div class="col-lg-8">
+                    <input
+                      type="url"
+                      class="form-control"
+                      id="hbe-social-{$hbeSocialKey}"
+                      name="social_{$hbeSocialKey}"
+                      value="{$hbeSocial.url|escape:'html':'UTF-8'}"
+                      placeholder="https://">
+                  </div>
+                </div>
+              {/foreach}
+              <div class="clearfix"></div>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>{* /tab-footer *}
     <div id="hbe-tab-settings" class="tab-pane" role="tabpanel">
 
       <div class="panel panel-default hbe-collapse-panel">
@@ -2287,43 +2471,6 @@
                   </tr>
                 </tbody>
               </table>
-              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
-              <div class="hbe-alerts"></div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      {* ── Ikony social media w stopce (kolumna „Kontakt") ─────────────────── *}
-      <div class="panel panel-default hbe-collapse-panel">
-        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-social">
-          <h4 class="panel-title clearfix">
-            {l s='Social media (stopka)' mod='hummingbird_editor'}
-            <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
-          </h4>
-        </div>
-        <div id="hbe-c-social" class="panel-collapse collapse in">
-          <div class="panel-body">
-            <p class="text-muted" style="margin-bottom:1rem">
-              {l s='Ikony pokazują się w stopce, pod danymi kontaktowymi. Pusty adres = ikona ukryta. Adres musi być pełny, np. https://www.instagram.com/rosenthal_polska' mod='hummingbird_editor'}
-            </p>
-            <form id="hbe-social-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
-              <input type="hidden" name="token" value="{$hbe_token}">
-              {foreach from=$hbe_social key=hbeSocialKey item=hbeSocial}
-                <div class="form-group">
-                  <label class="control-label col-lg-2" for="hbe-social-{$hbeSocialKey}">{$hbeSocial.label}</label>
-                  <div class="col-lg-8">
-                    <input
-                      type="url"
-                      class="form-control"
-                      id="hbe-social-{$hbeSocialKey}"
-                      name="social_{$hbeSocialKey}"
-                      value="{$hbeSocial.url|escape:'html':'UTF-8'}"
-                      placeholder="https://">
-                  </div>
-                </div>
-              {/foreach}
-              <div class="clearfix"></div>
               <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
               <div class="hbe-alerts"></div>
             </form>
