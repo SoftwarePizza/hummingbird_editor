@@ -92,6 +92,24 @@
 .hbe-related__card--skeleton {
     min-height: 136px;
 }
+
+/* "Inni kupili również" ładuje produkty lazy-ajaxem (related-carousel.js).
+   Zanim JS potwierdzi, że SĄ produkty, blok trzyma miejsce (skeleton daje
+   wysokość, nagłówek swoją), ale jest NIEWIDOCZNY — koniec migotania pustym
+   szarym boksem, który potem znikał albo się wypełniał. Odsłania się dopiero
+   z klasą hbe-related--ready (JS dodaje ją po wczytaniu danych); przy braku
+   danych JS usuwa całą sekcję, więc miejsce się zwija. */
+.hbe-related:not(.hbe-related--ready) {
+    opacity: 0;
+    visibility: hidden;
+}
+.hbe-related {
+    transition: opacity 0.25s ease;
+}
+.hbe-related--ready {
+    opacity: 1;
+    visibility: visible;
+}
 .hbe-related__media {
     display: flex;
     flex-shrink: 0;

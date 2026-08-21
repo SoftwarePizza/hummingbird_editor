@@ -32,6 +32,9 @@
           track.innerHTML = data.html;
           count = data.count;
           update();
+          // Dane potwierdzone i wstawione — dopiero teraz odsłaniamy blok
+          // (do tej chwili trzymał zarezerwowane miejsce, ale był niewidoczny).
+          section.classList.add('hbe-related--ready');
         })
         .catch(function () {
           section.remove();
