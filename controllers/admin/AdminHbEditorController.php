@@ -155,6 +155,7 @@ class AdminHbEditorController extends ModuleAdminController
             'brands'     => $this->module->l('Pasek marek (logotypy)'),
             'shops'      => $this->module->l('Inne sklepy online'),
             'slider'     => $this->module->l('Slider (banery)'),
+            'tiers'      => $this->module->l('Progi rabatowe (kody)'),
         ];
         $homeOrderRaw = (string)(Configuration::get('HBE_HOME_ORDER') ?: 'infobar,imghero,cols3,tagline');
         $homeOrderParts = array_filter(array_map('trim', explode(',', $homeOrderRaw)));
@@ -431,6 +432,18 @@ class AdminHbEditorController extends ModuleAdminController
             'hbe_allstock_discount_rate_sale' => (string) (Configuration::get(Hummingbird_editor::CONF_ALLSTOCK_DISCOUNT_RATE_SALE) ?: '2'),
             'hbe_zoom_source'            => $this->module->getLargestProductImageType(),
             'hbe_zoom_source_width'      => $this->getLargestProductImageWidth(),
+            // Progi rabatowe z kodami (pasek „do rabatu” + sekcja strony glownej)
+            'hbe_tiers_enabled'        => (int) Configuration::get(HbEditorDiscountTiers::CONF_ENABLED),
+            'hbe_tiers_codes'          => (string) Configuration::get(HbEditorDiscountTiers::CONF_CODES),
+            'hbe_tiers_show_cart'      => HbEditorDiscountTiers::showInCart() ? 1 : 0,
+            'hbe_tiers_show_product'   => HbEditorDiscountTiers::showOnProduct() ? 1 : 0,
+            'hbe_tiers_home_enabled'   => (int) Configuration::get(HbEditorDiscountTiers::CONF_HOME_ENABLED),
+            'hbe_tiers_home_title_lang'    => $this->getConfigPerLang(HbEditorDiscountTiers::CONF_HOME_TITLE, $languages),
+            'hbe_tiers_home_text_lang'     => $this->getConfigPerLang(HbEditorDiscountTiers::CONF_HOME_TEXT, $languages),
+            'hbe_tiers_home_cta_text_lang' => $this->getConfigPerLang(HbEditorDiscountTiers::CONF_HOME_CTA_TEXT, $languages),
+            'hbe_tiers_home_cta_url_lang'  => $this->getConfigPerLang(HbEditorDiscountTiers::CONF_HOME_CTA_URL, $languages),
+            // Podglad: ktore z wpisanych kodow sa teraz waznymi regulami (z progiem i procentem)
+            'hbe_tiers_preview'        => $this->getTiersPreview(),
             // Rosenthal Care promo block (cart)
             'hbe_care_enabled'           => (int) Configuration::get('HBE_CARE_ENABLED'),
             'hbe_care_product_id'        => (int) Configuration::get('HBE_CARE_PRODUCT_ID'),
@@ -1671,7 +1684,7 @@ class AdminHbEditorController extends ModuleAdminController
             // Mixed IDs: static slugs (infobar, imghero, cols3, tagline, katcols) + numeric block IDs + module_NAME.
             // Must list EVERY slug rendered by hookDisplayHome — anything missing
             // here is silently dropped from HBE_HOME_ORDER on the first drag.
-            $staticSlugs = ['infobar', 'infobar2', 'imghero', 'imghero2', 'cols3', 'cols3desc', 'tagline', 'katcols', 'splitblock', 'icons4', 'brands', 'shops', 'slider'];
+            $staticSlugs = ['infobar', 'infobar2', 'imghero', 'imghero2', 'cols3', 'cols3desc', 'tagline', 'katcols', 'splitblock', 'icons4', 'brands', 'shops', 'slider', 'tiers'];
             $order = [];
             $blockPositions = [];
             $blockPos = 0;
@@ -2617,6 +2630,126 @@ class AdminHbEditorController extends ModuleAdminController
         Configuration::updateValue('HBE_CART_FREE_SHIPPING_THRESHOLD', $threshold);
 
         $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Progi rabatowe z kodami — lista kodow regul koszyka + wlaczniki miejsc +
+     * teksty sekcji strony glownej. Prog, procent i waznosc zyja w samej
+     * regule (BO -> Reguly koszyka), tu tylko wskazujemy, ktore reguly promowac.
+     */
+    public function ajaxProcessSaveTiersSettings(): void
+    {
+        $codes = [];
+        foreach (preg_split('/[\s,;]+/', (string) Tools::getValue('tiers_codes', '')) ?: [] as $code) {
+            $code = trim($code);
+            if ($code !== '' && Validate::isCleanHtml($code)) {
+                $codes[] = $code;
+            }
+        }
+        $codes = array_values(array_unique($codes));
+        $enabled = (int) Tools::getValue('tiers_enabled', 0);
+
+        if ($enabled && !$codes) {
+            $this->hbeAjaxDie(json_encode([
+                'success' => false,
+                'error'   => $this->module->l('Wpisz przynajmniej jeden kod reguły koszyka albo wyłącz progi.'),
+            ]));
+        }
+
+        // Kod bez pasujacej reguly to zwykle literowka — lepiej powiedziec od razu
+        // niz pokazac klientom pusta drabinke.
+        $missing = [];
+        foreach ($codes as $code) {
+            if (!CartRule::getIdByCode($code)) {
+                $missing[] = $code;
+            }
+        }
+        if ($enabled && $missing) {
+            $this->hbeAjaxDie(json_encode([
+                'success' => false,
+                'error'   => sprintf(
+                    $this->module->l('Nie ma reguły koszyka o kodzie: %s. Sprawdź Reguły koszyka.'),
+                    implode(', ', $missing)
+                ),
+            ]));
+        }
+
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_ENABLED, $enabled);
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_CODES, implode(',', $codes));
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_SHOW_CART, (int) Tools::getValue('tiers_show_cart', 0));
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_SHOW_PRODUCT, (int) Tools::getValue('tiers_show_product', 0));
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_HOME_ENABLED, (int) Tools::getValue('tiers_home_enabled', 0));
+
+        $languages = Language::getLanguages(true);
+        $perLang = static function ($raw) use ($languages): array {
+            $out = [];
+            foreach ($languages as $lang) {
+                $id = (int) $lang['id_lang'];
+                $out[$id] = is_array($raw) ? trim((string) ($raw[$id] ?? '')) : '';
+            }
+            return $out;
+        };
+        $ctaUrls = $perLang(Tools::getValue('tiers_home_cta_url', []));
+        foreach ($ctaUrls as $id => $url) {
+            if ($url !== '' && !preg_match('#^https?://#i', $url) && strpos($url, '/') !== 0) {
+                $ctaUrls[$id] = 'https://' . $url;
+            }
+        }
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_HOME_TITLE, $perLang(Tools::getValue('tiers_home_title', [])));
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_HOME_TEXT, $perLang(Tools::getValue('tiers_home_text', [])));
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_HOME_CTA_TEXT, $perLang(Tools::getValue('tiers_home_cta_text', [])));
+        Configuration::updateValue(HbEditorDiscountTiers::CONF_HOME_CTA_URL, $ctaUrls);
+
+        // Sekcja strony glownej musi byc w kolejnosci, inaczej hookDisplayHome jej
+        // nie wyrenderuje. Nowa laduje na poczatku listy edytora (zaraz pod
+        // banerami) — przeciagnac mozna w zakladce Strona glowna.
+        if ((int) Tools::getValue('tiers_home_enabled', 0)) {
+            $orderRaw   = (string) (Configuration::get('HBE_HOME_ORDER') ?: 'infobar,imghero,cols3,tagline');
+            $orderParts = array_values(array_filter(array_map('trim', explode(',', $orderRaw))));
+            if (!in_array('tiers', $orderParts, true)) {
+                array_unshift($orderParts, 'tiers');
+                Configuration::updateValue('HBE_HOME_ORDER', implode(',', $orderParts));
+            }
+        }
+
+        $this->module->ensureHookRegistered('displayHbeTiers');
+
+        $this->hbeAjaxDie(json_encode(['success' => true]));
+    }
+
+    /**
+     * Podglad wpisanych kodow dla panelu: prog, procent, waznosc, czy aktywna.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function getTiersPreview(): array
+    {
+        $out = [];
+        $idLang = (int) $this->context->language->id;
+        foreach (HbEditorDiscountTiers::configuredCodes() as $code) {
+            $idRule = (int) CartRule::getIdByCode($code);
+            $rule = $idRule ? new CartRule($idRule, $idLang) : null;
+            if (!$rule || !Validate::isLoadedObject($rule)) {
+                $out[] = ['code' => $code, 'exists' => false];
+                continue;
+            }
+            $now = date('Y-m-d H:i:s');
+            $out[] = [
+                'code'    => $code,
+                'exists'  => true,
+                'name'    => (string) $rule->name,
+                'percent' => rtrim(rtrim(number_format((float) $rule->reduction_percent, 2, '.', ''), '0'), '.'),
+                'minimum' => rtrim(rtrim(number_format((float) $rule->minimum_amount, 2, '.', ''), '0'), '.'),
+                'tax'     => (bool) $rule->minimum_amount_tax,
+                'exclude' => (bool) $rule->reduction_exclude_special,
+                'date_to' => (string) $rule->date_to,
+                'ok'      => (bool) $rule->active && $rule->date_from <= $now && $rule->date_to >= $now
+                             && (int) $rule->quantity > 0 && (float) $rule->reduction_percent > 0
+                             && (float) $rule->minimum_amount > 0,
+            ];
+        }
+
+        return $out;
     }
 
     /**

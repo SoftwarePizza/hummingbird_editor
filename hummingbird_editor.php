@@ -16,6 +16,7 @@ require_once __DIR__ . '/classes/HbEditorConfig.php';
 require_once __DIR__ . '/classes/HbEditorBlock.php';
 require_once __DIR__ . '/classes/HbEditorSlide.php';
 require_once __DIR__ . '/classes/HbEditorCarouselCache.php';
+require_once __DIR__ . '/classes/HbEditorDiscountTiers.php';
 
 class Hummingbird_editor extends Module
 {
@@ -367,7 +368,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.18.0';
+        $this->version = '1.19.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -816,11 +817,21 @@ class Hummingbird_editor extends Module
             && $this->registerHook('actionPresentCart')
             && $this->registerHook('actionProductPriceCalculation')
             && $this->registerHook('actionCartUpdateQuantityBefore')
+            && $this->registerHook('displayHbeTiers')
             && $this->installTab();
     }
 
     public function uninstall(): bool
     {
+        foreach ([
+            HbEditorDiscountTiers::CONF_ENABLED, HbEditorDiscountTiers::CONF_CODES,
+            HbEditorDiscountTiers::CONF_SHOW_CART, HbEditorDiscountTiers::CONF_SHOW_PRODUCT,
+            HbEditorDiscountTiers::CONF_HOME_ENABLED, HbEditorDiscountTiers::CONF_HOME_TITLE,
+            HbEditorDiscountTiers::CONF_HOME_TEXT, HbEditorDiscountTiers::CONF_HOME_CTA_TEXT,
+            HbEditorDiscountTiers::CONF_HOME_CTA_URL,
+        ] as $tiersKey) {
+            Configuration::deleteByName($tiersKey);
+        }
         Configuration::deleteByName('HBE_TOPBAR_ENABLED');
         Configuration::deleteByName('HBE_TOPBAR_TEXT');
         Configuration::deleteByName('HBE_TOPBAR_URL');
@@ -1786,6 +1797,27 @@ class Hummingbird_editor extends Module
             'modules/' . $this->name . '/views/css/front.css',
             ['media' => 'all', 'priority' => 200]
         );
+
+        // Progi rabatowe z kodami: arkusz na kazdej stronie (pasek siedzi tez w
+        // podgladzie koszyka pod ikona w naglowku), skrypt tylko na karcie
+        // produktu — tam pasek trzeba odswiezyc po dodaniu do koszyka.
+        if (HbEditorDiscountTiers::isEnabled()) {
+            $this->context->controller->registerStylesheet(
+                'hb-editor-tiers',
+                'modules/' . $this->name . '/views/css/tiers.css',
+                ['media' => 'all', 'priority' => 200, 'version' => $this->assetVersion('views/css/tiers.css')]
+            );
+            if ($page === 'product' && HbEditorDiscountTiers::showOnProduct()) {
+                Media::addJsDef([
+                    'hbeTiers' => ['url' => $this->getDiscountTiers()->applyUrl()],
+                ]);
+                $this->context->controller->registerJavascript(
+                    'hb-editor-tiers',
+                    'modules/' . $this->name . '/views/js/tiers.js',
+                    ['position' => 'bottom', 'priority' => 200, 'version' => $this->assetVersion('views/js/tiers.js')]
+                );
+            }
+        }
 
         if ($page === 'index') {
             $this->context->controller->registerStylesheet(
@@ -2881,6 +2913,13 @@ class Hummingbird_editor extends Module
         // darmowego odbioru osobistego nizej, wiec idzie przed jej warunkami.
         $this->markAllStockDiscountLines($presentedCart);
 
+        // Progi rabatowe: rdzen wypisuje „wyrozniane” reguly z kodem pod polem
+        // kuponu („Skorzystaj z kodow rabatowych: 500 - …”) — bez sprawdzania
+        // progu, wiec klient klika, wpisuje i dostaje blad o minimalnej kwocie.
+        // Gdy pasek progow jest wlaczony, te kody obsluguje on sam (z progiem i
+        // aktywacja jednym kliknieciem), a z listy rdzenia je zdejmujemy.
+        $this->hideTierCodesFromHighlightedDiscounts($presentedCart);
+
         if (!$presentedCart instanceof ArrayAccess || !self::getPickupCarrierReferences()) {
             return;
         }
@@ -2916,6 +2955,40 @@ class Hummingbird_editor extends Module
     }
 
     /**
+     * Zdejmuje kody progow z listy „wyroznianych” kuponow prezentera koszyka
+     * ($cart.discounts) — patrz hookActionPresentCart.
+     *
+     * @param mixed $presentedCart CartLazyArray (ArrayAccess) albo cokolwiek innego
+     */
+    private function hideTierCodesFromHighlightedDiscounts($presentedCart): void
+    {
+        if (!$presentedCart instanceof ArrayAccess || !HbEditorDiscountTiers::isEnabled()) {
+            return;
+        }
+        try {
+            $discounts = $presentedCart['discounts'];
+            if (!is_array($discounts) || !$discounts) {
+                return;
+            }
+            $tierIds = array_column($this->getDiscountTiers()->getTiers(), 'id');
+            if (!$tierIds) {
+                return;
+            }
+            $kept = [];
+            foreach ($discounts as $discount) {
+                if (!in_array((int) ($discount['id_cart_rule'] ?? 0), $tierIds, true)) {
+                    $kept[] = $discount;
+                }
+            }
+            if (count($kept) !== count($discounts)) {
+                $presentedCart['discounts'] = $kept;
+            }
+        } catch (Throwable $e) {
+            // Lista kuponow to kosmetyka — nie ma prawa polozyc koszyka.
+        }
+    }
+
+    /**
      * Przewoznicy wybrani w koszyku (klucz opcji dostawy to lista `id_carrier`
      * po przecinku — po jednym na paczke).
      *
@@ -2938,6 +3011,42 @@ class Hummingbird_editor extends Module
         }
 
         return array_values($ids);
+    }
+
+    /**
+     * Progi rabatowe z kodami — pasek „do rabatu” wolany z szablonow motywu:
+     *   {hook h='displayHbeTiers' ctx='cart'}     (koszyk, wewnatrz .js-cart-detailed-totals)
+     *   {hook h='displayHbeTiers' ctx='preview'}  (podglad/modal koszyka)
+     *   {hook h='displayHbeTiers' ctx='product'}  (karta produktu)
+     * Wlasny hook, a nie displayShoppingCart i spolka, bo pasek ma siedziec w
+     * fragmencie, ktory rdzen podmienia ajaxem po zmianie ilosci — tylko
+     * szablon motywu wie, ktory to fragment.
+     */
+    public function hookDisplayHbeTiers(array $params = []): string
+    {
+        $ctx = (string) ($params['ctx'] ?? HbEditorDiscountTiers::CTX_CART);
+
+        return $this->getDiscountTiers()->renderBar($ctx, $params['product'] ?? null);
+    }
+
+    /** Logika progow rabatowych — jedna instancja na zadanie. */
+    public function getDiscountTiers(): HbEditorDiscountTiers
+    {
+        if ($this->discountTiers === null) {
+            $this->discountTiers = new HbEditorDiscountTiers($this, $this->context);
+        }
+
+        return $this->discountTiers;
+    }
+
+    /**
+     * Tlumaczenie frazy progow rabatowych przez normalny kanal modulu (do
+     * nadpisania w BO -> Tlumaczenia). Module::trans() jest protected, a
+     * slownik fallbackow zyje w HbEditorDiscountTiers — stad ten mostek.
+     */
+    public function tiersTrans(string $key): string
+    {
+        return (string) $this->trans($key, [], 'Modules.Hummingbirdeditor.Shop');
     }
 
     /**
@@ -3401,6 +3510,9 @@ class Hummingbird_editor extends Module
     /** Id produktow pokazanych przez karuzele: [id_block][wariant] => int[] (memo na zadanie). */
     private $hbeCarouselIds = [];
 
+    /** @var HbEditorDiscountTiers|null progi rabatowe (memo na zadanie) */
+    private $discountTiers = null;
+
     public function hookDisplayHome(array $params = []): string
     {
         $rawOrder = (string) Configuration::get('HBE_HOME_ORDER') ?: 'infobar,imghero,cols3,tagline';
@@ -3459,6 +3571,8 @@ class Hummingbird_editor extends Module
                 $output .= $this->renderShops();
             } elseif ($component === 'slider') {
                 $output .= $this->renderSlider();
+            } elseif ($component === 'tiers') {
+                $output .= $this->getDiscountTiers()->renderHome();
             } elseif (ctype_digit($component) && isset($blockMap[(int) $component])) {
                 $block = $blockMap[(int) $component];
                 if (!(int) $block['active']) {

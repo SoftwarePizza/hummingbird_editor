@@ -1750,6 +1750,35 @@ $(function () {
     });
 
     /* ── Rosenthal Care (cart block): save ────────────────────────────────── */
+    // Progi rabatowe (kody) — checkboxy niezaznaczone nie ida w serializeArray, dopisujemy zera.
+    $(document).on('submit', '#hbe-tiers-form', function (e) {
+        e.preventDefault();
+        var $form = $(this);
+        var data = $form.serializeArray();
+        ['tiers_enabled', 'tiers_show_cart', 'tiers_show_product', 'tiers_home_enabled'].forEach(function (name) {
+            if (!$form.find('[name=' + name + ']').is(':checked')) {
+                data.push({ name: name, value: '0' });
+            }
+        });
+        $.ajax({
+            url: hbeAjaxUrl + 'action=SaveTiersSettings&ajax=1',
+            type: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                    // Podglad regul i kolejnosc strony glownej licza sie po stronie serwera.
+                    setTimeout(function () { window.location.reload(); }, 600);
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
     $(document).on('submit', '#hbe-care-form', function (e) {
         e.preventDefault();
         var $form = $(this);

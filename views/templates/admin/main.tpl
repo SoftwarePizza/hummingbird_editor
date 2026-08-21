@@ -1476,6 +1476,133 @@
         </div>
       </div>
 
+      {* ── Progi rabatowe z kodami ─────────────────────────────────────── *}
+      <div class="panel panel-default hbe-collapse-panel">
+        <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-tiers">
+          <h4 class="panel-title clearfix">
+            {l s='Progi rabatowe (kody) — „kupuj więcej, płać mniej”' mod='hummingbird_editor'}
+            <span class="pull-right">
+              {if $hbe_tiers_enabled}<span class="label label-success hbe-status-badge">{l s='Włączone' mod='hummingbird_editor'}</span>{/if}
+              <i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i>
+            </span>
+          </h4>
+        </div>
+        <div id="hbe-c-tiers" class="panel-collapse collapse in">
+          <div class="panel-body">
+            <p class="help-block">
+              {l s='Pasek „Dołóż jeszcze X, a dostaniesz rabat Y%” w koszyku, w podglądzie po dodaniu do koszyka i na karcie produktu. Gdy próg jest osiągnięty, klient aktywuje kod jednym kliknięciem (bez przepisywania). Próg, procent, ważność i „bez produktów przecenionych” bierzemy z samej reguły koszyka (Sprzedaż → Rabaty → Reguły koszyka) — tutaj tylko wskazujesz, które kody promować.' mod='hummingbird_editor'}
+            </p>
+            <form id="hbe-tiers-form" method="post" action="{$hbe_ajax_url nofilter}" autocomplete="off">
+              <input type="hidden" name="token" value="{$hbe_token}">
+              <table class="table">
+                <tbody>
+                  <tr>
+                    <td><strong>{l s='Włącz progi rabatowe' mod='hummingbird_editor'}</strong></td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="tiers_enabled" value="1" {if $hbe_tiers_enabled}checked{/if}>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Kody reguł koszyka (po przecinku)' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='np. 500,1000 — każda reguła musi być procentowa i mieć „minimalną kwotę”. Kolejność nieistotna, progi sortują się po kwocie.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:260px;text-align:right;vertical-align:middle">
+                      <input type="text" name="tiers_codes" value="{$hbe_tiers_codes|escape:'html':'UTF-8'}" class="form-control" placeholder="500,1000">
+                    </td>
+                  </tr>
+                  {if $hbe_tiers_preview}
+                  <tr>
+                    <td colspan="2">
+                      <table class="table table-condensed" style="margin-bottom:0">
+                        <thead>
+                          <tr>
+                            <th>{l s='Kod' mod='hummingbird_editor'}</th>
+                            <th>{l s='Reguła' mod='hummingbird_editor'}</th>
+                            <th>{l s='Rabat' mod='hummingbird_editor'}</th>
+                            <th>{l s='Od kwoty' mod='hummingbird_editor'}</th>
+                            <th>{l s='Ważna do' mod='hummingbird_editor'}</th>
+                            <th>{l s='Stan' mod='hummingbird_editor'}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {foreach from=$hbe_tiers_preview item=row}
+                            <tr>
+                              <td><code>{$row.code|escape:'html':'UTF-8'}</code></td>
+                              {if $row.exists}
+                                <td>{$row.name|escape:'html':'UTF-8'}</td>
+                                <td>{$row.percent}%{if $row.exclude} <small class="text-muted">({l s='bez przecenionych' mod='hummingbird_editor'})</small>{/if}</td>
+                                <td>{$row.minimum} <small class="text-muted">{if $row.tax}{l s='brutto' mod='hummingbird_editor'}{else}{l s='netto' mod='hummingbird_editor'}{/if}</small></td>
+                                <td>{$row.date_to|date_format:'%Y-%m-%d'}</td>
+                                <td>{if $row.ok}<span class="label label-success">OK</span>{else}<span class="label label-danger">{l s='nieaktywna / po terminie / bez progu' mod='hummingbird_editor'}</span>{/if}</td>
+                              {else}
+                                <td colspan="5"><span class="label label-danger">{l s='Brak reguły o tym kodzie' mod='hummingbird_editor'}</span></td>
+                              {/if}
+                            </tr>
+                          {/foreach}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                  {/if}
+                  <tr>
+                    <td>
+                      <strong>{l s='Pokazuj w koszyku i w podglądzie koszyka' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Strona koszyka (nad kodem promocyjnym), modal po dodaniu do koszyka i panel pod ikoną koszyka.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="tiers_show_cart" value="1" {if $hbe_tiers_show_cart}checked{/if}>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Pokazuj na karcie produktu' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Pod przyciskiem koszyka: drabinka progów, a gdy klient ma coś w koszyku — ile brakuje do następnego rabatu.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="tiers_show_product" value="1" {if $hbe_tiers_show_product}checked{/if}>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>{l s='Sekcja na stronie głównej' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Blok „Kupuj więcej, płać mniej” z kartami progów. Po włączeniu pojawia się w kolejności strony głównej jako „Progi rabatowe (kody)” — tam ustawisz, gdzie ma stać.' mod='hummingbird_editor'}</div>
+                    </td>
+                    <td style="width:90px;text-align:right;vertical-align:middle">
+                      <input type="checkbox" name="tiers_home_enabled" value="1" {if $hbe_tiers_home_enabled}checked{/if}>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      <strong>{l s='Nagłówek sekcji' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Puste = „Kupuj więcej, płać mniej” w języku klienta.' mod='hummingbird_editor'}</div>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='tiers_home_title' values=$hbe_tiers_home_title_lang placeholder="{l s='Kupuj więcej, płać mniej' mod='hummingbird_editor'}"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      <strong>{l s='Tekst pod nagłówkiem' mod='hummingbird_editor'}</strong>
+                      <div class="help-block">{l s='Puste = „Im większe zamówienie, tym niższa cena. Kod aktywujesz jednym kliknięciem w koszyku.”' mod='hummingbird_editor'}</div>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='tiers_home_text' values=$hbe_tiers_home_text_lang type='textarea' rows=2}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      <strong>{l s='Przycisk (tekst i adres) — opcjonalnie' mod='hummingbird_editor'}</strong>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='tiers_home_cta_text' values=$hbe_tiers_home_cta_text_lang placeholder="{l s='np. Zobacz nowości' mod='hummingbird_editor'}"}
+                      <div style="height:6px"></div>
+                      {include file="{$hbe_tpl_dir}_ml_input.tpl" name='tiers_home_cta_url' values=$hbe_tiers_home_cta_url_lang placeholder='https://…'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz progi rabatowe' mod='hummingbird_editor'}</button>
+              <div class="hbe-alerts"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <div class="panel panel-default hbe-collapse-panel">
         <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-c-care">
           <h4 class="panel-title clearfix">
