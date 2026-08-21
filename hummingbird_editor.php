@@ -241,6 +241,13 @@ class Hummingbird_editor extends Module
     private static $allStockFractionalColumn = null;
 
     /**
+     * Ceny jednostkowe SPRZED rabatu za calosc, zapamietane w hooku cenowym
+     * (klucz: koszyk-produkt-wariant-podatek). Koszyk pokazuje z nich cene
+     * przekreslona i laczna oszczednosc na pozycji.
+     */
+    private static $allStockPricesBefore = [];
+
+    /**
      * Gorna waga oryginalu zdjecia, po ktory zoom moze siegnac.
      *
      * Miniatury PrestaShopa skaluja sie "do zmieszczenia w kwadracie", wiec przy
@@ -2422,6 +2429,17 @@ class Hummingbird_editor extends Module
             return;
         }
 
+        // Koszyk liczy kazda pozycje czterokrotnie: z obnizkami i bez
+        // (use_reduc), z podatkiem i bez. Wariant "bez obnizek" to
+        // price_without_reduction — cena PRZEKRESLONA w koszyku. Gdybysmy
+        // i ja obnizyli, przecena -20% pokazywalaby 48,22 zamiast 49,20,
+        // a produkt bez przeceny nie mialby z czego pokazac ceny sprzed rabatu.
+        // Zamowienie tego nie dotyka: OrderDetail liczy original_product_price
+        // bez koszyka, a product_price z price_with_reduction.
+        if (array_key_exists('use_reduc', $params) && !$params['use_reduc']) {
+            return;
+        }
+
         // Produkt juz przeceniony (specific price z obnizka — promocja, wyprzedaz,
         // cena katalogowa nizsza od bazowej) dostaje wlasna, mniejsza stawke.
         // Rdzen podaje tu ta obnizke w $params['specific_price'], wiec nie trzeba
@@ -2429,12 +2447,8 @@ class Hummingbird_editor extends Module
         $specificPrice = $params['specific_price'] ?? null;
         $onSale = is_array($specificPrice) && (float) ($specificPrice['reduction'] ?? 0) > 0;
 
-        $rate = (float) str_replace(
-            ',',
-            '.',
-            (string) Configuration::get($onSale ? self::CONF_ALLSTOCK_DISCOUNT_RATE_SALE : self::CONF_ALLSTOCK_DISCOUNT_RATE)
-        );
-        if ($rate <= 0 || $rate >= 100) {
+        $rate = $this->getAllStockDiscountRate($onSale);
+        if ($rate <= 0) {
             return;
         }
 
@@ -2472,7 +2486,163 @@ class Hummingbird_editor extends Module
             return;
         }
 
+        // Cena, od ktorej schodzimy (juz po przecenie i rabacie grupy) — koszyk
+        // pokaze ja przekreslona obok zrabatowanej. Bez ilosci w kluczu: rdzen
+        // wola hook z roznymi ilosciami (int z getCartPriceFromCatalogCore,
+        // ulamek z innych sciezek), a cena jednostkowa sprzed rabatu jest
+        // dla nich ta sama.
+        $useTax = !array_key_exists('use_tax', $params) || $params['use_tax'];
+        self::$allStockPricesBefore[(int) $params['id_cart'] . '-' . $idProduct . '-' . $idAttribute . '-' . ($useTax ? 1 : 0)] = $price;
+
         $params['price'] = $price * (1 - $rate / 100);
+    }
+
+    /**
+     * Czy ta pozycja koszyka spelnia warunek "klient bierze cala reszte".
+     *
+     * Ta sama regula, ktora decyduje o rabacie przy liczeniu ceny — dzieki temu
+     * plakietka w koszyku nie moze sie rozjechac z kwota.
+     */
+    private function allStockConditionMet(int $idCart, int $idProduct, int $idAttribute, ?int $idShop): bool
+    {
+        if (Product::isAvailableWhenOutOfStock((int) StockAvailable::outOfStock($idProduct, $idShop))) {
+            return false;
+        }
+
+        $stock = (float) StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop);
+        if ($stock <= 0) {
+            return false;
+        }
+
+        $quantity = $this->getAllStockCartQuantity($idCart, $idProduct, $idAttribute);
+
+        return $quantity > 0 && $quantity + self::ALLSTOCK_EPSILON >= $stock;
+    }
+
+    /** Stawka rabatu dla pozycji: inna dla ceny zwyklej, inna dla przecenionej. */
+    private function getAllStockDiscountRate(bool $onSale): float
+    {
+        $rate = (float) str_replace(
+            ',',
+            '.',
+            (string) Configuration::get($onSale ? self::CONF_ALLSTOCK_DISCOUNT_RATE_SALE : self::CONF_ALLSTOCK_DISCOUNT_RATE)
+        );
+
+        return ($rate > 0 && $rate < 100) ? $rate : 0.0;
+    }
+
+    /** „5%" / „2,5%" — procent bez zbednych zer, w formacie sklepu. */
+    private function formatAllStockRate(float $rate): string
+    {
+        return rtrim(rtrim(number_format($rate, 2, ',', ''), '0'), ',') . '%';
+    }
+
+    /**
+     * Dopisuje pozycjom koszyka informacje o naliczonym rabacie za calosc.
+     *
+     * Szablon linii koszyka (motyw) czyta `hbe_allstock_discount` i pokazuje
+     * plakietke. Nie liczymy tu nic na nowo — warunek jest wspolny z hookiem
+     * cenowym, wiec plakietka pojawia sie dokladnie tam, gdzie cena juz spadla.
+     */
+    private function markAllStockDiscountLines($presentedCart): void
+    {
+        if (!$presentedCart instanceof ArrayAccess) {
+            return;
+        }
+        if (!(int) Configuration::get(self::CONF_ALLSTOCK_DISCOUNT_ENABLED)) {
+            return;
+        }
+
+        $cart = $this->context->cart;
+        if (!Validate::isLoadedObject($cart)) {
+            return;
+        }
+
+        $products = $presentedCart['products'] ?? null;
+        if (!is_array($products) || !$products) {
+            return;
+        }
+
+        $idShop = (int) $this->context->shop->id ?: null;
+        $zmieniono = false;
+
+        // Te same ustawienia, ktorymi presenter koszyka wybral ceny do pokazania
+        // (brutto/netto) i zaokraglil je do grosza.
+        $includeTaxes = (new TaxConfiguration())->includeTaxes();
+        $precision = $this->context->getComputingPrecision();
+        $roundType = (int) Configuration::get('PS_ROUND_TYPE');
+        $priceFormatter = new PrestaShop\PrestaShop\Adapter\Product\PriceFormatter();
+
+        foreach ($products as $index => $product) {
+            $idProduct = (int) ($product['id_product'] ?? 0);
+            if (!$idProduct) {
+                continue;
+            }
+            $idAttribute = (int) ($product['id_product_attribute'] ?? 0);
+
+            $rate = $this->getAllStockDiscountRate(!empty($product['has_discount']));
+            if ($rate <= 0) {
+                continue;
+            }
+
+            if (!$this->allStockConditionMet((int) $cart->id, $idProduct, $idAttribute, $idShop)) {
+                continue;
+            }
+
+            $products[$index]['hbe_allstock_discount'] = $this->formatAllStockRate($rate);
+            $zmieniono = true;
+
+            // Cena sprzed rabatu: zapamietana w hooku cenowym w tym samym
+            // zadaniu (getProducts() liczy ceny, zanim presenter cokolwiek
+            // pokaze). Gdyby jej nie bylo, odwracamy mnozenie — na zaokraglonej
+            // do grosza cenie moze to dac grosz roznicy, stad to tylko zapas.
+            $priceAfter = Tools::ps_round((float) ($product['price_amount'] ?? 0), $precision);
+            if ($priceAfter <= 0) {
+                continue;
+            }
+            $key = (int) $cart->id . '-' . $idProduct . '-' . $idAttribute . '-' . ($includeTaxes ? 1 : 0);
+            $priceBefore = self::$allStockPricesBefore[$key] ?? ($priceAfter / (1 - $rate / 100));
+            $priceBefore = Tools::ps_round((float) $priceBefore, $precision);
+            if ($priceBefore <= $priceAfter) {
+                continue;
+            }
+            $products[$index]['hbe_allstock_price_before'] = $priceFormatter->format($priceBefore);
+
+            // Laczna oszczednosc na pozycji = (ile kosztowalaby bez rabatu)
+            // - (ile kosztuje). Kwote "po" bierzemy z presentera, zeby zgadzala
+            // sie co do grosza z suma wiersza, a "przed" liczymy tak, jak rdzen
+            // liczy sume wiersza (PS_ROUND_TYPE), na realnej ilosci (ulamki).
+            $quantity = $this->getAllStockCartQuantity((int) $cart->id, $idProduct, $idAttribute);
+            if ($quantity <= 0) {
+                continue;
+            }
+            $ppSettings = $product['pp_settings'] ?? null;
+            if (is_array($ppSettings) && isset($ppSettings['total_amount']) && (float) $ppSettings['total_amount'] > 0) {
+                $totalAfter = (float) $ppSettings['total_amount'];
+            } else {
+                $totalAfter = (float) ($includeTaxes ? ($product['total_price_tax_incl'] ?? 0) : ($product['total_price_tax_excl'] ?? 0));
+            }
+            switch ($roundType) {
+                case Order::ROUND_TOTAL:
+                    $totalBefore = $priceBefore * $quantity;
+                    break;
+                case Order::ROUND_ITEM:
+                    $totalBefore = Tools::ps_round($priceBefore, $precision) * $quantity;
+                    break;
+                case Order::ROUND_LINE:
+                default:
+                    $totalBefore = Tools::ps_round($priceBefore * $quantity, $precision);
+                    break;
+            }
+            $savings = Tools::ps_round($totalBefore - $totalAfter, $precision);
+            if ($savings > 0) {
+                $products[$index]['hbe_allstock_savings'] = $priceFormatter->format($savings);
+            }
+        }
+
+        if ($zmieniono) {
+            $presentedCart['products'] = $products;
+        }
     }
 
     /**
@@ -2524,11 +2694,17 @@ class Hummingbird_editor extends Module
     public function hookActionCartUpdateQuantityBefore($params)
     {
         self::$allStockCartQuantities = [];
+        self::$allStockPricesBefore = [];
     }
 
     public function hookActionPresentCart(array $params): void
     {
         $presentedCart = $params['presentedCart'] ?? null;
+
+        // Plakietka „rabat za calosc" na pozycjach — niezalezna od etykiety
+        // darmowego odbioru osobistego nizej, wiec idzie przed jej warunkami.
+        $this->markAllStockDiscountLines($presentedCart);
+
         if (!$presentedCart instanceof ArrayAccess || !self::getPickupCarrierReferences()) {
             return;
         }
