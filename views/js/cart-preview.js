@@ -16,6 +16,13 @@
  *     server render is what corrects quantities, line totals, the free-shipping
  *     bar and the cart total — the optimistic bump in step 1 is only a
  *     placeholder until it lands.
+ *
+ * One click = one whole unit: 1 piece, or 1 metre of fabric sold by the metre.
+ * The preview has room for a single pair of buttons, so the fine 0,1 m step
+ * stays where there is room for two pairs — the cart page. The quantity the
+ * click lands on is worked out here (clamped to the line minimum and to the
+ * stock the template rendered into data-ps-max), and the request carries the
+ * resulting difference, so queued clicks add up exactly.
  */
 (function () {
   'use strict';
@@ -26,9 +33,14 @@
   var QTY_GROUP_SELECTOR = '[data-ps-ref="cart-preview-qty"]';
   var QTY_VALUE_SELECTOR = '[data-ps-target="cart-preview-qty-value"]';
 
+  // One click = one whole unit (1 piece, or 1 metre of fabric).
+  var STEP = 1;
+  var EPSILON = 0.000001;
+
   var pending = 0;
   var queue = Promise.resolve();
   var refreshSeq = 0;
+  var decimalSign = null;
 
   function getPrestashop() {
     return window.prestashop || null;
@@ -73,52 +85,173 @@
     });
   }
 
+  function toNumber(raw) {
+    if (raw === null || raw === '') {
+      return null;
+    }
+
+    var value = parseFloat(raw);
+
+    return isNaN(value) ? null : value;
+  }
+
+  function round6(value) {
+    return Math.round(value * 1000000) / 1000000;
+  }
+
   /**
-   * Show the new quantity immediately. Anything derived from it (prices, cart
-   * total, free-shipping bar) is left to the server render, and so is a
-   * decrease down to zero, which removes the line altogether.
-   *
-   * Fabric sold by the metre (pproperties) is skipped on purpose: its quantity
-   * link carries a step (&qty=0.2) and the rendered value is not a plain number
-   * but the module's own wording — "1,6 m" or even "2 x 0,8 m". Counting that in
-   * the browser flashed a piece count where metres belong, so those lines wait
-   * for the server render instead.
+   * The shop's decimal separator — the one pproperties writes quantities with
+   * ("1,6 m" in Polish, "1.6 m" in English). Taken from the page language,
+   * because the preview runs on 15 domains speaking different languages.
    */
-  function bumpQuantity(link) {
+  function getDecimalSign() {
+    if (decimalSign === null) {
+      try {
+        decimalSign = (1.1).toLocaleString(document.documentElement.lang || undefined).charAt(1);
+      } catch (err) {
+        decimalSign = '.';
+      }
+
+      if (decimalSign !== ',' && decimalSign !== '.') {
+        decimalSign = '.';
+      }
+    }
+
+    return decimalSign;
+  }
+
+  /** Same as PP::formatQty: fixed decimals, or no trailing zeroes at all. */
+  function formatQuantity(value, decimals) {
+    var text = decimals > 0 ? value.toFixed(decimals) : String(round6(value));
+
+    return text.replace('.', getDecimalSign());
+  }
+
+  /** First text node holding a digit — pproperties wraps quantities in a span. */
+  function firstNumberNode(element) {
+    var walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+    var node;
+
+    while ((node = walker.nextNode())) {
+      if (/\d/.test(node.nodeValue)) {
+        return node;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Replaces just the number inside the displayed quantity, leaving the rest
+   * of the text (the unit) alone, and records the new value in data-ps-qty so
+   * further clicks count from it rather than from what is still on screen.
+   */
+  function writeQuantity(group, value, decimals) {
+    var target = group.querySelector(QTY_VALUE_SELECTOR);
+
+    group.setAttribute('data-ps-qty', String(round6(value)));
+
+    if (!target) {
+      return;
+    }
+
+    var text = formatQuantity(value, decimals);
+    var node = firstNumberNode(target);
+
+    if (node) {
+      node.nodeValue = node.nodeValue.replace(/\d+(?:[.,]\d+)?/, text);
+    } else {
+      target.textContent = text;
+    }
+  }
+
+  /**
+   * The quantity a click lands on, and the difference to send to the server.
+   *
+   * Returns `null` when the link is not a quantity button (the remove link) or
+   * when the quantity cannot be counted in the browser — several coupons of the
+   * same fabric read as "2 x 0,8 m". Those lines get `data-ps-state="pending"`
+   * (CSS dims the number) and wait for the server render. `{skip: true}` means
+   * there is nothing to send: the line already holds the whole stock carried by
+   * data-ps-max.
+   */
+  function planQuantity(link) {
     var op = link.getAttribute('data-ps-qty-op');
     var group = link.closest(QTY_GROUP_SELECTOR);
 
     if ((op !== 'up' && op !== 'down') || !group) {
-      return;
+      return null;
     }
 
-    if (/[?&]qty=/.test(link.getAttribute('href') || '')) {
+    var current = toNumber(group.getAttribute('data-ps-qty'));
+
+    if (current === null) {
       group.setAttribute('data-ps-state', 'pending');
 
-      return;
+      return null;
     }
 
-    var value = group.querySelector(QTY_VALUE_SELECTOR);
+    var min = toNumber(group.getAttribute('data-ps-min'));
+    var max = toNumber(group.getAttribute('data-ps-max'));
+    var decimals = parseInt(group.getAttribute('data-ps-decimals'), 10) || 0;
+    var target;
 
-    if (!value) {
-      return;
+    if (op === 'up') {
+      target = round6(current + STEP);
+
+      if (max !== null && target > max) {
+        target = max;
+      }
+
+      if (target <= current + EPSILON) {
+        // Whole stock already in the cart: dim the "+" instead of asking again.
+        group.setAttribute('data-ps-state', 'max');
+
+        return {skip: true};
+      }
+    } else {
+      target = round6(current - STEP);
+
+      if (min !== null && target < min - EPSILON) {
+        // The last step down reaches the minimum; the next one drops the line.
+        target = current > min + EPSILON ? min : 0;
+      }
+
+      if (target < 0) {
+        target = 0;
+      }
     }
 
-    var shown = value.textContent.trim();
+    var difference = round6(Math.abs(target - current));
 
-    if (!/^\d+$/.test(shown)) {
-      group.setAttribute('data-ps-state', 'pending');
-
-      return;
+    if (difference <= 0) {
+      return {skip: true};
     }
 
-    var current = parseInt(shown, 10);
-
-    if (isNaN(current) || (op === 'down' && current <= 1)) {
-      return;
+    if (max !== null && target >= max - EPSILON) {
+      group.setAttribute('data-ps-state', 'max');
+    } else {
+      group.removeAttribute('data-ps-state');
     }
 
-    value.textContent = String(op === 'up' ? current + 1 : current - 1);
+    if (target > 0) {
+      writeQuantity(group, target, decimals);
+    }
+
+    // Target 0 means the line is on its way out, so the number is left as it
+    // is — the server render takes it away together with the whole row.
+    return {quantity: difference};
+  }
+
+  /** Puts the computed difference into the link's `qty` parameter. */
+  function withQuantity(url, quantity) {
+    var value = encodeURIComponent(String(quantity));
+
+    if (/[?&]qty=/.test(url)) {
+      return url.replace(/([?&])qty=[^&]*/, '$1qty=' + value);
+    }
+
+    return url + (url.indexOf('?') === -1 ? '?' : '&') + 'qty=' + value;
   }
 
   function swapPreview(preview, html) {
@@ -195,12 +328,16 @@
       });
   }
 
-  function enqueueUpdate(link) {
+  function enqueueUpdate(link, plan) {
     var prestashop = getPrestashop();
     var url = link.getAttribute('href');
 
     if (!url || !prestashop || typeof prestashop.emit !== 'function') {
       return;
+    }
+
+    if (plan && plan.quantity) {
+      url = withQuantity(url, plan.quantity);
     }
 
     // The link is replaced by the server render, so keep what the event bus needs.
@@ -245,7 +382,12 @@
     event.preventDefault();
     event.stopPropagation();
 
-    bumpQuantity(link);
-    enqueueUpdate(link);
+    var plan = planQuantity(link);
+
+    if (plan && plan.skip) {
+      return;
+    }
+
+    enqueueUpdate(link, plan);
   });
 })();

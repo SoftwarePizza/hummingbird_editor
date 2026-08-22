@@ -284,6 +284,12 @@ class Hummingbird_editor extends Module
      */
     private static $allStockPricesBefore = [];
 
+    /** Pozycje-probki biezacego koszyka (klucz: koszyk => 'produkt-wariant'). */
+    private static $sampleCartKeys = [];
+
+    /** Czy sklep ma tabele wk_sample_cart (modul probek Webkula). */
+    private static $sampleCartTable = null;
+
     /**
      * Gorna waga oryginalu zdjecia, po ktory zoom moze siegnac.
      *
@@ -368,7 +374,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.19.0';
+        $this->version = '1.20.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -2903,6 +2909,97 @@ class Hummingbird_editor extends Module
     {
         self::$allStockCartQuantities = [];
         self::$allStockPricesBefore = [];
+        self::$sampleCartKeys = [];
+    }
+
+    /**
+     * Oznacza pozycje koszyka, ktore sa PROBKAMI (modul wksampleproduct).
+     *
+     * Probka to nie osobny produkt: modul dokłada wiersz w `wk_sample_cart`
+     * i podklada tej pozycji cene 0 przez `specific_price` zwiazana z koszykiem
+     * — a ta cena obowiazuje dla KAZDEJ ilosci. Klient, ktory podniosl probce
+     * ilosc do 5,6 m, dostawal 5,6 m tkaniny za darmo. Dlatego pozycja probki
+     * nie pokazuje steppera (`hbe_is_sample` czytaja szablony koszyka
+     * i podgladu), a serwer i tak nie przyjmuje zmiany ilosci
+     * (override CartController::spLockSampleQuantity).
+     *
+     * Ilosc probek ustawia sie tylko tam, gdzie sie ja zamawia — polem przy
+     * przycisku „Zamow probke" na karcie produktu.
+     */
+    private function markSampleLines($presentedCart): void
+    {
+        if (!$presentedCart instanceof ArrayAccess) {
+            return;
+        }
+
+        $cart = $this->context->cart;
+        if (!Validate::isLoadedObject($cart)) {
+            return;
+        }
+
+        $products = $presentedCart['products'] ?? null;
+        if (!is_array($products) || !$products) {
+            return;
+        }
+
+        $samples = self::getSampleCartKeys((int) $cart->id);
+        if (!$samples) {
+            return;
+        }
+
+        $zmieniono = false;
+        foreach ($products as $index => $product) {
+            $key = (int) ($product['id_product'] ?? 0) . '-' . (int) ($product['id_product_attribute'] ?? 0);
+            if (isset($samples[$key])) {
+                $products[$index]['hbe_is_sample'] = true;
+                $zmieniono = true;
+            }
+        }
+
+        if ($zmieniono) {
+            $presentedCart['products'] = $products;
+        }
+    }
+
+    /**
+     * Pozycje koszyka bedace probkami: 'idProduktu-idWariantu' => true.
+     *
+     * Czytamy wprost z tabeli modulu probek (nie zalezymy od jego klas), raz na
+     * zadanie i tylko jesli tabela w ogole jest — na sklepie bez wksampleproduct
+     * (Rosenthal) hook ma po prostu nic do roboty.
+     */
+    private static function getSampleCartKeys(int $idCart): array
+    {
+        if ($idCart <= 0) {
+            return [];
+        }
+        if (array_key_exists($idCart, self::$sampleCartKeys)) {
+            return self::$sampleCartKeys[$idCart];
+        }
+
+        $keys = [];
+        try {
+            if (self::$sampleCartTable === null) {
+                self::$sampleCartTable = (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
+                    'SHOW TABLES LIKE \'' . _DB_PREFIX_ . 'wk_sample_cart\''
+                );
+            }
+            if (self::$sampleCartTable) {
+                $rows = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
+                    'SELECT `id_product`, `id_product_attribute` FROM `' . _DB_PREFIX_ . 'wk_sample_cart`'
+                    . ' WHERE `id_cart` = ' . $idCart
+                );
+                foreach ((array) $rows as $row) {
+                    $keys[(int) $row['id_product'] . '-' . (int) $row['id_product_attribute']] = true;
+                }
+            }
+        } catch (Throwable $e) {
+            $keys = [];
+        }
+
+        self::$sampleCartKeys[$idCart] = $keys;
+
+        return $keys;
     }
 
     public function hookActionPresentCart(array $params): void
@@ -2912,6 +3009,9 @@ class Hummingbird_editor extends Module
         // Plakietka „rabat za calosc" na pozycjach — niezalezna od etykiety
         // darmowego odbioru osobistego nizej, wiec idzie przed jej warunkami.
         $this->markAllStockDiscountLines($presentedCart);
+
+        // Probki (wksampleproduct) — pozycja bez zmiany ilosci.
+        $this->markSampleLines($presentedCart);
 
         // Progi rabatowe: rdzen wypisuje „wyrozniane” reguly z kodem pod polem
         // kuponu („Skorzystaj z kodow rabatowych: 500 - …”) — bez sprawdzania
