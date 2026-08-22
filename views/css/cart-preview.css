@@ -222,10 +222,49 @@
   transition: opacity 0.15s ease-out;
 }
 
-/* The line already holds the whole stock: "+" has nothing left to add. */
-[data-ps-ref="cart-preview-qty"][data-ps-state="max"] [data-ps-qty-op="up"] {
+/* Nothing left for the button to do: the whole stock is already in the cart,
+   or the line is down to the smallest quantity that can be sold. Below that
+   the line does not shrink but leaves, which is what "usun" is for — a held
+   button must not empty the line by accident. */
+[data-ps-ref="cart-preview-qty"][data-ps-at-max] [data-ps-qty-op="up"],
+[data-ps-ref="cart-preview-qty"][data-ps-at-min] [data-ps-qty-op="down"] {
   opacity: 0.35;
   pointer-events: none;
+}
+
+/* The quantity is settled here, before anything is sent, so the number is a
+   field: one tap turns it into an input holding the same text. */
+.cart-preview-product__qty-value {
+  cursor: text;
+}
+
+.cart-preview-product__qty-input {
+  width: 3.5rem;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-body-m);
+  text-align: center;
+  background: transparent;
+  border: 0;
+}
+
+.cart-preview-product__qty-input:focus {
+  outline: none;
+}
+
+/* Holding "+" repeats it — without this the press selects the sign instead. */
+.cart-preview-product__qty-btn {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+/* The line is on its way out; the server render takes it away for good. */
+.cart-preview-product[data-ps-removing] {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.15s ease-out;
 }
 
 /* A sample (wksampleproduct) costs nothing at any quantity, so its line shows
@@ -240,6 +279,31 @@
   min-width: 0;
   text-align: left;
   color: var(--bs-secondary-color, #6b6b6b);
+  cursor: default;
+}
+
+/* Samples look exactly like an ordinary fabric line — same name, same picture,
+   only the price is 0. The badge says what the line actually is; the cart page
+   carries the same mark (theme, custom.css section 38.1). */
+.cart-preview-product__sample {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-block-start: 0.125rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  font-size: var(--fs-body-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--hbe-black);
+}
+
+.cart-preview-product__sample .material-icons {
+  font-size: 0.875rem;
+  line-height: 1;
 }
 
 .cart-preview-product__remove {

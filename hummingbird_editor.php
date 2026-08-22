@@ -374,7 +374,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.20.0';
+        $this->version = '1.21.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
