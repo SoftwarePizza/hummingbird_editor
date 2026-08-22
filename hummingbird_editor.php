@@ -236,6 +236,61 @@ class Hummingbird_editor extends Module
     ];
 
     /**
+     * Typ wiersza podsumowania z rabatem za wziecie calosci.
+     *
+     * Trafia do `subtotals` presentera koszyka (klucz i `type`), a szablony
+     * motywu rozpoznaja go po tej nazwie — wiersz jest informacyjny, wiec nie
+     * moze udawac rabatu typu `discount`, ktory rdzen odejmuje od sumy.
+     */
+    public const ALLSTOCK_SUBTOTAL_TYPE = 'hbe_allstock';
+
+    /**
+     * Etykieta i nota wiersza „Rabat za wziecie calosci” w jezykach sklepu.
+     *
+     * Jak przy odbiorze osobistym: frazy ida normalnie przez tlumaczenia
+     * modulu, a slowniki sa fallbackiem, zeby sklep wielojezyczny nie zostal
+     * z angielskim kluczem. Slownictwo to samo, co w plakietce przy pozycji
+     * (motyw, `%discount% off for taking the whole stock`).
+     */
+    public const ALLSTOCK_SUBTOTAL_LABELS = [
+        'pl' => 'Rabat za wzięcie całości',
+        'en' => 'Whole-stock discount',
+        'de' => 'Rabatt für den gesamten Restbestand',
+        'es' => 'Descuento por llevarte todas las existencias',
+        'fr' => 'Remise pour tout le stock',
+        'it' => 'Sconto per tutta la disponibilità',
+        'nl' => 'Korting voor de hele voorraad',
+        'cs' => 'Sleva za odběr celé zásoby',
+        'da' => 'Rabat for hele lageret',
+        'hu' => 'Kedvezmény a teljes készletért',
+        'lt' => 'Nuolaida už visas atsargas',
+        'ro' => 'Reducere pentru tot stocul',
+        'sv' => 'Rabatt för hela lagret',
+        'uk' => 'Знижка за весь залишок',
+        'lv' => 'Atlaide par visu krājumu',
+        'et' => 'Soodustus kogu laoseisu eest',
+    ];
+
+    public const ALLSTOCK_SUBTOTAL_NOTES = [
+        'pl' => 'już uwzględniony w cenach powyżej',
+        'en' => 'already included in the prices above',
+        'de' => 'bereits in den Preisen oben enthalten',
+        'es' => 'ya incluido en los precios de arriba',
+        'fr' => 'déjà inclus dans les prix ci-dessus',
+        'it' => 'già incluso nei prezzi qui sopra',
+        'nl' => 'al verwerkt in de prijzen hierboven',
+        'cs' => 'již zahrnuto v cenách výše',
+        'da' => 'allerede indregnet i priserne ovenfor',
+        'hu' => 'már benne van a fenti árakban',
+        'lt' => 'jau įskaičiuota į kainas viršuje',
+        'ro' => 'deja inclus în prețurile de mai sus',
+        'sv' => 'redan inräknad i priserna ovan',
+        'uk' => 'уже враховано в цінах вище',
+        'lv' => 'jau iekļauta iepriekš norādītajās cenās',
+        'et' => 'juba arvestatud ülaltoodud hindades',
+    ];
+
+    /**
      * Zoom na okladce karty produktu (powiekszenie w ramce zdjecia).
      *
      * ZOOM_LEVEL — '0' oznacza naturalna rozdzielczosc zrodla (piksel w piksel,
@@ -374,7 +429,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.21.0';
+        $this->version = '1.22.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -2746,6 +2801,8 @@ class Hummingbird_editor extends Module
 
         $idShop = (int) $this->context->shop->id ?: null;
         $zmieniono = false;
+        $savingsTotal = 0.0;
+        $ratesUsed = [];
 
         // Te same ustawienia, ktorymi presenter koszyka wybral ceny do pokazania
         // (brutto/netto) i zaokraglil je do grosza.
@@ -2793,7 +2850,19 @@ class Hummingbird_editor extends Module
             // - (ile kosztuje). Kwote "po" bierzemy z presentera, zeby zgadzala
             // sie co do grosza z suma wiersza, a "przed" liczymy tak, jak rdzen
             // liczy sume wiersza (PS_ROUND_TYPE), na realnej ilosci (ulamki).
-            $quantity = $this->getAllStockCartQuantity((int) $cart->id, $idProduct, $idAttribute);
+            //
+            // Ilosc bierzemy Z TEJ LINII, nie z calego koszyka: ten sam produkt
+            // potrafi lezec w koszyku w dwoch wierszach (np. 2 m i 0,7 m — tak
+            // powstaje pozycja po dolozeniu koncowki), a suma po produkcie
+            // (`getAllStockCartQuantity`, uzywana w warunku „bierze calosc")
+            // liczylaby wtedy oszczednosc kazdego wiersza od calej belki.
+            // Z pproperties metry siedza w `pp_product_quantity`; `quantity`
+            // z presentera to na tym sklepie zawsze 1, wiec jest tylko zapasem
+            // dla sklepow bez tego modulu.
+            $quantity = (float) ($product['pp_product_quantity'] ?? 0);
+            if ($quantity <= 0) {
+                $quantity = (float) ($product['quantity'] ?? 0);
+            }
             if ($quantity <= 0) {
                 continue;
             }
@@ -2818,12 +2887,112 @@ class Hummingbird_editor extends Module
             $savings = Tools::ps_round($totalBefore - $totalAfter, $precision);
             if ($savings > 0) {
                 $products[$index]['hbe_allstock_savings'] = $priceFormatter->format($savings);
+                $savingsTotal += $savings;
+                $ratesUsed[$this->formatAllStockRate($rate)] = true;
             }
         }
 
         if ($zmieniono) {
             $presentedCart['products'] = $products;
         }
+
+        // Podsumowanie koszyka: jedna linijka z laczna kwota rabatu za calosc.
+        // Przy pozycjach widac stawke i oszczednosc kazdej z osobna, ale klient
+        // patrzy na dol koszyka — tam do tej pory nie bylo po rabacie sladu,
+        // bo jest on juz w cenach pozycji (nie odejmuje sie od sumy jak kupon).
+        if ($savingsTotal > 0) {
+            $this->addAllStockSubtotal(
+                $presentedCart,
+                $priceFormatter->format(Tools::ps_round($savingsTotal, $precision)),
+                $savingsTotal,
+                array_keys($ratesUsed)
+            );
+        }
+    }
+
+    /**
+     * Wiersz „Rabat za wziecie calosci” w podsumowaniu koszyka i kasy.
+     *
+     * Wchodzi do `subtotals` presentera **zaraz za rabatami** (kupony), zeby
+     * oba szablony motywu wypisaly go swoja petla po `$cart.subtotals`.
+     * Kwota jest informacyjna: ceny pozycji sa juz zrabatowane, wiec ten wiersz
+     * niczego nie odejmuje od sumy — stad nota pod etykieta.
+     *
+     * @param mixed    $presentedCart CartLazyArray (ArrayAccess)
+     * @param string   $value         kwota gotowa do pokazania (bez minusa)
+     * @param float    $amount        ta sama kwota liczbowo — dla modulow czytajacych subtotals
+     * @param string[] $rates         stawki uzyte w koszyku, np. ['5%'] albo ['5%', '2%']
+     */
+    private function addAllStockSubtotal($presentedCart, string $value, float $amount, array $rates): void
+    {
+        try {
+            $subtotals = $presentedCart['subtotals'];
+            if (!is_array($subtotals)) {
+                return;
+            }
+
+            $label = $this->getAllStockSubtotalLabel();
+            // Stawke dopisujemy tylko wtedy, gdy w calym koszyku jest jedna —
+            // przy mieszance 5% i 2% liczba w etykiecie klamalaby polowie pozycji.
+            if (count($rates) === 1) {
+                $label .= ' (−' . reset($rates) . ')';
+            }
+
+            $row = [
+                'type' => self::ALLSTOCK_SUBTOTAL_TYPE,
+                'label' => $label,
+                'amount' => $amount,
+                'value' => $value,
+                'hbe_note' => $this->getAllStockSubtotalNote(),
+            ];
+
+            // Wstawiamy za rabatami (a gdy kuponow nie ma — za produktami),
+            // zachowujac kolejnosc pozostalych wierszy.
+            $result = [];
+            $inserted = false;
+            foreach ($subtotals as $key => $subtotal) {
+                $result[$key] = $subtotal;
+                if ($key === 'discounts' || (!$inserted && $key === 'products' && !isset($subtotals['discounts']))) {
+                    $result[self::ALLSTOCK_SUBTOTAL_TYPE] = $row;
+                    $inserted = true;
+                }
+            }
+            if (!$inserted) {
+                $result[self::ALLSTOCK_SUBTOTAL_TYPE] = $row;
+            }
+
+            $presentedCart['subtotals'] = $result;
+        } catch (Throwable $e) {
+            // Linijka informacyjna nie ma prawa polozyc koszyka.
+        }
+    }
+
+    /** Etykieta wiersza podsumowania — tlumaczenie modulu, fallback ze slownika. */
+    private function getAllStockSubtotalLabel(): string
+    {
+        $key = 'Whole-stock discount';
+        $label = $this->trans($key, [], 'Modules.Hummingbirdeditor.Shop');
+        if ($label !== $key) {
+            return $label;
+        }
+
+        $iso = strtolower((string) ($this->context->language->iso_code ?? ''));
+
+        return self::ALLSTOCK_SUBTOTAL_LABELS[$iso] ?? $key;
+    }
+
+    /** Nota pod etykieta: rabat siedzi juz w cenach pozycji. */
+    private function getAllStockSubtotalNote(): string
+    {
+        $key = 'already included in the prices above';
+        $note = $this->trans($key, [], 'Modules.Hummingbirdeditor.Shop');
+        if ($note !== $key) {
+            return $note;
+        }
+
+        $iso = strtolower((string) ($this->context->language->iso_code ?? ''));
+
+        return self::ALLSTOCK_SUBTOTAL_NOTES[$iso] ?? $key;
     }
 
     /**
