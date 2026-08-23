@@ -30,5 +30,12 @@ function upgrade_module_1_23_0($module)
         $module->registerHook('displayNotFound');
     }
 
+    // hreflang dla bloga — hook stoi w <head> motywu (_partials/head.tpl).
+    // Rdzen nie umie zbudowac alternative_langs dla kontrolerow modulow, wiec
+    // wpisy bloga szly do Google bez zadnego powiazania miedzy 15 jezykami.
+    if (!$module->isRegisteredInHook('displayAfterTitleTag')) {
+        $module->registerHook('displayAfterTitleTag');
+    }
+
     return true;
 }

@@ -889,6 +889,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('actionCartUpdateQuantityBefore')
             && $this->registerHook('displayHbeTiers')
             && $this->registerHook('displayNotFound')
+            && $this->registerHook('displayAfterTitleTag')
             && $this->installTab();
     }
 
@@ -1849,6 +1850,17 @@ class Hummingbird_editor extends Module
     public function hookActionFrontControllerSetMedia(): void
     {
         $page = $this->currentPage();
+
+        // Blog: hreflang wystawia hookDisplayAfterTitleTag, wiec motyw ma pominac
+        // wlasny blok (rdzen sklada tam adresy z polskim slugiem na obcej domenie).
+        // Flaga musi paść TUTAJ, nie w samym hooku: Smarty kopiuje zmienne przy
+        // wejsciu do {include}, wiec przypisanie w trakcie renderowania head.tpl
+        // juz go nie dosiega.
+        if (Tools::getValue('module') === 'ph_simpleblog'
+            && in_array((string) Tools::getValue('controller'), ['single', 'category', 'categorypage', 'list'], true)
+        ) {
+            $this->context->smarty->assign('hbe_blog_hreflang', true);
+        }
 
         // Footer social icons — the theme's ps_contactinfo override renders them.
         $this->context->smarty->assign('hbe_social_links', $this->getSocialLinks());
@@ -3306,6 +3318,218 @@ class Hummingbird_editor extends Module
         $ctx = (string) ($params['ctx'] ?? HbEditorDiscountTiers::CTX_CART);
 
         return $this->getDiscountTiers()->renderBar($ctx, $params['product'] ?? null);
+    }
+
+    /* ── hreflang dla bloga ──────────────────────────────────────────────── */
+
+    /**
+     * Znaczniki hreflang na stronach ph_simpleblog (hook stoi w <head>).
+     *
+     * Rdzen buduje `$urls.alternative_langs` przez Link::getLanguageLink(),
+     * ktory dla kontrolerow modulow konczy na getPageLink() i dla bloga nie
+     * daje nic — wpis w 15 jezykach szedl do Google jako 15 osobnych,
+     * konkurujacych ze soba stron, podczas gdy produkty i kategorie maja
+     * komplet hreflangow.
+     *
+     * Adresy budujemy z tlumaczonych slugow w bazie; getModuleLink z numerem
+     * jezyka trafia we wlasciwa domene krajowa, bo pshowdomaincontrol nadpisuje
+     * getLangLink() (override/classes/Link.php).
+     */
+    public function hookDisplayAfterTitleTag(array $params = []): string
+    {
+        return $this->renderBlogHreflang() . $this->renderHookBlocks('displayAfterTitleTag', $params);
+    }
+
+    private function renderBlogHreflang(): string
+    {
+        if (Tools::getValue('module') !== 'ph_simpleblog') {
+            return '';
+        }
+
+        $languages = Language::getLanguages(true, (int) $this->context->shop->id);
+        if (count($languages) < 2) {
+            return '';
+        }
+
+        $controller = (string) Tools::getValue('controller');
+        $idLangNow  = (int) $this->context->language->id;
+        $idShop     = (int) $this->context->shop->id;
+        $db         = Db::getInstance();
+        $urls       = [];
+
+        if ($controller === 'single') {
+            $rewrite = (string) Tools::getValue('rewrite');
+            if ($rewrite === '' || !Validate::isLinkRewrite($rewrite)) {
+                return '';
+            }
+
+            $idPost = (int) $db->getValue(
+                'SELECT pl.id_simpleblog_post
+                 FROM ' . _DB_PREFIX_ . 'simpleblog_post_lang pl
+                 INNER JOIN ' . _DB_PREFIX_ . 'simpleblog_post_shop ps
+                     ON ps.id_simpleblog_post = pl.id_simpleblog_post AND ps.id_shop = ' . $idShop . '
+                 WHERE pl.link_rewrite = "' . pSQL($rewrite) . '" AND pl.id_lang = ' . $idLangNow
+            );
+            if ($idPost <= 0) {
+                return '';
+            }
+
+            $rows = $db->executeS(
+                'SELECT pl.id_lang, pl.link_rewrite, cl.link_rewrite AS category_rewrite
+                 FROM ' . _DB_PREFIX_ . 'simpleblog_post_lang pl
+                 INNER JOIN ' . _DB_PREFIX_ . 'simpleblog_post p
+                     ON p.id_simpleblog_post = pl.id_simpleblog_post
+                 LEFT JOIN ' . _DB_PREFIX_ . 'simpleblog_category_lang cl
+                     ON cl.id_simpleblog_category = p.id_simpleblog_category AND cl.id_lang = pl.id_lang
+                 WHERE pl.id_simpleblog_post = ' . $idPost
+            );
+
+            $byLang = [];
+            foreach ((array) $rows as $row) {
+                if ((string) $row['link_rewrite'] === '' || (string) $row['category_rewrite'] === '') {
+                    continue;
+                }
+                $byLang[(int) $row['id_lang']] = [
+                    'rewrite'     => (string) $row['link_rewrite'],
+                    'sb_category' => (string) $row['category_rewrite'],
+                ];
+            }
+
+            foreach ($languages as $lang) {
+                $id = (int) $lang['id_lang'];
+                if (!isset($byLang[$id])) {
+                    continue;
+                }
+                $urls[(string) $lang['language_code']] = $this->langDomainUrl(
+                    $this->context->link->getModuleLink('ph_simpleblog', 'single', $byLang[$id], true, $id),
+                    $id
+                );
+            }
+        } elseif ($controller === 'category' || $controller === 'categorypage') {
+            $catRewrite = (string) Tools::getValue('sb_category');
+            if ($catRewrite === '' || !Validate::isLinkRewrite($catRewrite)) {
+                return '';
+            }
+
+            $idCategory = (int) $db->getValue(
+                'SELECT id_simpleblog_category FROM ' . _DB_PREFIX_ . 'simpleblog_category_lang
+                 WHERE link_rewrite = "' . pSQL($catRewrite) . '" AND id_lang = ' . $idLangNow
+            );
+            if ($idCategory <= 0) {
+                return '';
+            }
+
+            $rows = $db->executeS(
+                'SELECT id_lang, link_rewrite FROM ' . _DB_PREFIX_ . 'simpleblog_category_lang
+                 WHERE id_simpleblog_category = ' . $idCategory
+            );
+            $byLang = [];
+            foreach ((array) $rows as $row) {
+                if ((string) $row['link_rewrite'] !== '') {
+                    $byLang[(int) $row['id_lang']] = (string) $row['link_rewrite'];
+                }
+            }
+
+            foreach ($languages as $lang) {
+                $id = (int) $lang['id_lang'];
+                if (!isset($byLang[$id])) {
+                    continue;
+                }
+                $urls[(string) $lang['language_code']] = $this->langDomainUrl(
+                    $this->context->link->getModuleLink('ph_simpleblog', 'category', ['sb_category' => $byLang[$id]], true, $id),
+                    $id
+                );
+            }
+        } elseif ($controller === 'list') {
+            foreach ($languages as $lang) {
+                $urls[(string) $lang['language_code']] = $this->langDomainUrl(
+                    $this->context->link->getModuleLink('ph_simpleblog', 'list', [], true, (int) $lang['id_lang']),
+                    (int) $lang['id_lang']
+                );
+            }
+        }
+
+        if (count($urls) < 2) {
+            return '';
+        }
+
+        $out = '';
+        foreach ($urls as $code => $url) {
+            $out .= "\n  " . '<link rel="alternate" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8')
+                . '" hreflang="' . htmlspecialchars($code, ENT_QUOTES, 'UTF-8') . '">';
+        }
+
+        return $out . "\n";
+    }
+
+    /**
+     * Adres jezykowy na domenie krajowej.
+     *
+     * getModuleLink() z numerem jezyka oddaje `izpol.pl/<iso>/...`, czyli adres,
+     * ktory odpowiada przekierowaniem — pshowdomaincontrol przepisuje domene
+     * dopiero w getLanguageLink(), a ta droga dla kontrolerow modulow nie
+     * dziala. Mapowanie czytamy z tabeli modulu tak samo, jak robi to jego
+     * wlasny override (override/classes/Link.php): liczy sie pierwsza aktywna
+     * definicja domeny dla jezyka, a prefiks znika tylko wtedy, gdy domena
+     * obsluguje dokladnie jeden jezyk (izpol.eu ma cztery, wiec tam zostaje).
+     */
+    private function langDomainUrl(string $url, int $idLang): string
+    {
+        static $map = null;
+
+        if ($map === null) {
+            $map = [];
+            $rows = Db::getInstance()->executeS(
+                'SELECT name, restrictions FROM ' . _DB_PREFIX_ . 'pshow_domain
+                 WHERE active = 1 ORDER BY id_pshow_domain'
+            );
+            $seen = [];
+            foreach ((array) $rows as $row) {
+                $domain = strtolower(trim((string) $row['name']));
+                if ($domain === '' || isset($seen[$domain])) {
+                    continue;
+                }
+                $seen[$domain] = true;
+                $restrictions = json_decode((string) $row['restrictions'], true);
+                $langs = isset($restrictions['lang'])
+                    ? array_values(array_filter((array) $restrictions['lang'], 'strlen'))
+                    : [];
+                foreach ($langs as $lang) {
+                    $lang = (int) $lang;
+                    if (!isset($map[$lang])) {
+                        $map[$lang] = ['domain' => $domain, 'single' => (count($langs) === 1)];
+                    }
+                }
+            }
+        }
+
+        if (!isset($map[$idLang])) {
+            return $url;
+        }
+
+        $parts = parse_url($url);
+        if (empty($parts['host'])) {
+            return $url;
+        }
+
+        $url = preg_replace(
+            '#^(https?://)' . preg_quote($parts['host'], '#') . '#i',
+            '$1' . $map[$idLang]['domain'],
+            $url
+        );
+
+        if ($map[$idLang]['single']) {
+            $iso = Language::getIsoById($idLang);
+            if ($iso) {
+                $url = preg_replace(
+                    '#^(https?://[^/]+)/' . preg_quote($iso, '#') . '(/|$)#i',
+                    '$1/',
+                    $url
+                );
+            }
+        }
+
+        return $url;
     }
 
     /* ── Strona 404 ──────────────────────────────────────────────────────── */
