@@ -139,6 +139,15 @@ class Hummingbird_editor extends Module
     const FOOTER_LINK_SLOTS = 8;
 
     /**
+     * Strona 404: kafle kategorii (identyfikatory po przecinku, kolejnosc
+     * z listy) i skroty do stron CMS. Pusta lista kategorii = automat
+     * (dzieci kategorii domowej, ktore maja produkty).
+     */
+    const CONF_404_CATEGORIES = 'HBE_404_CATEGORIES';
+
+    const CONF_404_CMS = 'HBE_404_CMS';
+
+    /**
      * Zestaw startowy paska prawnego: strony CMS, ktore do wersji 1.15.0 byly
      * wpisane na sztywno w szablonie motywu. Klucz = id strony CMS, wartosc =
      * etykieta dokladnie taka, jaka pokazywala stopka przed zmiana (tytul CMS
@@ -429,7 +438,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.22.0';
+        $this->version = '1.23.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -879,6 +888,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('actionProductPriceCalculation')
             && $this->registerHook('actionCartUpdateQuantityBefore')
             && $this->registerHook('displayHbeTiers')
+            && $this->registerHook('displayNotFound')
             && $this->installTab();
     }
 
@@ -3296,6 +3306,191 @@ class Hummingbird_editor extends Module
         $ctx = (string) ($params['ctx'] ?? HbEditorDiscountTiers::CTX_CART);
 
         return $this->getDiscountTiers()->renderBar($ctx, $params['product'] ?? null);
+    }
+
+    /* ── Strona 404 ──────────────────────────────────────────────────────── */
+
+    /**
+     * Kafle kategorii i skroty na stronie 404 (motyw wola hook w errors/404.tpl).
+     *
+     * Nazwy ida z bazy w biezacym jezyku, wiec te same kafle dzialaja na
+     * wszystkich 15 domenach bez osobnych tlumaczen. Lista kategorii siedzi
+     * w HBE_404_CATEGORIES (identyfikatory po przecinku, kolejnosc z listy);
+     * pusta konfiguracja = automat: dzieci kategorii domowej z produktami.
+     */
+    public function hookDisplayNotFound(array $params = []): string
+    {
+        $categories = $this->getNotFoundCategories();
+        $links      = $this->getNotFoundLinks();
+
+        if (!$categories && !$links) {
+            return $this->renderHookBlocks('displayNotFound', $params);
+        }
+
+        $this->context->smarty->assign([
+            'hbe_404_categories' => $categories,
+            'hbe_404_links'      => $links,
+        ]);
+
+        return $this->display(__FILE__, 'views/templates/hook/not-found.tpl')
+            . $this->renderHookBlocks('displayNotFound', $params);
+    }
+
+    /**
+     * Kategorie na kafle 404: z konfiguracji albo — gdy pusta — dzieci
+     * kategorii domowej, ktore maja aktywne produkty.
+     *
+     * @return array<int,array{name:string,url:string}>
+     */
+    private function getNotFoundCategories(int $limit = 12): array
+    {
+        $idLang = (int) $this->context->language->id;
+        $idShop = (int) $this->context->shop->id;
+
+        $chosen = array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string) Configuration::get(self::CONF_404_CATEGORIES))
+        )));
+
+        if ($chosen) {
+            $sql = 'SELECT c.id_category, cl.name, cl.link_rewrite
+                    FROM ' . _DB_PREFIX_ . 'category c
+                    INNER JOIN ' . _DB_PREFIX_ . 'category_lang cl
+                        ON cl.id_category = c.id_category AND cl.id_lang = ' . $idLang . '
+                        AND cl.id_shop = ' . $idShop . '
+                    INNER JOIN ' . _DB_PREFIX_ . 'category_shop cs
+                        ON cs.id_category = c.id_category AND cs.id_shop = ' . $idShop . '
+                    WHERE c.active = 1 AND c.id_category IN (' . implode(',', $chosen) . ')';
+        } else {
+            $idHome = (int) Configuration::get('PS_HOME_CATEGORY');
+            $sql = 'SELECT c.id_category, cl.name, cl.link_rewrite
+                    FROM ' . _DB_PREFIX_ . 'category c
+                    INNER JOIN ' . _DB_PREFIX_ . 'category_lang cl
+                        ON cl.id_category = c.id_category AND cl.id_lang = ' . $idLang . '
+                        AND cl.id_shop = ' . $idShop . '
+                    INNER JOIN ' . _DB_PREFIX_ . 'category_shop cs
+                        ON cs.id_category = c.id_category AND cs.id_shop = ' . $idShop . '
+                    WHERE c.active = 1 AND c.id_parent = ' . $idHome . '
+                        AND EXISTS (
+                            SELECT 1 FROM ' . _DB_PREFIX_ . 'category_product cp
+                            INNER JOIN ' . _DB_PREFIX_ . 'product_shop ps
+                                ON ps.id_product = cp.id_product AND ps.id_shop = ' . $idShop . '
+                                AND ps.active = 1
+                            WHERE cp.id_category = c.id_category
+                        )
+                    ORDER BY c.position ASC
+                    LIMIT ' . (int) $limit;
+        }
+
+        $rows = Db::getInstance()->executeS($sql);
+        if (!$rows) {
+            return [];
+        }
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(int) $row['id_category']] = [
+                'name' => (string) $row['name'],
+                'url'  => $this->context->link->getCategoryLink(
+                    (int) $row['id_category'],
+                    (string) $row['link_rewrite'],
+                    $idLang
+                ),
+            ];
+        }
+
+        // Kolejnosc z konfiguracji, nie z bazy — administrator ustawia priorytet.
+        if ($chosen) {
+            $out = [];
+            foreach ($chosen as $id) {
+                if (isset($byId[$id])) {
+                    $out[] = $byId[$id];
+                }
+                if (count($out) >= $limit) {
+                    break;
+                }
+            }
+
+            return $out;
+        }
+
+        return array_values($byId);
+    }
+
+    /**
+     * Skroty pod kaflami: strony katalogowe, blog i strony CMS wskazane
+     * w HBE_404_CMS (identyfikatory po przecinku). Tytuly stron CMS ida
+     * z bazy, wiec sa juz przetlumaczone.
+     *
+     * @return array<int,array{name:string,url:string}>
+     */
+    private function getNotFoundLinks(): array
+    {
+        $idLang = (int) $this->context->language->id;
+        $idShop = (int) $this->context->shop->id;
+        $link   = $this->context->link;
+        $out    = [];
+
+        foreach ([
+            'new-products' => 'New products',
+            'prices-drop'  => 'On sale',
+            'best-sales'   => 'Best sellers',
+        ] as $page => $label) {
+            $out[] = [
+                'name' => (string) $this->trans($label, [], 'Shop.Theme.Catalog'),
+                'url'  => $link->getPageLink($page, true, $idLang),
+            ];
+        }
+
+        if (Module::isEnabled('ph_simpleblog')) {
+            $out[] = [
+                'name' => 'Blog',
+                'url'  => $link->getModuleLink('ph_simpleblog', 'list', [], true, $idLang),
+            ];
+        }
+
+        $cmsIds = array_values(array_filter(array_map(
+            'intval',
+            explode(',', (string) Configuration::get(self::CONF_404_CMS))
+        )));
+
+        if ($cmsIds) {
+            $rows = Db::getInstance()->executeS(
+                'SELECT c.id_cms, cl.meta_title, cl.link_rewrite
+                 FROM ' . _DB_PREFIX_ . 'cms c
+                 INNER JOIN ' . _DB_PREFIX_ . 'cms_lang cl
+                     ON cl.id_cms = c.id_cms AND cl.id_lang = ' . $idLang . '
+                     AND cl.id_shop = ' . $idShop . '
+                 INNER JOIN ' . _DB_PREFIX_ . 'cms_shop cs
+                     ON cs.id_cms = c.id_cms AND cs.id_shop = ' . $idShop . '
+                 WHERE c.active = 1 AND c.id_cms IN (' . implode(',', $cmsIds) . ')'
+            );
+
+            $cmsById = [];
+            foreach ((array) $rows as $row) {
+                $cmsById[(int) $row['id_cms']] = [
+                    'name' => (string) $row['meta_title'],
+                    'url'  => $link->getCMSLink(
+                        (int) $row['id_cms'],
+                        (string) $row['link_rewrite'],
+                        null,
+                        $idLang
+                    ),
+                ];
+            }
+            foreach ($cmsIds as $id) {
+                if (isset($cmsById[$id]) && $cmsById[$id]['name'] !== '') {
+                    $out[] = $cmsById[$id];
+                }
+            }
+        }
+
+        $out[] = [
+            'name' => (string) $this->trans('Contact us', [], 'Shop.Theme.Global'),
+            'url'  => $link->getPageLink('contact', true, $idLang),
+        ];
+
+        return $out;
     }
 
     /** Logika progow rabatowych — jedna instancja na zadanie. */
