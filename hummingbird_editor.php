@@ -341,6 +341,15 @@ class Hummingbird_editor extends Module
     /** Czy cart_product ma kolumne quantity_fractional (pproperties). */
     private static $allStockFractionalColumn = null;
 
+    /** Ilosci zdjete z magazynu przez zamowienie tego koszyka (ten sam klucz). */
+    private static $allStockOrderedQuantities = [];
+
+    /** Czy order_detail ma kolumne product_quantity_fractional (pproperties). */
+    private static $allStockOrderFractionalColumn = null;
+
+    /** Czy z koszyka zlozono juz zamowienie (klucz: id koszyka). */
+    private static $allStockCartHasOrder = [];
+
     /**
      * Ceny jednostkowe SPRZED rabatu za calosc, zapamietane w hooku cenowym
      * (klucz: koszyk-produkt-wariant-podatek). Koszyk pokazuje z nich cene
@@ -438,7 +447,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.23.0';
+        $this->version = '1.23.1';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -2731,8 +2740,10 @@ class Hummingbird_editor extends Module
         }
 
         // SUM(quantity + quantity_remainder), z cache w pamieci — a wiec takze
-        // ulamki, ktorymi izpol sprzedaje tkaniny (6,2 m).
-        $stock = (float) StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop);
+        // ulamki, ktorymi izpol sprzedaje tkaniny (6,2 m). Plus to, co z magazynu
+        // zdjelo zamowienie zlozone juz z tego koszyka, inaczej bramka liczaca
+        // kwote po validateOrder() dostaje cene bez rabatu.
+        $stock = $this->allStockAvailableQuantity((int) $params['id_cart'], $idProduct, $idAttribute, $idShop);
         if ($stock <= 0 || $quantity + self::ALLSTOCK_EPSILON < $stock) {
             return;
         }
@@ -2767,7 +2778,7 @@ class Hummingbird_editor extends Module
             return false;
         }
 
-        $stock = (float) StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop);
+        $stock = $this->allStockAvailableQuantity($idCart, $idProduct, $idAttribute, $idShop);
         if ($stock <= 0) {
             return false;
         }
@@ -3060,6 +3071,92 @@ class Hummingbird_editor extends Module
         }
 
         return $cache[$idProduct];
+    }
+
+    /**
+     * Stan magazynowy widziany oczami tego koszyka.
+     *
+     * Zwykly stan plus to, co z magazynu zdjelo JUZ ZLOZONE zamowienie tego
+     * samego koszyka. Bez tej poprawki rabat znika miedzy podsumowaniem
+     * a kwota wyslana do bramki: Montonio (MontonioBeforePaymentOrderProcessing)
+     * najpierw robi validateOrder() — a to odejmuje stan — i dopiero potem
+     * liczy `grandTotal` przez `$cart->getOrderTotal()`. W tym drugim przeliczeniu
+     * stan jest juz zerowy, warunek "bierzesz calosc" nie zachodzi i klient
+     * dostaje do zaplaty cene bez rabatu.
+     *
+     * Objaw z 23.08.2026: zamowienie 18717 na 336,53 zl, a Montonio pobralo
+     * 354,24 zl — dokladnie 336,53 / 0,95.
+     *
+     * Zapytanie o zamowienia idzie dopiero wtedy, gdy sam stan nie wystarcza,
+     * wiec normalna sciezka koszyka nie placi za to ani jednym SELECT-em.
+     */
+    private function allStockAvailableQuantity(int $idCart, int $idProduct, int $idAttribute, ?int $idShop): float
+    {
+        $stock = (float) StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttribute, $idShop);
+        $quantity = $this->getAllStockCartQuantity($idCart, $idProduct, $idAttribute);
+
+        // Stan pokrywa koszyk — zamowienia jeszcze nie ma albo nic nie zdjelo.
+        if ($stock > 0 && $quantity + self::ALLSTOCK_EPSILON >= $stock) {
+            return $stock;
+        }
+
+        return $stock + $this->getAllStockOrderedQuantity($idCart, $idProduct, $idAttribute);
+    }
+
+    /**
+     * Ile tego produktu zdjelo z magazynu zamowienie zlozone z tego koszyka.
+     *
+     * Ilosc ulamkowa (tkaniny na centymetry) siedzi w `product_quantity_fractional`
+     * — kolumnie pproperties; sklep bez tego modulu ma tylko `product_quantity`.
+     */
+    private function getAllStockOrderedQuantity(int $idCart, int $idProduct, int $idAttribute): float
+    {
+        if ($idCart <= 0 || $idProduct <= 0) {
+            return 0.0;
+        }
+
+        $key = $idCart . '-' . $idProduct . '-' . $idAttribute;
+        if (array_key_exists($key, self::$allStockOrderedQuantities)) {
+            return self::$allStockOrderedQuantities[$key];
+        }
+
+        // Jedno pytanie na koszyk, nie na pozycje: koszyk bez zamowienia
+        // (czyli kazdy, ktory klient wlasnie oglada) konczy tutaj.
+        // BEZ `LIMIT 1` w zapytaniu — Db::getValue() idzie przez getRow(),
+        // ktore doklada wlasny LIMIT; drugi w zapytaniu to blad skladni,
+        // a metoda oddaje wtedy po cichu false.
+        if (!array_key_exists($idCart, self::$allStockCartHasOrder)) {
+            self::$allStockCartHasOrder[$idCart] = (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
+                'SELECT `id_order` FROM `' . _DB_PREFIX_ . 'orders` WHERE `id_cart` = ' . $idCart
+            );
+        }
+        if (!self::$allStockCartHasOrder[$idCart]) {
+            self::$allStockOrderedQuantities[$key] = 0.0;
+
+            return 0.0;
+        }
+
+        if (self::$allStockOrderFractionalColumn === null) {
+            self::$allStockOrderFractionalColumn = (bool) Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
+                'SHOW COLUMNS FROM `' . _DB_PREFIX_ . 'order_detail` LIKE \'product_quantity_fractional\''
+            );
+        }
+
+        $column = self::$allStockOrderFractionalColumn
+            ? 'IF(od.`product_quantity_fractional` > 0, od.`product_quantity_fractional`, od.`product_quantity`)'
+            : 'od.`product_quantity`';
+
+        $quantity = (float) Db::getInstance(_PS_USE_SQL_SLAVE_)->getValue(
+            'SELECT SUM(' . $column . ') FROM `' . _DB_PREFIX_ . 'order_detail` od'
+            . ' INNER JOIN `' . _DB_PREFIX_ . 'orders` o ON o.`id_order` = od.`id_order`'
+            . ' WHERE o.`id_cart` = ' . $idCart
+            . ' AND od.`product_id` = ' . $idProduct
+            . ' AND od.`product_attribute_id` = ' . $idAttribute
+        );
+
+        self::$allStockOrderedQuantities[$key] = $quantity;
+
+        return $quantity;
     }
 
     private function getAllStockCartQuantity(int $idCart, int $idProduct, int $idAttribute): float
