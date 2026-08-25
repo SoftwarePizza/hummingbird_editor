@@ -175,6 +175,18 @@ class Hummingbird_editor extends Module
      */
     const FOOTER_BLOCK_ROWS = 10;
 
+    /**
+     * Pola, po ktorych wolno sortowac listing (parametr `order` w adresie).
+     * Wszystko spoza listy jest kasowane z zadania — patrz
+     * hookActionFrontControllerInitBefore(). Lista celowo szersza niz to, co
+     * oferuje motyw: obejmuje sorty, ktore potrafia wystawic moduly (as4, SEO).
+     */
+    private const SORT_FIELDS = [
+        'position', 'name', 'price', 'reference', 'quantity',
+        'date_add', 'date_upd', 'sales', 'manufacturer_name',
+        'id_product', 'ean13', 'upc', 'condition', 'new',
+    ];
+
     /** How the free-shipping threshold shown on the cart progress bar is resolved. */
     public const FREE_SHIPPING_MODE_AUTO   = 'auto';
     public const FREE_SHIPPING_MODE_MANUAL = 'manual';
@@ -447,7 +459,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.23.1';
+        $this->version = '1.23.2';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -884,6 +896,7 @@ class Hummingbird_editor extends Module
         return parent::install()
             && $this->createTables()
             && $this->createImgDir()
+            && $this->registerHook('actionFrontControllerInitBefore')
             && $this->registerHook('actionFrontControllerSetMedia')
             && $this->registerHook('displayAfterBodyOpeningTag')
             && $this->registerHook('displayHome')
@@ -1854,6 +1867,53 @@ class Hummingbird_editor extends Module
             Configuration::updateValue(self::footerLinkKey($slot, 'url'), $urls, true);
             Configuration::updateValue(self::footerLinkKey($slot, 'url'), reset($urls));
         }
+    }
+
+    /**
+     * Sortowanie listingu: sanityzacja parametru `order` z adresu.
+     *
+     * Rdzen bierze `order` prosto z URL-a i podaje do SortOrder::newFromString()
+     * (ProductListingFrontController::getProductSearchVariables, ~332). Wartosc
+     * spoza schematu `encja.pole.kierunek` konczy sie NIEPRZECHWYCONYM wyjatkiem,
+     * czyli biala strona 500 na listingu — a boty wolaja np. ?order=414910502.
+     * Trzy warianty, kazdy sprawdzony na dev i produkcji:
+     *   ?order=414910502          -> CoreException "Invalid argument" (zly ksztalt)
+     *   ?order=product.name.bogus -> InvalidSortOrderDirectionException (zly kierunek)
+     *   ?order=product.bogus.asc  -> ksztalt dobry, ale ORDER BY po nieistniejacej
+     *                                kolumnie; pod PHP 8 zly SQL rzuca wyjatkiem
+     *                                (PDO ERRMODE_EXCEPTION) i tez wychodzi 500
+     * Zamiast tego kasujemy parametr — listing renderuje sie w domyslnej kolejnosci,
+     * czyli dokladnie tak, jak przy zwyklym wejsciu bez sortowania.
+     *
+     * Hook stoi na samym poczatku FrontController::init(), wiec przed initContent()
+     * i takze przy zadaniach ajaksowych listingu (setMedia przy ajax=1 nie leci).
+     */
+    public function hookActionFrontControllerInitBefore(array $params = []): void
+    {
+        $order = Tools::getValue('order');
+        if ($order === false || $order === null || $order === '') {
+            return;
+        }
+        if (is_string($order) && self::isValidSortOrder($order)) {
+            return;
+        }
+
+        unset($_GET['order'], $_POST['order'], $_REQUEST['order']);
+    }
+
+    /** Czy `order` z adresu jest czyms, co rdzen bezpiecznie przelknie. */
+    private static function isValidSortOrder(string $order): bool
+    {
+        $parts = explode('.', $order);
+        if (count($parts) !== 3) {
+            return false;
+        }
+
+        [$entity, $field, $direction] = $parts;
+
+        return $entity === 'product'
+            && in_array($field, self::SORT_FIELDS, true)
+            && in_array(strtolower($direction), ['asc', 'desc', 'random'], true);
     }
 
     public function hookActionFrontControllerSetMedia(): void
