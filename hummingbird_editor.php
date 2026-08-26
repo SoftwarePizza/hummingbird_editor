@@ -1738,7 +1738,7 @@ class Hummingbird_editor extends Module
             $folder = Image::getImgFolderStatic($idImage);
 
             foreach (['jpg', 'png', 'webp'] as $ext) {
-                $file = _PS_PROD_IMG_DIR_ . $folder . $idImage . '.' . $ext;
+                $file = _PS_IMG_DIR_ . 'p/' . $folder . $idImage . '.' . $ext;
                 if (!is_file($file)) {
                     continue;
                 }
