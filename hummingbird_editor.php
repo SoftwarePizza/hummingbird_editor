@@ -459,7 +459,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.23.2';
+        $this->version = '1.23.3';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -909,6 +909,7 @@ class Hummingbird_editor extends Module
             && $this->registerHook('actionPresentCart')
             && $this->registerHook('actionProductPriceCalculation')
             && $this->registerHook('actionCartUpdateQuantityBefore')
+            && $this->registerHook('actionValidateOrder')
             && $this->registerHook('displayHbeTiers')
             && $this->registerHook('displayNotFound')
             && $this->registerHook('displayAfterTitleTag')
@@ -3214,6 +3215,17 @@ class Hummingbird_editor extends Module
             . ' AND od.`product_attribute_id` = ' . $idAttribute
         );
 
+        // Zamowienie jest, a pozycji brak? To okno W SRODKU validateOrder():
+        // wiersz ps_orders juz stoi i stan jest zdjety, ale order_detail
+        // dopiero powstaje (hooki stanow licza w tym oknie ceny). Zapamietanie
+        // zera na reszte zadania kasowaloby rabat w kwocie liczonej dla bramki
+        // po validateOrder (zamowienia 18717, 18734, 18769) — wynik oddajemy,
+        // ale go NIE cache'ujemy; nastepne wywolanie zapyta na swiezo,
+        // juz z widocznymi pozycjami.
+        if ($quantity <= 0) {
+            return $quantity;
+        }
+
         self::$allStockOrderedQuantities[$key] = $quantity;
 
         return $quantity;
@@ -3250,6 +3262,19 @@ class Hummingbird_editor extends Module
         self::$allStockCartQuantities[$key] = $quantity;
 
         return $quantity;
+    }
+
+    /**
+     * Zamowienie wlasnie powstalo: wszystko, co hook cenowy zdazyl zapamietac
+     * o zamowieniach tego koszyka, jest z czasu SPRZED zamowienia (hasOrder
+     * potrafi byc false, a suma pozycji zerowa — patrz okno w
+     * getAllStockOrderedQuantity). Bramki placa kwota liczona zaraz po
+     * validateOrder, wiec te wpisy musza zniknac.
+     */
+    public function hookActionValidateOrder($params)
+    {
+        self::$allStockCartHasOrder = [];
+        self::$allStockOrderedQuantities = [];
     }
 
     /** Zmiana ilosci w koszyku uniewaznia zapamietane ilosci (patrz wyzej). */
