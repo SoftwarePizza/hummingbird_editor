@@ -125,6 +125,9 @@
       <a href="#hbe-tab-footer" data-toggle="tab" role="tab"><i class="icon-align-justify"></i> {l s='Stopka' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
+      <a href="#hbe-tab-theme" data-toggle="tab" role="tab"><i class="icon-magic"></i> {l s='Treści motywu' mod='hummingbird_editor'}</a>
+    </li>
+    <li role="presentation">
       <a href="#hbe-tab-giftcard" data-toggle="tab" role="tab"><i class="icon-gift"></i> {l s='Karta podarunkowa' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
@@ -1293,6 +1296,24 @@
         </span>
       </div>
 
+      {if $hbe_theme_sections}
+      <div class="hbe-add-theme-section" style="padding:8px 12px;border-bottom:1px solid #eee;background:#fafafa">
+        <i class="icon-magic"></i>
+        <label style="margin:0 6px 0 4px;font-weight:600">{l s='Dodaj sekcję motywu:' mod='hummingbird_editor'}</label>
+        <select id="hbe-theme-section-slug" class="form-control input-sm" style="display:inline-block;width:auto;max-width:360px;vertical-align:middle">
+          {foreach from=$hbe_theme_sections key=tslug item=tsec}
+          <option value="{$tslug|escape:'html':'UTF-8'}">{$tsec.label|escape:'html':'UTF-8'}</option>
+          {/foreach}
+        </select>
+        <select id="hbe-theme-section-hook" class="form-control input-sm" style="display:inline-block;width:auto;vertical-align:middle" title="{l s='Miejsce (hook)' mod='hummingbird_editor'}">
+          {foreach from=$hbe_theme_hooks item=thook}
+          <option value="{$thook}">{$thook}</option>
+          {/foreach}
+        </select>
+        <button type="button" class="btn btn-default btn-sm" id="hbe-add-theme-section"><i class="icon-plus"></i> {l s='Dodaj' mod='hummingbird_editor'}</button>
+        <span class="text-muted" style="font-size:0.85em;margin-left:8px">{l s='Sekcje zdefiniowane w motywie (hbe/sections). Nowa sekcja startuje z treścią domyślną.' mod='hummingbird_editor'}</span>
+      </div>
+      {/if}
       <ul class="hbe-sortable list-unstyled" data-hook="displayHome">
       {foreach from=$hbe_home_ordered item=hbItem}
         {if $hbItem.kind === 'static'}
@@ -2546,6 +2567,77 @@
       </div>
 
     </div>{* /tab-footer *}
+    {* ═══════════════════════════════════════════════════════════════════════
+       Tab — Treści motywu (pola ze schematu themes/<motyw>/hbe/fields.json + okładki stron CMS)
+    ═══════════════════════════════════════════════════════════════════════ *}
+    <div id="hbe-tab-theme" class="tab-pane" role="tabpanel">
+      {if $hbe_theme_fields}
+      <form id="hbe-theme-fields-form" method="post" action="{$hbe_ajax_url nofilter}" enctype="multipart/form-data" autocomplete="off">
+        <input type="hidden" name="token" value="{$hbe_token}">
+        <p class="text-muted" style="margin-bottom:1rem">{l s='Teksty i zdjęcia motywu spoza sekcji strony głównej: stopka, newsletter, kontakt, strony działów, 404. Puste pole = pusto na stronie.' mod='hummingbird_editor'}</p>
+        {foreach from=$hbe_theme_fields.groups item=tfg}
+        <div class="panel panel-default hbe-collapse-panel">
+          <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-tfg-{$tfg.key|escape:'html':'UTF-8'}">
+            <h4 class="panel-title clearfix">
+              {$tfg.label|escape:'html':'UTF-8'}
+              <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+            </h4>
+          </div>
+          <div id="hbe-tfg-{$tfg.key|escape:'html':'UTF-8'}" class="panel-collapse collapse in">
+            <div class="panel-body">
+              {if $tfg.help}<p class="text-muted" style="margin-bottom:1rem">{$tfg.help|escape:'html':'UTF-8'}</p>{/if}
+              <div class="row">
+                {include file="{$hbe_tpl_dir}_theme_fields.tpl" nodes=$tfg.tree}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/foreach}
+
+        {if $hbe_cms_covers}
+        <div class="panel panel-default hbe-collapse-panel">
+          <div class="panel-heading hbe-cp-head" data-toggle="collapse" data-target="#hbe-tfg-covers">
+            <h4 class="panel-title clearfix">
+              {l s='Okładki stron (zdjęcie w nagłówku strony działu i podstrony)' mod='hummingbird_editor'}
+              <span class="pull-right"><i class="icon-chevron-down hbe-chevron hbe-chevron-open"></i></span>
+            </h4>
+          </div>
+          <div id="hbe-tfg-covers" class="panel-collapse collapse in">
+            <div class="panel-body">
+              <p class="text-muted" style="margin-bottom:1rem">{l s='Zdjęcie zapisuje się jako img/cms/<adres-strony>.jpg (proporcje ok. 5:2, min. 1600 px). Bez okładki nagłówek strony jest pusty.' mod='hummingbird_editor'}</p>
+              <div class="row">
+                {foreach from=$hbe_cms_covers item=cover}
+                <div class="col-md-3 form-group">
+                  <label class="control-label">
+                    <span class="label label-{if $cover.kind == 'category'}primary{else}default{/if}">{if $cover.kind == 'category'}{l s='dział' mod='hummingbird_editor'}{else}{l s='strona' mod='hummingbird_editor'}{/if}</span>
+                    {$cover.name|escape:'html':'UTF-8'}
+                  </label>
+                  <div class="hbe-tf-preview"{if !$cover.url} style="display:none"{/if}>
+                    <img src="{$cover.url|escape:'html':'UTF-8'}" data-hbe-cover-img="{$cover.input}" alt="" style="max-width:100%;max-height:120px;border:1px solid #ddd;border-radius:3px">
+                  </div>
+                  {if $cover.rewrite}
+                  <input type="file" name="{$cover.input}" accept="image/jpeg,image/png,image/webp" class="form-control">
+                  <p class="help-block" style="margin:2px 0 0"><code>img/cms/{$cover.rewrite|escape:'html':'UTF-8'}.jpg</code></p>
+                  {/if}
+                </div>
+                {/foreach}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/if}
+
+        <div class="form-group hbe-save-row">
+          <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz treści motywu' mod='hummingbird_editor'}</button>
+          <span class="hbe-save-status text-success" style="display:none;margin-left:8px"><i class="icon-check"></i> {l s='Saved' mod='hummingbird_editor'}</span>
+        </div>
+        <div class="hbe-alerts"></div>
+      </form>
+      {else}
+      <div class="alert alert-info">{l s='Motyw nie definiuje pól globalnych (brak pliku hbe/fields.json w motywie).' mod='hummingbird_editor'}</div>
+      {/if}
+    </div>{* /tab-theme *}
+
     <div id="hbe-tab-settings" class="tab-pane" role="tabpanel">
 
       <div class="panel panel-default hbe-collapse-panel">

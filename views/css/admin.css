@@ -654,3 +654,11 @@
   color: #7a6420;
   font-size: 13px;
 }
+
+/* ── Sekcje motywu / Treści motywu (formularze ze schematu) ── */
+.hbe-tf-group { margin: 4px 0 14px; padding: 10px 12px 4px; border: 1px solid #e3e3e3; border-radius: 3px; background: #fcfcfc; }
+.hbe-tf-group__label { font-weight: 600; margin-bottom: 6px; }
+.hbe-tf-row { border: 0; padding: 0; margin: 0 0 4px; }
+.hbe-tf-row legend { font-size: 12px; color: #777; border: 0; margin: 4px 0 2px; padding: 0; width: auto; }
+.hbe-tf-preview { margin-bottom: 6px; }
+.hbe-theme-form .form-group { margin-bottom: 12px; }

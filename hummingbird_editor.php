@@ -14,6 +14,7 @@ if (!defined('_PS_VERSION_')) {
 
 require_once __DIR__ . '/classes/HbEditorConfig.php';
 require_once __DIR__ . '/classes/HbEditorBlock.php';
+require_once __DIR__ . '/classes/HbEditorThemeSection.php';
 require_once __DIR__ . '/classes/HbEditorSlide.php';
 require_once __DIR__ . '/classes/HbEditorCarouselCache.php';
 require_once __DIR__ . '/classes/HbEditorDiscountTiers.php';
@@ -459,7 +460,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.24.0';
+        $this->version = '1.25.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -1934,6 +1935,9 @@ class Hummingbird_editor extends Module
 
         // Footer social icons — the theme's ps_contactinfo override renders them.
         $this->context->smarty->assign('hbe_social_links', $this->getSocialLinks());
+
+        // Teksty i zdjecia globalne motywu („Tresci motywu”, schemat themes/<motyw>/hbe/fields.json).
+        $this->context->smarty->assign('hbe_theme', HbEditorThemeSection::globalValues($this));
 
         // Pasek prawny na dole stopki — renderuje go motyw (_partials/footer.tpl).
         $this->context->smarty->assign('hbe_footer_links', $this->getFooterLegalLinks());
@@ -5909,6 +5913,10 @@ class Hummingbird_editor extends Module
         };
 
         switch ($type) {
+            case HbEditorThemeSection::STYPE:
+                // Sekcja motywu: pola ze schematu JSON, szablon themes/<motyw>/hbe/sections/<slug>.tpl.
+                return HbEditorThemeSection::render($this, $block, $sd);
+
             case HbEditorBlock::STYPE_INFOBAR:
                 $text = $lang('text', $idLang);
                 if ($text === '') {
@@ -6119,6 +6127,17 @@ class Hummingbird_editor extends Module
      *
      * @return array{url:string,webp_url:string}
      */
+    /**
+     * Adresy zdjecia z img/hb_editor (url + webp_url) — publiczne dla sekcji motywu
+     * (HbEditorThemeSection) i skryptow pomocniczych.
+     *
+     * @return array{url:string,webp_url:string}
+     */
+    public function hbeImageSources(string $filename): array
+    {
+        return $this->resolveHbEditorImageSources($filename);
+    }
+
     private function resolveHbEditorImageSources(string $filename): array
     {
         $filename = trim($filename);

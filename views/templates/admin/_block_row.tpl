@@ -12,7 +12,7 @@
 
           {if $block.section_type}
           <span class="hbe-type-badge" style="background:#fff3e0;color:#7a4200;border-color:#ffcc80">
-            <i class="icon-copy"></i> {l s='Sekcja:' mod='hummingbird_editor'} <strong>{$block.section_type|escape:'html':'UTF-8'}</strong>
+            {if $block.section_type == 'theme'}<i class="icon-magic"></i> {l s='Sekcja motywu:' mod='hummingbird_editor'} <strong>{if isset($block.theme_cfg) && $block.theme_cfg}{$block.theme_cfg.label|escape:'html':'UTF-8'}{else}?{/if}</strong>{else}<i class="icon-copy"></i> {l s='Sekcja:' mod='hummingbird_editor'} <strong>{$block.section_type|escape:'html':'UTF-8'}</strong>{/if}
           </span>
           {else}
           <span class="hbe-type-badge hbe-type-{$block.type}">
@@ -60,7 +60,7 @@
         {if $block.section_type}
         <div id="hbe-edit-panel-{$block.id_block}" class="hbe-edit-panel hbe-section-panel" style="display:none">
           <form class="hbe-section-edit-form" data-id="{$block.id_block}"
-                data-section-type="{$block.section_type|escape:'html':'UTF-8'}" autocomplete="off">
+                data-section-type="{$block.section_type|escape:'html':'UTF-8'}" enctype="multipart/form-data" autocomplete="off">
             <input type="hidden" name="token" value="{$hbe_token}">
             <input type="hidden" name="id_block" value="{$block.id_block}">
             <div class="row hbe-edit-general" style="margin-bottom:12px">
@@ -74,7 +74,9 @@
               <div class="col-md-9">
                 <div class="alert alert-info" style="margin:0;padding:8px 12px;font-size:0.85em">
                   <i class="icon-info-sign"></i>
-                  {if $block.section_type == 'products'}
+                  {if $block.section_type == 'theme' && isset($block.theme_cfg) && $block.theme_cfg}
+                    {if $block.theme_cfg.help}{$block.theme_cfg.help|escape:'html':'UTF-8'}{else}{l s='Sekcja zdefiniowana w motywie — wypełnij pola i zapisz.' mod='hummingbird_editor'}{/if}
+                  {elseif $block.section_type == 'products'}
                     {l s='Karuzela produktów z kategorii. Pola poniżej składają się w dane sekcji przy zapisie.' mod='hummingbird_editor'}
                   {else}
                     {l s='Zduplikowana sekcja. Edytuj dane JSON poniżej.' mod='hummingbird_editor'}
@@ -84,7 +86,14 @@
               </div>
             </div>
 
-            {if $block.section_type == 'products' && isset($block.products_cfg)}
+            {if $block.section_type == 'theme' && isset($block.theme_cfg) && $block.theme_cfg}
+            {* ── Sekcja motywu: formularz ze schematu JSON (HbEditorThemeSection) ── *}
+            <div class="hbe-theme-form">
+              <div class="row">
+                {include file="{$hbe_tpl_dir}_theme_fields.tpl" nodes=$block.theme_cfg.tree}
+              </div>
+            </div>
+            {elseif $block.section_type == 'products' && isset($block.products_cfg)}
             {* ── Karuzela produktowa: zwykły formularz zamiast surowego JSON-a ── *}
             {* Oryginał wędruje z formularzem, żeby zapis nie gubił kluczy, których
                formularz nie pokazuje (np. "zrodlo" po migracji z multislidera). *}

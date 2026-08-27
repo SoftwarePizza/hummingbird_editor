@@ -131,6 +131,10 @@ class AdminHbEditorController extends ModuleAdminController
             if (($b['section_type'] ?? '') === HbEditorBlock::STYPE_PRODUCTS) {
                 $b['products_cfg'] = $this->parseProductsSection((string) $b['section_data'], $languages);
             }
+            // Sekcja motywu: formularz ze schematu (null = schemat zniknal z motywu → surowy JSON).
+            if (($b['section_type'] ?? '') === HbEditorThemeSection::STYPE) {
+                $b['theme_cfg'] = $this->themeSectionCfg((string) $b['section_data'], $languages);
+            }
         }
         unset($b);
 
@@ -274,6 +278,10 @@ class AdminHbEditorController extends ModuleAdminController
 
         $this->context->smarty->assign([
             'hbe_grouped'           => $grouped,
+            'hbe_theme_sections'    => HbEditorThemeSection::listSections(),
+            'hbe_theme_hooks'       => HbEditorThemeSection::HOOKS,
+            'hbe_theme_fields'      => $this->themeFieldsCfg($languages),
+            'hbe_cms_covers'        => HbEditorThemeSection::cmsCovers((int) $this->context->language->id, (int) $this->context->shop->id),
             'hbe_home_ordered'      => $homeOrderedItems,
             'hbe_available_modules' => $availableModulesClean,
             'hbe_languages'      => $languages,
@@ -1497,6 +1505,167 @@ class AdminHbEditorController extends ModuleAdminController
         $this->module->ensureHookRegistered('displayHome');
 
         $this->hbeAjaxDie(json_encode(['success' => true, 'id_block' => $newId]));
+    }
+
+    /* ── Sekcje motywu i „Tresci motywu” (HbEditorThemeSection) ─────────── */
+
+    /**
+     * Dane formularza sekcji motywu: etykieta, pomoc i drzewo pol z wartosciami
+     * (null = schemat zniknal z motywu → panel pokazuje surowy JSON).
+     *
+     * @param array<int,array<string,mixed>> $languages
+     */
+    private function themeSectionCfg(string $json, array $languages): ?array
+    {
+        $sd = json_decode($json, true);
+        if (!is_array($sd)) {
+            $sd = [];
+        }
+        $schema = HbEditorThemeSection::loadSchema((string) ($sd['slug'] ?? ''));
+        if (!$schema) {
+            return null;
+        }
+
+        return [
+            'slug'  => $schema['slug'],
+            'label' => $schema['label'],
+            'help'  => $schema['help'],
+            'tree'  => HbEditorThemeSection::formTree($schema['fields'], $sd, $languages, $this->module),
+        ];
+    }
+
+    /**
+     * Grupy pol globalnych motywu z drzewami do formularza (null = motyw bez fields.json).
+     *
+     * @param array<int,array<string,mixed>> $languages
+     */
+    private function themeFieldsCfg(array $languages): ?array
+    {
+        $schema = HbEditorThemeSection::loadFieldsSchema();
+        if (!$schema) {
+            return null;
+        }
+        $data   = HbEditorThemeSection::globalData();
+        $groups = [];
+        foreach ($schema['groups'] as $g) {
+            $groups[] = [
+                'key'   => $g['key'],
+                'label' => $g['label'],
+                'help'  => $g['help'],
+                'tree'  => HbEditorThemeSection::formTree($g['fields'], $data, $languages, $this->module),
+            ];
+        }
+
+        return ['groups' => $groups];
+    }
+
+    /** AJAX: nowy blok sekcji motywu (tresc domyslna ze schematu) w wybranym hooku. */
+    public function ajaxProcessAddThemeSection(): void
+    {
+        $slug     = trim((string) Tools::getValue('slug'));
+        $hookName = preg_replace('/[^a-zA-Z0-9_]/', '', (string) Tools::getValue('hook_name', 'displayHome'));
+        $schema   = HbEditorThemeSection::loadSchema($slug);
+        if (!$schema || $hookName === '') {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Nieznana sekcja motywu']));
+        }
+
+        $newId = HbEditorBlock::create([
+            'hook_name'    => $hookName,
+            'type'         => 'text',
+            'section_type' => HbEditorThemeSection::STYPE,
+            'section_data' => json_encode(['slug' => $slug, 'langs' => [], 'files' => []], JSON_UNESCAPED_UNICODE),
+            'active'       => 1,
+            'position'     => HbEditorBlock::getNextPosition($hookName),
+        ]);
+        if (!$newId) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'DB error']));
+        }
+        HbEditorBlock::setShops($newId, [(int) Context::getContext()->shop->id]);
+
+        if ($hookName === 'displayHome') {
+            $orderRaw     = (string) (Configuration::get('HBE_HOME_ORDER') ?: 'infobar,imghero,cols3,tagline');
+            $orderParts   = array_filter(array_map('trim', explode(',', $orderRaw)));
+            $orderParts[] = (string) $newId;
+            Configuration::updateValue('HBE_HOME_ORDER', implode(',', $orderParts));
+        }
+        $this->module->ensureHookRegistered($hookName);
+
+        $this->hbeAjaxDie(json_encode(['success' => true, 'id_block' => $newId]));
+    }
+
+    /** AJAX: zapis pol sekcji motywu (multipart — teksty per jezyk + zdjecia). */
+    public function ajaxProcessSaveThemeSection(): void
+    {
+        $idBlock = (int) Tools::getValue('id_block');
+        $block   = $idBlock ? HbEditorBlock::getById($idBlock) : null;
+        if (!$block || ($block['section_type'] ?? '') !== HbEditorThemeSection::STYPE) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Block not found or not a theme section']));
+        }
+        $sd = json_decode((string) $block['section_data'], true);
+        if (!is_array($sd)) {
+            $sd = [];
+        }
+        $slug   = (string) ($sd['slug'] ?? '');
+        $schema = HbEditorThemeSection::loadSchema($slug);
+        if (!$schema) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Brak schematu sekcji w motywie (hbe/sections/' . $slug . '.json)']));
+        }
+
+        $languages  = Language::getLanguages(true);
+        $errors     = [];
+        $leaves     = HbEditorThemeSection::flatten($schema['fields']);
+        $sd         = HbEditorThemeSection::collect($leaves, $sd, $languages, $slug, $errors);
+        $sd['slug'] = $slug;
+
+        HbEditorBlock::update($idBlock, [
+            'active'       => (int) Tools::getValue('active', 0),
+            'section_data' => json_encode($sd, JSON_UNESCAPED_UNICODE),
+        ]);
+        $shopIds = Tools::getValue('shop_ids', []);
+        if ($shopIds) {
+            HbEditorBlock::setShops($idBlock, (array) $shopIds);
+        }
+
+        $this->hbeAjaxDie(json_encode([
+            'success' => true,
+            'warning' => $errors ? implode('<br>', array_map('htmlspecialchars', $errors)) : '',
+            'files'   => HbEditorThemeSection::fileUrls($leaves, $sd, $this->module),
+        ]));
+    }
+
+    /** AJAX: zapis „Tresci motywu” (pola globalne) i okladek stron CMS. */
+    public function ajaxProcessSaveThemeFields(): void
+    {
+        $schema = HbEditorThemeSection::loadFieldsSchema();
+        if (!$schema) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Motyw nie ma pliku hbe/fields.json']));
+        }
+        $languages = Language::getLanguages(true);
+        $errors    = [];
+        $data      = HbEditorThemeSection::globalData();
+        $leaves    = [];
+        foreach ($schema['groups'] as $g) {
+            foreach (HbEditorThemeSection::flatten($g['fields']) as $leaf) {
+                $leaves[] = $leaf;
+            }
+        }
+        $data = HbEditorThemeSection::collect($leaves, $data, $languages, 'global', $errors);
+        HbEditorThemeSection::saveGlobalData($data);
+
+        $covers = [];
+        foreach (HbEditorThemeSection::cmsCovers((int) $this->context->language->id, (int) $this->context->shop->id) as $cover) {
+            $url = HbEditorThemeSection::saveCmsCover($cover['input'], $cover['rewrite'], $cover['name'], $errors);
+            if ($url !== null) {
+                $covers[$cover['input']] = $url;
+            }
+        }
+
+        $this->hbeAjaxDie(json_encode([
+            'success' => true,
+            'warning' => $errors ? implode('<br>', array_map('htmlspecialchars', $errors)) : '',
+            'files'   => HbEditorThemeSection::fileUrls($leaves, $data, $this->module),
+            'covers'  => $covers,
+        ]));
     }
 
     /* ── AJAX: save section block data (JSON editor) ────────────────────── */

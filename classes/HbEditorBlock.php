@@ -26,6 +26,8 @@ class HbEditorBlock
     const STYPE_BRANDS     = 'brands';
     /** Karuzela produktow z kategorii — funkcjonalnosc przeniesiona z modulu multislider. */
     const STYPE_PRODUCTS   = 'products';
+    /** Sekcja motywu: pola ze schematu JSON w themes/<motyw>/hbe/sections/<slug>.json (HbEditorThemeSection). */
+    const STYPE_THEME      = 'theme';
 
     public static function getTypes(): array
     {
@@ -45,6 +47,7 @@ class HbEditorBlock
             self::STYPE_ICONS4,
             self::STYPE_BRANDS,
             self::STYPE_PRODUCTS,
+            self::STYPE_THEME,
         ];
     }
 
@@ -292,6 +295,17 @@ class HbEditorBlock
                         }
                     }
                     unset($langImgs);
+                }
+                // sekcja motywu: zdjecia pol w mapie files (sciezka pola => plik)
+                if (!empty($sd['files']) && is_array($sd['files'])) {
+                    foreach ($sd['files'] as $filePath => $fileName) {
+                        if (!empty($fileName)) {
+                            $copied = $copyImg((string) $fileName);
+                            if ($copied) {
+                                $sd['files'][$filePath] = $copied;
+                            }
+                        }
+                    }
                 }
                 $newSectionData = json_encode($sd, JSON_UNESCAPED_UNICODE);
             }

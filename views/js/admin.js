@@ -1096,6 +1096,94 @@ $(function () {
         });
     });
 
+    /* ── Sekcje motywu / Treści motywu ─────────────────────────────────── */
+    // Po zapisie: nowe adresy zdjęć w podglądach, wyczyszczone pola plików i checkboxy „usuń”.
+    function hbeApplyThemeFiles($form, files) {
+        if (files) {
+            $.each(files, function (path, url) {
+                var $img = $form.find('[data-hbe-tf-img="' + path + '"]');
+                if (!$img.length) { return; }
+                var $wrap = $img.closest('.hbe-tf-preview');
+                var $del  = $wrap.siblings('.hbe-tf-del');
+                if (url) {
+                    $img.attr('src', url);
+                    $wrap.show();
+                    $del.show();
+                } else {
+                    $wrap.hide();
+                    $del.hide();
+                }
+            });
+        }
+        $form.find('input[type=file]').val('');
+        $form.find('[name^="tfdel["]').prop('checked', false);
+    }
+
+    $(document).on('click', '#hbe-add-theme-section', function () {
+        var $btn = $(this).prop('disabled', true);
+        $.ajax({
+            url: hbeAjaxUrl + 'action=AddThemeSection&ajax=1',
+            type: 'POST',
+            data: {
+                slug: $('#hbe-theme-section-slug').val(),
+                hook_name: $('#hbe-theme-section-hook').val(),
+                token: hbeToken
+            },
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    setTimeout(function () { window.location.reload(); }, 600);
+                } else {
+                    showGlobalError((resp && resp.error) || hbeTrans.error);
+                    $btn.prop('disabled', false);
+                }
+            },
+            error: function () {
+                showGlobalError(hbeTrans.error);
+                $btn.prop('disabled', false);
+            }
+        });
+    });
+
+    $(document).on('submit', '#hbe-theme-fields-form', function (e) {
+        e.preventDefault();
+        var $form   = $(this);
+        var $status = $form.find('.hbe-save-status');
+        var $alerts = $form.find('.hbe-alerts');
+        $alerts.empty();
+        var fd = new FormData($form[0]);
+        fd.append('action', 'SaveThemeFields');
+        fd.append('ajax', '1');
+        $.ajax({
+            url: hbeAjaxUrl,
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    $status.show().delay(2500).fadeOut();
+                    hbeApplyThemeFiles($form, resp.files);
+                    if (resp.covers) {
+                        $.each(resp.covers, function (input, url) {
+                            var $img = $form.find('[data-hbe-cover-img="' + input + '"]');
+                            $img.attr('src', url).closest('.hbe-tf-preview').show();
+                        });
+                    }
+                    if (resp.warning) {
+                        $alerts.html('<div class="alert alert-warning">' + resp.warning + '</div>');
+                    }
+                } else {
+                    showGlobalError((resp && resp.error) || hbeTrans.error);
+                }
+            },
+            error: function () { showGlobalError(hbeTrans.error); }
+        });
+    });
+
     /* ── Brands: live logo preview on manufacturer change ───────────────── */
     $(document).on('change', '.hbe-brand-manu', function () {
         var slot = $(this).data('slot');
@@ -1149,6 +1237,37 @@ $(function () {
         var $status = $panel.find('.hbe-save-status');
         var $alerts = $panel.find('.hbe-alerts');
         $alerts.empty();
+
+        // Sekcja motywu: pola per język + zdjęcia → multipart do SaveThemeSection.
+        if ($form.data('section-type') === 'theme') {
+            var tfd = new FormData($form[0]);
+            if (!$form.find('[name=active]').is(':checked')) { tfd.set('active', '0'); }
+            tfd.append('action', 'SaveThemeSection');
+            tfd.append('ajax', '1');
+            $.ajax({
+                url: hbeAjaxUrl,
+                type: 'POST',
+                data: tfd,
+                processData: false,
+                contentType: false,
+                dataType: 'json',
+                success: function (resp) {
+                    if (resp && resp.success) {
+                        $status.show().delay(2500).fadeOut();
+                        hbeApplyThemeFiles($form, resp.files);
+                        if (resp.warning) {
+                            $alerts.html('<div class="alert alert-warning">' + resp.warning + '</div>');
+                        }
+                    } else {
+                        $alerts.html('<div class="alert alert-danger">' + (resp && resp.error ? resp.error : hbeTrans.error) + '</div>');
+                    }
+                },
+                error: function () {
+                    $alerts.html('<div class="alert alert-danger">' + hbeTrans.error + '</div>');
+                }
+            });
+            return;
+        }
 
         var data = $form.serializeArray();
 
