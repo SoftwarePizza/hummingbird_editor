@@ -97,7 +97,12 @@
 
   {* ── Main section tabs ───────────────────────────────────────────────── *}
   <ul class="nav nav-tabs hbe-main-tabs" role="tablist">
+    {if $hbe_panel}
     <li role="presentation" class="active">
+      <a href="#hbe-tab-panel" data-toggle="tab" role="tab"><i class="icon-star"></i> <strong>{$hbe_panel.label|escape:'html':'UTF-8'}</strong></a>
+    </li>
+    {/if}
+    <li role="presentation"{if !$hbe_panel} class="active"{/if}>
       <a href="#hbe-tab-bars" data-toggle="tab" role="tab"><i class="icon-bullhorn"></i> {l s='Paski info' mod='hummingbird_editor'}</a>
     </li>
     <li role="presentation">
@@ -140,7 +145,13 @@
     {* ═══════════════════════════════════════════════════════════════════════
        Tab 1 — Paski info
     ═══════════════════════════════════════════════════════════════════════ *}
-    <div id="hbe-tab-bars" class="tab-pane active" role="tabpanel">
+    {if $hbe_panel}
+    {* ═══ Zakladka sklepu — bloki z themes/<motyw>/hbe/panel.json ═══ *}
+    <div id="hbe-tab-panel" class="tab-pane active" role="tabpanel">
+      {include file="{$hbe_tpl_dir}_panel.tpl"}
+    </div>{* /tab-panel *}
+    {/if}
+    <div id="hbe-tab-bars" class="tab-pane{if !$hbe_panel} active{/if}" role="tabpanel">
 
       {* Top promo bar *}
       <div class="panel panel-default hbe-collapse-panel">
@@ -2572,7 +2583,7 @@
     ═══════════════════════════════════════════════════════════════════════ *}
     <div id="hbe-tab-theme" class="tab-pane" role="tabpanel">
       {if $hbe_theme_fields}
-      <form id="hbe-theme-fields-form" method="post" action="{$hbe_ajax_url nofilter}" enctype="multipart/form-data" autocomplete="off">
+      <form id="hbe-theme-fields-form" class="hbe-theme-fields-form" method="post" action="{$hbe_ajax_url nofilter}" enctype="multipart/form-data" autocomplete="off">
         <input type="hidden" name="token" value="{$hbe_token}">
         <p class="text-muted" style="margin-bottom:1rem">{l s='Teksty i zdjęcia motywu spoza sekcji strony głównej: stopka, newsletter, kontakt, strony działów, 404. Puste pole = pusto na stronie.' mod='hummingbird_editor'}</p>
         {foreach from=$hbe_theme_fields.groups item=tfg}

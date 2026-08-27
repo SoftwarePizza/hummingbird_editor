@@ -662,3 +662,10 @@
 .hbe-tf-row legend { font-size: 12px; color: #777; border: 0; margin: 4px 0 2px; padding: 0; width: auto; }
 .hbe-tf-preview { margin-bottom: 6px; }
 .hbe-theme-form .form-group { margin-bottom: 12px; }
+
+/* ── Zakładka sklepu (panel.json) ── */
+.hbe-panel .hbe-quick-section { margin: 0 0 14px; padding: 12px 14px 4px; border: 1px solid #e3e3e3; border-radius: 3px; background: #fff; }
+.hbe-panel .hbe-quick-section__title { font-weight: 600; font-size: 13px; margin-bottom: 10px; }
+.hbe-panel .hbe-panel-links a { margin: 0 6px 6px 0; }
+.hbe-panel .hbe-save-row { margin-bottom: 6px; }
+.hbe-main-tabs > li > a strong { font-weight: 700; }

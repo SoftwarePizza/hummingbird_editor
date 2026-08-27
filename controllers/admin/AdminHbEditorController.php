@@ -278,6 +278,7 @@ class AdminHbEditorController extends ModuleAdminController
 
         $this->context->smarty->assign([
             'hbe_grouped'           => $grouped,
+            'hbe_panel'             => $this->panelCfg($languages, $blocks, $homeOrderedItems),
             'hbe_theme_sections'    => HbEditorThemeSection::listSections(),
             'hbe_theme_hooks'       => HbEditorThemeSection::HOOKS,
             'hbe_theme_fields'      => $this->themeFieldsCfg($languages),
@@ -1505,6 +1506,225 @@ class AdminHbEditorController extends ModuleAdminController
         $this->module->ensureHookRegistered('displayHome');
 
         $this->hbeAjaxDie(json_encode(['success' => true, 'id_block' => $newId]));
+    }
+
+    /* ── Zakladka sklepu (themes/<motyw>/hbe/panel.json) ─────────────── */
+
+    /**
+     * Bloki zakladki sklepu z danymi do formularzy. Null = motyw nie ma panel.json.
+     * Typy blokow: hero, topbar, sections (hook), products (id_block), fields (grupy
+     * z fields.json), social, covers, links (skroty do BO).
+     *
+     * @param array<int,array<string,mixed>> $languages
+     * @param array<int,array<string,mixed>> $blocks           bloki wzbogacone o theme_cfg/products_cfg
+     * @param array<int,array<string,mixed>> $homeOrderedItems kolejnosc displayHome
+     */
+    private function panelCfg(array $languages, array $blocks, array $homeOrderedItems): ?array
+    {
+        $file   = HbEditorThemeSection::findFile('panel.json');
+        $schema = $file ? json_decode((string) file_get_contents($file), true) : null;
+        if (!is_array($schema) || empty($schema['blocks']) || !is_array($schema['blocks'])) {
+            return null;
+        }
+        $out = [
+            'label'  => (string) ($schema['label'] ?? 'Sklep'),
+            'intro'  => (string) ($schema['intro'] ?? ''),
+            'blocks' => [],
+        ];
+        $fieldsCfg = null;
+        foreach ($schema['blocks'] as $b) {
+            $type  = (string) ($b['type'] ?? '');
+            $entry = [
+                'type'  => $type,
+                'label' => (string) ($b['label'] ?? ''),
+                'help'  => (string) ($b['help'] ?? ''),
+            ];
+            switch ($type) {
+                case 'hero':
+                    $entry['slide'] = $this->panelHeroSlide();
+                    break;
+                case 'topbar':
+                    break;
+                case 'sections':
+                    $hook = preg_replace('/[^a-zA-Z0-9_]/', '', (string) ($b['hook'] ?? 'displayHome'));
+                    $list = [];
+                    if ($hook === 'displayHome') {
+                        foreach ($homeOrderedItems as $it) {
+                            if ($it['kind'] === 'block' && ($it['block']['section_type'] ?? '') === HbEditorThemeSection::STYPE) {
+                                $list[] = $it['block'];
+                            }
+                        }
+                    } else {
+                        foreach ($blocks as $bl) {
+                            if ($bl['hook_name'] === $hook && ($bl['section_type'] ?? '') === HbEditorThemeSection::STYPE) {
+                                $list[] = $bl;
+                            }
+                        }
+                    }
+                    $entry['hook']   = $hook;
+                    $entry['blocks'] = $list;
+                    break;
+                case 'products':
+                    $id = (int) ($b['id_block'] ?? 0);
+                    $entry['block'] = null;
+                    foreach ($blocks as $bl) {
+                        if ((int) $bl['id_block'] === $id && isset($bl['products_cfg'])) {
+                            $entry['block'] = $bl;
+                            break;
+                        }
+                    }
+                    break;
+                case 'fields':
+                    if ($fieldsCfg === null) {
+                        $fieldsCfg = $this->themeFieldsCfg($languages) ?: ['groups' => []];
+                    }
+                    $want = array_map('strval', (array) ($b['groups'] ?? []));
+                    $entry['groups'] = [];
+                    foreach ($fieldsCfg['groups'] as $g) {
+                        if (!$want || in_array($g['key'], $want, true)) {
+                            $entry['groups'][] = $g;
+                        }
+                    }
+                    break;
+                case 'social':
+                    $entry['social'] = $this->getSocialForForm();
+                    break;
+                case 'covers':
+                    $entry['covers'] = HbEditorThemeSection::cmsCovers((int) $this->context->language->id, (int) $this->context->shop->id);
+                    break;
+                case 'links':
+                    $entry['items'] = [];
+                    foreach ((array) ($b['items'] ?? []) as $it) {
+                        $url = '';
+                        if (!empty($it['module'])) {
+                            $url = $this->context->link->getAdminLink('AdminModules', true, [
+                                'route'       => 'admin_module_configure_action',
+                                'module_name' => preg_replace('/[^a-z0-9_]/', '', (string) $it['module']),
+                            ]);
+                        } elseif (!empty($it['controller'])) {
+                            $url = $this->context->link->getAdminLink(preg_replace('/[^A-Za-z0-9]/', '', (string) $it['controller']));
+                        } elseif (!empty($it['url'])) {
+                            $url = (string) $it['url'];
+                        }
+                        if ($url !== '') {
+                            $entry['items'][] = ['label' => (string) ($it['label'] ?? $url), 'url' => $url];
+                        }
+                    }
+                    break;
+                default:
+                    continue 2;
+            }
+            $out['blocks'][] = $entry;
+        }
+
+        return $out;
+    }
+
+    /** Pierwszy (aktywny, wg pozycji) slajd sklepu do szybkiego formularza hero. */
+    private function panelHeroSlide(): ?array
+    {
+        $idShop = (int) $this->context->shop->id;
+        $id = (int) Db::getInstance()->getValue(
+            'SELECT ss.id_hb_slide
+             FROM `' . _DB_PREFIX_ . 'hb_editor_slider_slides` ss
+             INNER JOIN `' . _DB_PREFIX_ . 'hb_editor_slider` s ON s.id_hb_slide = ss.id_hb_slide AND s.id_shop = ' . $idShop . '
+             ORDER BY ss.active DESC, ss.position ASC'
+        );
+        if (!$id) {
+            return null;
+        }
+        $slide = new HbEditorSlide($id);
+        if (!Validate::isLoadedObject($slide)) {
+            return null;
+        }
+        $lid  = (int) $this->context->language->id;
+        $base = $this->sliderImgBaseUrl();
+        $img  = (string) ((array) $slide->image)[$lid] ?? '';
+        $imgM = (string) ((array) $slide->image_mobile)[$lid] ?? '';
+
+        return [
+            'id'               => $id,
+            'active'           => (int) $slide->active,
+            'title'            => (array) $slide->title,
+            'description'      => (array) $slide->description,
+            'url'              => (array) $slide->url,
+            'cta_text'         => (string) $slide->cta_text,
+            'image'            => $img,
+            'image_url'        => $img !== '' ? $base . $img : '',
+            'image_mobile'     => $imgM,
+            'image_mobile_url' => $imgM !== '' ? $base . $imgM : '',
+        ];
+    }
+
+    /**
+     * AJAX: szybki zapis slajdu z zakladki sklepu — tylko teksty, adres, tekst przycisku,
+     * wlaczenie i zdjecia (jedno na wszystkie jezyki). Reszta ustawien slajdu bez zmian.
+     */
+    public function ajaxProcessSaveHeroQuick(): void
+    {
+        $slide = new HbEditorSlide((int) Tools::getValue('id_slide'));
+        if (!Validate::isLoadedObject($slide)) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Nieprawidlowe ID slajdu']));
+        }
+        $languages = Language::getLanguages(false);
+        $errors    = [];
+
+        $slide->active        = (int) Tools::getValue('active', 0);
+        $slide->active_mobile = $slide->active;
+        if (Tools::getIsset('cta_text')) {
+            $slide->cta_text = Tools::substr(trim((string) Tools::getValue('cta_text')), 0, 100);
+        }
+        $titles = Tools::getValue('title');
+        $descs  = Tools::getValue('description');
+        $urls   = Tools::getValue('url');
+        foreach ($languages as $lang) {
+            $lid = (int) $lang['id_lang'];
+            if (is_array($titles) && array_key_exists($lid, $titles)) {
+                $slide->title[$lid] = (string) $titles[$lid];
+            }
+            if (is_array($descs) && array_key_exists($lid, $descs)) {
+                $slide->description[$lid] = (string) $descs[$lid];
+            }
+            if (is_array($urls) && array_key_exists($lid, $urls)) {
+                $slide->url[$lid] = (string) $urls[$lid];
+            }
+        }
+
+        $imgDir = $this->sliderImgDir();
+        if (!is_dir($imgDir)) {
+            @mkdir($imgDir, 0755, true);
+        }
+        $ctx = (int) $this->context->language->id;
+        $desk    = $this->sliderUploadLangImage('image_' . $ctx, '', $errors);
+        $oldDesk = (string) Tools::getValue('image_old_' . $ctx);
+        if ($desk !== '' && $desk !== $oldDesk) {
+            foreach ($languages as $lang) {
+                $slide->image[(int) $lang['id_lang']] = $desk;
+            }
+        }
+        $mob    = $this->sliderUploadLangImage('image_mobile_' . $ctx, 'mobile_', $errors);
+        $oldMob = (string) Tools::getValue('image_mobile_old_' . $ctx);
+        if ($mob !== '' && $mob !== $oldMob) {
+            foreach ($languages as $lang) {
+                $slide->image_mobile[(int) $lang['id_lang']] = $mob;
+            }
+        }
+
+        if (!$slide->update()) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Nie mozna zapisac slajdu']));
+        }
+        $base = $this->sliderImgBaseUrl();
+        $img  = (string) ((array) $slide->image)[$ctx] ?? '';
+        $imgM = (string) ((array) $slide->image_mobile)[$ctx] ?? '';
+
+        $this->hbeAjaxDie(json_encode([
+            'success' => true,
+            'warning' => $errors ? implode('<br>', array_map('htmlspecialchars', $errors)) : '',
+            'images'  => [
+                'image'        => $img !== '' ? $base . $img : '',
+                'image_mobile' => $imgM !== '' ? $base . $imgM : '',
+            ],
+        ]));
     }
 
     /* ── Sekcje motywu i „Tresci motywu” (HbEditorThemeSection) ─────────── */

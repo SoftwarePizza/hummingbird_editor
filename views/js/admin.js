@@ -1096,6 +1096,50 @@ $(function () {
         });
     });
 
+    /* ── Zakładka sklepu (panel.json): szybkie formularze ─────────────── */
+    $(document).on('submit', '.hbe-quick-form', function (e) {
+        e.preventDefault();
+        var $form  = $(this);
+        var action = $form.data('action');
+        var fd = new FormData($form[0]);
+        $form.find('input[type=checkbox]').each(function () {
+            if (!this.checked && this.name && this.name.slice(-2) !== '[]') { fd.append(this.name, '0'); }
+        });
+        fd.append('action', action);
+        fd.append('ajax', '1');
+        $.ajax({
+            url: hbeAjaxUrl,
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function (resp) {
+                if (resp && resp.success) {
+                    showGlobalSuccess(hbeTrans.saved);
+                    clearFormErrors($form);
+                    if (resp.images) {
+                        $.each(resp.images, function (key, url) {
+                            var $img = $form.find('[data-hbe-quick-img="' + key + '"]');
+                            if ($img.length && url) { $img.attr('src', url).closest('.hbe-tf-preview').show(); }
+                        });
+                    }
+                    $form.find('input[type=file]').val('');
+                    if (resp.warning) { showFormError($form, resp.warning); }
+                } else {
+                    showFormError($form, resp ? resp.error : hbeTrans.error);
+                }
+            },
+            error: function () { showFormError($form, hbeTrans.error); }
+        });
+    });
+
+    $(document).on('click', '[data-hbe-goto-tab]', function (e) {
+        e.preventDefault();
+        $('.hbe-main-tabs a[href="' + $(this).data('hbe-goto-tab') + '"]').tab('show');
+        window.scrollTo(0, 0);
+    });
+
     /* ── Sekcje motywu / Treści motywu ─────────────────────────────────── */
     // Po zapisie: nowe adresy zdjęć w podglądach, wyczyszczone pola plików i checkboxy „usuń”.
     function hbeApplyThemeFiles($form, files) {
@@ -1146,7 +1190,7 @@ $(function () {
         });
     });
 
-    $(document).on('submit', '#hbe-theme-fields-form', function (e) {
+    $(document).on('submit', '.hbe-theme-fields-form', function (e) {
         e.preventDefault();
         var $form   = $(this);
         var $status = $form.find('.hbe-save-status');
