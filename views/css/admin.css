@@ -669,3 +669,15 @@
 .hbe-panel .hbe-panel-links a { margin: 0 6px 6px 0; }
 .hbe-panel .hbe-save-row { margin-bottom: 6px; }
 .hbe-main-tabs > li > a strong { font-weight: 700; }
+
+/* ── Listy dynamiczne (pole typu list) ── */
+.hbe-list__row { border: 1px solid #e3e3e3; border-radius: 3px; padding: 8px 10px 2px; margin-bottom: 8px; background: #fff; }
+.hbe-list__row--hidden { opacity: .6; background: #f7f7f7; }
+.hbe-list__tools { display: flex; gap: 4px; align-items: center; margin-bottom: 6px; }
+.hbe-list__num { font-weight: 600; font-size: 12px; margin-right: auto; }
+.hbe-list__fields label { font-size: 11px; color: #777; margin-bottom: 2px; }
+.hbe-list__fields .form-control { margin-bottom: 6px; }
+.hbe-list__nested { margin: 2px 0 6px; padding: 8px 10px 4px; border-left: 3px solid #e0c474; background: #fafafa; }
+.hbe-list__nested > label { font-weight: 600; font-size: 12px; }
+.hbe-list__add { margin: 0 0 6px; }
+.hbe-pdf-row { margin: 4px 0 10px; font-size: 12px; }

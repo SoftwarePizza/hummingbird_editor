@@ -92,6 +92,7 @@
               <div class="row">
                 {include file="{$hbe_tpl_dir}_theme_fields.tpl" nodes=$block.theme_cfg.tree}
               </div>
+              {include file="{$hbe_tpl_dir}_theme_pdf.tpl" pdf=$block.theme_cfg.pdf}
             </div>
             {elseif $block.section_type == 'products' && isset($block.products_cfg)}
             {* ── Karuzela produktowa: zwykły formularz zamiast surowego JSON-a ── *}

@@ -1140,6 +1140,146 @@ $(function () {
         window.scrollTo(0, 0);
     });
 
+    /* ── Listy dynamiczne (typ pola "list" w schematach motywu) ─────────── */
+    // Model = JSON w <textarea class="hbe-list-json">; wiersze renderowane z modelu,
+    // edycja pól aktualizuje model bez przerysowania (kursor zostaje), operacje
+    // strukturalne (dodaj/usuń/góra/dół/ukryj) przerysowują listę. Ścieżki:
+    // wiersz "2", lista zagnieżdżona "2.items", jej wiersz "2.items.0".
+    function hbeListEditor(root) {
+        var ta = root.querySelector('textarea.hbe-list-json');
+        var mount = root.querySelector('.hbe-list__mount');
+        var schema, model;
+        try { schema = JSON.parse(root.getAttribute('data-schema') || '[]'); } catch (e) { schema = []; }
+        try { model = JSON.parse(ta.value || '[]'); } catch (e) { model = []; }
+        if (!Array.isArray(model)) { model = []; }
+        var rootRowLabel = root.getAttribute('data-row-label') || 'Pozycja';
+        var rootAddLabel = root.getAttribute('data-add-label') || ('+ ' + rootRowLabel);
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function sync() { ta.value = JSON.stringify(model); }
+        function resolve(path) {
+            var tokens = path === '' ? [] : path.split('.');
+            var list = model, idx = null;
+            for (var i = 0; i < tokens.length; i++) {
+                if (i % 2 === 0) {
+                    idx = parseInt(tokens[i], 10);
+                } else {
+                    var row = list[idx];
+                    if (!Array.isArray(row[tokens[i]])) { row[tokens[i]] = []; }
+                    list = row[tokens[i]];
+                    idx = null;
+                }
+            }
+            return { list: list, idx: idx };
+        }
+        function metaFor(listPath) {
+            var tokens = listPath === '' ? [] : listPath.split('.');
+            var fields = schema, rl = rootRowLabel, al = rootAddLabel;
+            for (var i = 1; i < tokens.length; i += 2) {
+                var f = fields.filter(function (x) { return x.key === tokens[i]; })[0];
+                fields = (f && f.fields) || [];
+                rl = (f && f.row_label) || 'Pozycja';
+                al = (f && f.add_label) || ('+ ' + rl);
+            }
+            return { fields: fields, rl: rl, al: al };
+        }
+        function fieldHtml(f, row, rowPath) {
+            var v = row[f.key];
+            var name = esc(rowPath + '|' + f.key);
+            var w = f.width || (f.type === 'textarea' ? 12 : 4);
+            if (f.type === 'list') {
+                return '<div class="col-md-12 hbe-list__nested"><label>' + esc(f.label) + '</label>'
+                    + listHtml(rowPath + '.' + f.key, Array.isArray(v) ? v : []) + '</div>';
+            }
+            if (f.type === 'checkbox') {
+                return '<div class="col-md-' + w + '"><label class="checkbox-inline"><input type="checkbox" data-hbe-lf="' + name + '"' + (v ? ' checked' : '') + '> ' + esc(f.label) + '</label></div>';
+            }
+            if (f.type === 'textarea') {
+                return '<div class="col-md-' + w + '"><label>' + esc(f.label) + '</label><textarea class="form-control input-sm" rows="2" data-hbe-lf="' + name + '" placeholder="' + esc(f.placeholder) + '">' + esc(v) + '</textarea></div>';
+            }
+            return '<div class="col-md-' + w + '"><label>' + esc(f.label) + '</label><input type="text" class="form-control input-sm" data-hbe-lf="' + name + '" value="' + esc(v) + '" placeholder="' + esc(f.placeholder) + '"></div>';
+        }
+        function listHtml(listPath, rows) {
+            var m = metaFor(listPath);
+            var h = '<div class="hbe-list__rows" data-hbe-lpath="' + esc(listPath) + '">';
+            rows.forEach(function (row, idx) {
+                var rp = listPath === '' ? String(idx) : listPath + '.' + idx;
+                h += '<div class="hbe-list__row' + (row.hidden ? ' hbe-list__row--hidden' : '') + '" data-hbe-rpath="' + esc(rp) + '">'
+                    + '<div class="hbe-list__tools"><span class="hbe-list__num">' + esc(m.rl) + ' ' + (idx + 1) + (row.hidden ? ' — ukryte' : '') + '</span>'
+                    + '<button type="button" class="btn btn-xs btn-default" data-hbe-lact="up" title="W górę">&uarr;</button>'
+                    + '<button type="button" class="btn btn-xs btn-default" data-hbe-lact="down" title="W dół">&darr;</button>'
+                    + '<button type="button" class="btn btn-xs ' + (row.hidden ? 'btn-warning' : 'btn-default') + '" data-hbe-lact="hide">' + (row.hidden ? 'Pokaż' : 'Ukryj') + '</button>'
+                    + '<button type="button" class="btn btn-xs btn-danger" data-hbe-lact="del" title="Usuń">&times;</button></div>'
+                    + '<div class="row hbe-list__fields">' + m.fields.map(function (f) { return fieldHtml(f, row, rp); }).join('') + '</div>'
+                    + '</div>';
+            });
+            h += '</div><button type="button" class="btn btn-sm btn-default hbe-list__add" data-hbe-lpath="' + esc(listPath) + '">' + esc(m.al) + '</button>';
+            return h;
+        }
+        function newRow(fields) {
+            var r = { hidden: 0 };
+            fields.forEach(function (f) { r[f.key] = f.type === 'list' ? [] : (f.type === 'checkbox' ? 0 : ''); });
+            return r;
+        }
+        function render() { mount.innerHTML = listHtml('', model); sync(); }
+        function onEdit(e) {
+            var t = e.target;
+            var lf = t.getAttribute && t.getAttribute('data-hbe-lf');
+            if (!lf) { return; }
+            var parts = lf.split('|');
+            var r = resolve(parts[0]);
+            var row = r.list[r.idx];
+            if (!row) { return; }
+            row[parts[1]] = t.type === 'checkbox' ? (t.checked ? 1 : 0) : t.value;
+            sync();
+        }
+        root.addEventListener('input', onEdit);
+        root.addEventListener('change', onEdit);
+        root.addEventListener('click', function (e) {
+            var b = e.target.closest ? e.target.closest('[data-hbe-lact], .hbe-list__add') : null;
+            if (!b || !root.contains(b)) { return; }
+            e.preventDefault();
+            if (b.classList.contains('hbe-list__add')) {
+                var lp = b.getAttribute('data-hbe-lpath') || '';
+                var target = lp === '' ? model : resolve(lp).list;
+                target.push(newRow(metaFor(lp).fields));
+                render();
+                return;
+            }
+            var rowEl = b.closest('.hbe-list__row');
+            var r = resolve(rowEl.getAttribute('data-hbe-rpath'));
+            var list = r.list, i = r.idx, act = b.getAttribute('data-hbe-lact');
+            if (act === 'up' && i > 0) { list.splice(i - 1, 0, list.splice(i, 1)[0]); }
+            else if (act === 'down' && i < list.length - 1) { list.splice(i + 1, 0, list.splice(i, 1)[0]); }
+            else if (act === 'hide') { list[i].hidden = list[i].hidden ? 0 : 1; }
+            else if (act === 'del') { if (!window.confirm('Usunąć tę pozycję?')) { return; } list.splice(i, 1); }
+            else { return; }
+            render();
+        });
+        render();
+    }
+    document.querySelectorAll('[data-hbe-list]').forEach(hbeListEditor);
+
+    /* ── Ręczne odświeżenie PDF-a sekcji ─────────────────────────────────── */
+    $(document).on('click', '[data-hbe-pdf-render]', function () {
+        var $btn = $(this).prop('disabled', true);
+        var $form = $btn.closest('form');
+        $.post(hbeAjaxUrl + 'action=RenderSectionPdf&ajax=1', { token: hbeToken, id_block: $btn.data('hbe-pdf-render') }, function (resp) {
+            $btn.prop('disabled', false);
+            if (resp && resp.success) {
+                showGlobalSuccess(hbeTrans.saved);
+                $form.find('[data-hbe-pdf-link]').attr('href', resp.pdf).show();
+                $form.find('[data-hbe-pdf-missing]').hide();
+            } else {
+                showGlobalError((resp && resp.error) || hbeTrans.error);
+            }
+        }, 'json').fail(function () { $btn.prop('disabled', false); showGlobalError(hbeTrans.error); });
+    });
+
     /* ── Sekcje motywu / Treści motywu ─────────────────────────────────── */
     // Po zapisie: nowe adresy zdjęć w podglądach, wyczyszczone pola plików i checkboxy „usuń”.
     function hbeApplyThemeFiles($form, files) {
@@ -1299,6 +1439,10 @@ $(function () {
                     if (resp && resp.success) {
                         $status.show().delay(2500).fadeOut();
                         hbeApplyThemeFiles($form, resp.files);
+                        if (resp.pdf) {
+                            $form.find('[data-hbe-pdf-link]').attr('href', resp.pdf).show();
+                            $form.find('[data-hbe-pdf-missing]').hide();
+                        }
                         if (resp.warning) {
                             $alerts.html('<div class="alert alert-warning">' + resp.warning + '</div>');
                         }

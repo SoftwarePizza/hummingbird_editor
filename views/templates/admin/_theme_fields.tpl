@@ -18,6 +18,15 @@
         {/foreach}
       </div>
     </div>
+  {elseif $node.type == 'list'}
+    <div class="col-md-12 form-group">
+      <label class="control-label">{$node.label|escape:'html':'UTF-8'}</label>
+      {if $node.help}<p class="help-block" style="margin-top:0">{$node.help|escape:'html':'UTF-8'}</p>{/if}
+      <div class="hbe-list" data-hbe-list data-schema="{$node.schema_json|escape:'html':'UTF-8'}" data-row-label="{$node.row_label|escape:'html':'UTF-8'}" data-add-label="{$node.add_label|escape:'html':'UTF-8'}">
+        <textarea class="hbe-list-json" name="tflist[{$node.path|escape:'html':'UTF-8'}]" hidden>{$node.value_json|escape:'html':'UTF-8'}</textarea>
+        <div class="hbe-list__mount"></div>
+      </div>
+    </div>
   {elseif $node.type == 'image'}
     <div class="col-md-{$node.width|intval} form-group hbe-tf-image">
       <label class="control-label">{$node.label|escape:'html':'UTF-8'}</label>

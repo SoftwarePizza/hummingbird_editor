@@ -1750,6 +1750,7 @@ class AdminHbEditorController extends ModuleAdminController
             'slug'  => $schema['slug'],
             'label' => $schema['label'],
             'help'  => $schema['help'],
+            'pdf'   => HbEditorThemeSection::pdfInfo($schema),
             'tree'  => HbEditorThemeSection::formTree($schema['fields'], $sd, $languages, $this->module),
         ];
     }
@@ -1846,11 +1847,37 @@ class AdminHbEditorController extends ModuleAdminController
             HbEditorBlock::setShops($idBlock, (array) $shopIds);
         }
 
+        // Sekcja z PDF-em (np. menu): po zapisie odswiezamy plik, zeby zawsze zgadzal sie ze strona.
+        $pdfUrl = null;
+        if (!empty($schema['pdf'])) {
+            $pdfUrl = HbEditorThemeSection::renderPdf($this->module, $schema, $sd, $errors);
+        }
+
         $this->hbeAjaxDie(json_encode([
             'success' => true,
             'warning' => $errors ? implode('<br>', array_map('htmlspecialchars', $errors)) : '',
             'files'   => HbEditorThemeSection::fileUrls($leaves, $sd, $this->module),
+            'pdf'     => $pdfUrl ?: '',
         ]));
+    }
+
+    /** AJAX: reczne odswiezenie PDF-a sekcji (bez zapisu pol). */
+    public function ajaxProcessRenderSectionPdf(): void
+    {
+        $idBlock = (int) Tools::getValue('id_block');
+        $block   = $idBlock ? HbEditorBlock::getById($idBlock) : null;
+        if (!$block || ($block['section_type'] ?? '') !== HbEditorThemeSection::STYPE) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Block not found']));
+        }
+        $sd     = json_decode((string) $block['section_data'], true);
+        $sd     = is_array($sd) ? $sd : [];
+        $schema = HbEditorThemeSection::loadSchema((string) ($sd['slug'] ?? ''));
+        if (!$schema || empty($schema['pdf'])) {
+            $this->hbeAjaxDie(json_encode(['success' => false, 'error' => 'Sekcja nie ma PDF-a']));
+        }
+        $errors = [];
+        $url    = HbEditorThemeSection::renderPdf($this->module, $schema, $sd, $errors);
+        $this->hbeAjaxDie(json_encode(['success' => (bool) $url, 'error' => implode(' ', $errors), 'pdf' => $url ?: '']));
     }
 
     /** AJAX: zapis „Tresci motywu” (pola globalne) i okladek stron CMS. */

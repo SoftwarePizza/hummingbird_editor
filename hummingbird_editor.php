@@ -1938,6 +1938,8 @@ class Hummingbird_editor extends Module
 
         // Teksty i zdjecia globalne motywu („Tresci motywu”, schemat themes/<motyw>/hbe/fields.json).
         $this->context->smarty->assign('hbe_theme', HbEditorThemeSection::globalValues($this));
+        // {hbe_section slug='…'} i |hbe_sections ([hbe-section:slug] w tresci CMS).
+        $this->registerThemeSectionPlugins();
 
         // Pasek prawny na dole stopki — renderuje go motyw (_partials/footer.tpl).
         $this->context->smarty->assign('hbe_footer_links', $this->getFooterLegalLinks());
@@ -6195,6 +6197,35 @@ class Hummingbird_editor extends Module
             $output .= $this->display(__FILE__, 'views/templates/hook/block.tpl');
         }
         return $output;
+    }
+
+    /* ── Sekcje motywu w szablonach: {hbe_section slug='…'} i |hbe_sections ─── */
+
+    /** Rejestruje wtyczki Smarty (raz na zadanie; wolane z hookActionFrontControllerSetMedia). */
+    public function registerThemeSectionPlugins(): void
+    {
+        $smarty = $this->context->smarty ?? null;
+        if (!$smarty || !method_exists($smarty, 'registerPlugin')) {
+            return;
+        }
+        if (!isset($smarty->registered_plugins['function']['hbe_section'])) {
+            $smarty->registerPlugin('function', 'hbe_section', [$this, 'smartyHbeSection']);
+        }
+        if (!isset($smarty->registered_plugins['modifier']['hbe_sections'])) {
+            $smarty->registerPlugin('modifier', 'hbe_sections', [$this, 'smartyHbeSections']);
+        }
+    }
+
+    /** {hbe_section slug='menu'} — sekcja motywu o danym slugu w dowolnym miejscu szablonu. */
+    public function smartyHbeSection(array $params, $smarty): string
+    {
+        return HbEditorThemeSection::renderBySlug($this, (string) ($params['slug'] ?? ''));
+    }
+
+    /** {$cms.content|hbe_sections nofilter} — [hbe-section:slug] w tresci CMS → sekcja. */
+    public function smartyHbeSections($html): string
+    {
+        return HbEditorThemeSection::replaceShortcodes($this, (string) $html);
     }
 
     /* ── Admin redirect ──────────────────────────────────────────────────── */

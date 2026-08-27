@@ -126,6 +126,7 @@
                 <div class="row">
                   {include file="{$hbe_tpl_dir}_theme_fields.tpl" nodes=$block.theme_cfg.tree}
                 </div>
+                {include file="{$hbe_tpl_dir}_theme_pdf.tpl" pdf=$block.theme_cfg.pdf}
                 <div class="form-group hbe-save-row">
                   <button type="submit" class="btn btn-success"><i class="icon-save"></i> {l s='Zapisz' mod='hummingbird_editor'}</button>
                   <span class="hbe-save-status text-success" style="display:none;margin-left:8px"><i class="icon-check"></i> {l s='Saved' mod='hummingbird_editor'}</span>

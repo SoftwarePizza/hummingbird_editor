@@ -31,6 +31,8 @@ class HbEditorThemeSection
     const CONF_FIELDS = 'HBE_THEME_FIELDS';
     const FILE_PREFIX = 'theme_';
     const IMG_DIR     = 'hb_editor/';
+    /** Chromium do PDF-ów sekcji (schemat: "pdf": {template,target,label}). */
+    const CHROMIUM    = '/usr/bin/chromium';
 
     /** Hooki proponowane w panelu przy dodawaniu sekcji (blok zadziała też w każdym innym). */
     const HOOKS = [
@@ -236,6 +238,10 @@ class HbEditorThemeSection
             }
             $path    = $prefix . $key;
             $default = array_key_exists($key, $groupDefaults) ? $groupDefaults[$key] : ($f['default'] ?? '');
+            if ($type === 'list') {
+                $out[$key] = self::listRows($data, $path, is_array($default) ? $default : []);
+                continue;
+            }
             if ($type === 'image') {
                 $file = self::fileValue($data, $path, (string) $default);
                 $src  = $file !== '' ? $module->hbeImageSources($file) : ['url' => '', 'webp_url' => ''];
@@ -302,6 +308,15 @@ class HbEditorThemeSection
                 'input'       => self::inputName($path),
                 'file_input'  => self::fileInput($path),
             ];
+            if ($type === 'list') {
+                $node['width']       = 12;
+                $node['row_label']   = (string) ($f['row_label'] ?? 'Pozycja');
+                $node['add_label']   = (string) ($f['add_label'] ?? ('+ ' . $node['row_label']));
+                $node['schema_json'] = json_encode(self::listFieldsSchema(is_array($f['fields'] ?? null) ? $f['fields'] : []), JSON_UNESCAPED_UNICODE);
+                $node['value_json']  = json_encode(self::listRows($data, $path, is_array($default) ? $default : []), JSON_UNESCAPED_UNICODE);
+                $nodes[] = $node;
+                continue;
+            }
             if ($type === 'image') {
                 $file         = self::fileValue($data, $path, (string) $default);
                 $node['file'] = $file;
@@ -366,6 +381,7 @@ class HbEditorThemeSection
     {
         $data['langs'] = is_array($data['langs'] ?? null) ? $data['langs'] : [];
         $data['files'] = is_array($data['files'] ?? null) ? $data['files'] : [];
+        $data['lists'] = is_array($data['lists'] ?? null) ? $data['lists'] : [];
         $posted = Tools::getValue('tf');
         $posted = is_array($posted) ? $posted : [];
         $del    = Tools::getValue('tfdel');
@@ -382,6 +398,17 @@ class HbEditorThemeSection
                 } elseif (!empty($del[$path])) {
                     self::unlinkOwn($old);
                     $data['files'][$path] = '';
+                }
+                continue;
+            }
+            if ($leaf['type'] === 'list') {
+                $lists = Tools::getValue('tflist');
+                if (is_array($lists) && array_key_exists($path, $lists)) {
+                    $rows = json_decode((string) $lists[$path], true);
+                    $data['lists'][$path] = self::sanitizeRows(
+                        is_array($rows) ? $rows : [],
+                        is_array($leaf['fields'] ?? null) ? $leaf['fields'] : []
+                    );
                 }
                 continue;
             }
@@ -493,6 +520,247 @@ class HbEditorThemeSection
         return $out;
     }
 
+    /* ── Listy dynamiczne (typ pola `list`) ─────────────────────────────── */
+
+    /**
+     * Wiersze listy: zapisane (section_data.lists[path]) albo domyślne ze schematu.
+     * Lista nie jest per język (treść jednojęzyczna, np. menu kawiarni).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function listRows(array $data, string $path, array $default): array
+    {
+        $lists = is_array($data['lists'] ?? null) ? $data['lists'] : [];
+        if (isset($lists[$path]) && is_array($lists[$path])) {
+            return array_values($lists[$path]);
+        }
+
+        return array_values($default);
+    }
+
+    /**
+     * Czyści wiersze z POST wg schematu: znane klucze, tekst bez tagów, checkbox 0/1,
+     * listy zagnieżdżone rekurencyjnie; każdy wiersz ma flagę `hidden`.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function sanitizeRows(array $rows, array $fields, int $depth = 0): array
+    {
+        $out = [];
+        if ($depth > 3) {
+            return $out;
+        }
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $clean = ['hidden' => !empty($row['hidden']) ? 1 : 0];
+            foreach ($fields as $f) {
+                $k = (string) ($f['key'] ?? '');
+                if ($k === '' || $k === 'hidden') {
+                    continue;
+                }
+                $t = (string) ($f['type'] ?? 'text');
+                if ($t === 'list') {
+                    $clean[$k] = self::sanitizeRows(
+                        is_array($row[$k] ?? null) ? $row[$k] : [],
+                        is_array($f['fields'] ?? null) ? $f['fields'] : [],
+                        $depth + 1
+                    );
+                } elseif ($t === 'checkbox') {
+                    $clean[$k] = !empty($row[$k]) ? 1 : 0;
+                } else {
+                    $clean[$k] = trim(strip_tags((string) ($row[$k] ?? '')));
+                }
+            }
+            $out[] = $clean;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Schemat wierszy dla edytora list w JS (klucz, etykieta, typ, szerokość, podpowiedź,
+     * pola zagnieżdżone).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public static function listFieldsSchema(array $fields): array
+    {
+        $out = [];
+        foreach ($fields as $f) {
+            $k = (string) ($f['key'] ?? '');
+            if ($k === '') {
+                continue;
+            }
+            $t = (string) ($f['type'] ?? 'text');
+            $e = [
+                'key'         => $k,
+                'label'       => (string) ($f['label'] ?? $k),
+                'type'        => in_array($t, ['text', 'textarea', 'checkbox', 'list'], true) ? $t : 'text',
+                'width'       => (int) ($f['width'] ?? ($t === 'textarea' ? 12 : 4)),
+                'placeholder' => (string) ($f['placeholder'] ?? ''),
+            ];
+            if ($t === 'list') {
+                $e['row_label'] = (string) ($f['row_label'] ?? 'Pozycja');
+                $e['add_label'] = (string) ($f['add_label'] ?? '');
+                $e['fields']    = self::listFieldsSchema(is_array($f['fields'] ?? null) ? $f['fields'] : []);
+            }
+            $out[] = $e;
+        }
+
+        return $out;
+    }
+
+    /* ── PDF sekcji (Chromium --print-to-pdf) ────────────────────────────── */
+
+    /**
+     * Opis PDF-a sekcji ze schematu: "pdf": {"template": "<tpl bez .tpl>", "target": "img/…/plik.pdf",
+     * "label": "…"}. Null = sekcja bez PDF-a. Cel tylko w img/.
+     *
+     * @return array{template:string,target:string,label:string,exists:bool,url:string}|null
+     */
+    public static function pdfInfo(array $schema): ?array
+    {
+        $pdf = $schema['pdf'] ?? null;
+        if (!is_array($pdf) || empty($pdf['target']) || empty($pdf['template'])) {
+            return null;
+        }
+        $target = (string) $pdf['target'];
+        if (!preg_match('#^img/[a-z0-9_\-/]+\.pdf$#i', $target) || strpos($target, '..') !== false) {
+            return null;
+        }
+        $path = _PS_ROOT_DIR_ . '/' . $target;
+        $ok   = is_file($path);
+
+        return [
+            'template' => preg_replace('/[^a-z0-9\-]/', '', (string) $pdf['template']),
+            'target'   => $target,
+            'label'    => (string) ($pdf['label'] ?? 'PDF'),
+            'exists'   => $ok,
+            'url'      => $ok ? __PS_BASE_URI__ . $target . '?' . filemtime($path) : '',
+        ];
+    }
+
+    /**
+     * Renderuje szablon PDF sekcji do HTML i drukuje Chromium do pliku docelowego.
+     * Zwraca adres nowego PDF-a albo null (błąd w $errors; zapis sekcji nie ma przez to padać).
+     *
+     * @param string[] $errors
+     */
+    public static function renderPdf($module, array $schema, array $sd, array &$errors): ?string
+    {
+        $info = self::pdfInfo($schema);
+        if (!$info) {
+            return null;
+        }
+        $tpl = self::findFile('sections/' . $info['template'] . '.tpl');
+        if (!$tpl) {
+            $errors[] = 'PDF: brak szablonu hbe/sections/' . $info['template'] . '.tpl w motywie';
+            return null;
+        }
+        if (!is_executable(self::CHROMIUM)) {
+            $errors[] = 'PDF: brak Chromium (' . self::CHROMIUM . ')';
+            return null;
+        }
+        $context  = Context::getContext();
+        $idLang   = (int) $context->language->id;
+        $logo     = (string) Configuration::get('PS_LOGO');
+        $logoData = '';
+        if ($logo !== '' && is_file(_PS_IMG_DIR_ . $logo)) {
+            $mime     = preg_match('/\.svg$/i', $logo) ? 'image/svg+xml' : ((string) (@mime_content_type(_PS_IMG_DIR_ . $logo) ?: 'image/png'));
+            $logoData = 'data:' . $mime . ';base64,' . base64_encode((string) file_get_contents(_PS_IMG_DIR_ . $logo));
+        }
+        $address = trim(
+            (string) Configuration::get('PS_SHOP_ADDR1') . ', '
+            . (string) Configuration::get('PS_SHOP_CODE') . ' ' . (string) Configuration::get('PS_SHOP_CITY'),
+            ", \t"
+        );
+        $context->smarty->assign([
+            'sec'       => self::resolve($schema['fields'], $sd, $idLang, $module),
+            'hbe_theme' => self::globalValues($module),
+            'pdf_meta'  => [
+                'logo_data' => $logoData,
+                'shop_name' => (string) Configuration::get('PS_SHOP_NAME'),
+                'address'   => $address,
+                'generated' => date('d.m.Y'),
+            ],
+        ]);
+        $html = (string) $context->smarty->fetch($tpl);
+
+        $tmpDir   = rtrim(sys_get_temp_dir(), '/');
+        $stamp    = bin2hex(random_bytes(4));
+        $htmlFile = $tmpDir . '/hbe-pdf-' . $stamp . '.html';
+        $pdfTmp   = $tmpDir . '/hbe-pdf-' . $stamp . '.pdf';
+        file_put_contents($htmlFile, $html);
+        $uid = function_exists('posix_geteuid') ? posix_geteuid() : getmyuid();
+        $cmd = 'timeout 90 ' . escapeshellarg(self::CHROMIUM)
+            . ' --headless=new --disable-gpu --no-sandbox --hide-scrollbars'
+            . ' --user-data-dir=' . escapeshellarg($tmpDir . '/hbe-chrome-' . $uid)
+            . ' --no-pdf-header-footer --print-to-pdf=' . escapeshellarg($pdfTmp)
+            . ' ' . escapeshellarg('file://' . $htmlFile) . ' 2>&1';
+        $outLines = [];
+        $code     = 0;
+        exec($cmd, $outLines, $code);
+        @unlink($htmlFile);
+        if (!is_file($pdfTmp) || filesize($pdfTmp) < 1000) {
+            @unlink($pdfTmp);
+            $errors[] = 'PDF: Chromium nie wygenerował pliku (kod ' . (int) $code . '). ' . implode(' ', array_slice($outLines, -2));
+            return null;
+        }
+        $dest = _PS_ROOT_DIR_ . '/' . $info['target'];
+        if (!@rename($pdfTmp, $dest)) {
+            @copy($pdfTmp, $dest);
+            @unlink($pdfTmp);
+        }
+        @chmod($dest, 0644);
+        clearstatcache(true, $dest);
+
+        return __PS_BASE_URI__ . $info['target'] . '?' . filemtime($dest);
+    }
+
+    /* ── Sekcje w dowolnym szablonie / treści CMS ────────────────────────── */
+
+    /**
+     * Renderuje pierwszą aktywną sekcję motywu o danym slugu (dowolny hook) —
+     * dla {hbe_section slug='…'} i skrótu [hbe-section:slug].
+     */
+    public static function renderBySlug($module, string $slug): string
+    {
+        if (!preg_match('/^[a-z0-9\-]+$/', $slug)) {
+            return '';
+        }
+        $idShop = (int) Context::getContext()->shop->id;
+        $row = Db::getInstance()->getRow(
+            'SELECT b.* FROM `' . _DB_PREFIX_ . 'hb_editor_block` b
+             INNER JOIN `' . _DB_PREFIX_ . 'hb_editor_block_shop` bs ON bs.id_block = b.id_block AND bs.id_shop = ' . $idShop . '
+             WHERE b.section_type = "' . pSQL(self::STYPE) . '" AND b.active = 1
+               AND b.section_data LIKE "%\"slug\":\"' . pSQL($slug) . '\"%"
+             ORDER BY b.position ASC'
+        );
+        if (!$row) {
+            return '';
+        }
+        $sd = json_decode((string) $row['section_data'], true);
+        if (!is_array($sd) || (string) ($sd['slug'] ?? '') !== $slug) {
+            return '';
+        }
+
+        return self::render($module, $row, $sd);
+    }
+
+    /** Podmienia [hbe-section:slug] w HTML-u (np. treść strony CMS) na wyrenderowane sekcje. */
+    public static function replaceShortcodes($module, string $html): string
+    {
+        if (strpos($html, '[hbe-section:') === false) {
+            return $html;
+        }
+
+        return (string) preg_replace_callback('/\[hbe-section:([a-z0-9\-]+)\]/', static function (array $m) use ($module): string {
+            return self::renderBySlug($module, $m[1]);
+        }, $html);
+    }
+
     /* ── Front ───────────────────────────────────────────────────────────── */
 
     /** Renderuje sekcję motywu (blok section_type=theme). Brak schematu/szablonu = pusty string. */
@@ -510,6 +778,7 @@ class HbEditorThemeSection
             'sec'       => self::resolve($schema['fields'], $sd, $idLang, $module),
             'sec_block' => ['id' => (int) ($block['id_block'] ?? 0), 'slug' => $slug],
             'hbe_theme' => self::globalValues($module),
+            'sec_pdf'   => self::pdfInfo($schema) ?: ['url' => '', 'exists' => false],
         ]);
 
         return (string) $context->smarty->fetch($tpl);
