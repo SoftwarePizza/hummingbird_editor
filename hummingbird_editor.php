@@ -459,7 +459,7 @@ class Hummingbird_editor extends Module
     {
         $this->name    = 'hummingbird_editor';
         $this->tab     = 'front_office_features';
-        $this->version = '1.23.3';
+        $this->version = '1.24.0';
         $this->author  = 'Custom';
         $this->need_instance   = 0;
         $this->bootstrap       = true;
@@ -2123,6 +2123,10 @@ class Hummingbird_editor extends Module
 
         $this->setupCartPreview();
         $this->setupWishlistPreview();
+
+        // Na koncu: motyw, moduly przed nami w tym hooku i nasze wlasne pliki
+        // sa juz zarejestrowane — dopisujemy im mtime jako wersje w adresie.
+        $this->versionLocalAssets();
     }
 
     /**
@@ -2344,6 +2348,73 @@ class Hummingbird_editor extends Module
         $mtime = @filemtime(_PS_MODULE_DIR_ . $this->name . '/' . $relativeFile);
 
         return $mtime ? (string) $mtime : $this->version;
+    }
+
+    /**
+     * Wersja (mtime) w adresie KAZDEGO lokalnego CSS/JS strony — takze theme.css,
+     * custom.css i arkuszy motywu potomnego, ktore rdzen rejestruje bez wersji.
+     *
+     * Apache nie wysyla dla nich Cache-Control, wiec przegladarka trzyma je
+     * heurystycznie po Last-Modified: przy pliku sprzed tygodnia nawet
+     * kilkanascie godzin. Po wdrozeniu klient (zwlaszcza na telefonie) oglada
+     * stary wyglad, dopoki mu ten cache nie wygasnie. Nowy adres omija to od razu.
+     *
+     * Robimy to dopiero w actionFrontControllerSetMedia, gdy lista jest kompletna,
+     * i przepisujemy ja W CALOSCI w dotychczasowej kolejnosci: sortowanie po
+     * priorytecie jest stabilne, wiec ponowna rejestracja samych plikow motywu
+     * przesunelaby je za moduly o tym samym priorytecie i zmienila kaskade.
+     *
+     * Pomijane: CCC (reducer sklada bundle po sciezkach i nazywa go sam wg
+     * PS_CCC*_VERSION) oraz serwer mediow (rdzen przepisuje wtedy sciezki na
+     * zdalne i ponowna rejestracja by je zdublowala).
+     */
+    private function versionLocalAssets(): void
+    {
+        $controller = $this->context->controller;
+        if (!$controller instanceof FrontController || Tools::hasMediaServer()) {
+            return;
+        }
+
+        $root = rtrim(_PS_ROOT_DIR_, '/');
+        $base = rtrim(__PS_BASE_URI__, '/');
+        $stamp = static function (array $asset) use ($root, $base): ?string {
+            if (($asset['server'] ?? 'local') !== 'local' || empty($asset['path'])) {
+                return null;
+            }
+            $path = (string) $asset['path'];
+            if ($base !== '' && strpos($path, $base) === 0) {
+                $path = substr($path, strlen($base));
+            }
+            $mtime = @filemtime($root . $path);
+
+            return $mtime ? (string) $mtime : null;
+        };
+
+        if (!Configuration::get('PS_CSS_THEME_CACHE')) {
+            $list = $controller->getStylesheets();
+            foreach ($list['external'] ?? [] as $css) {
+                $controller->unregisterStylesheet($css['id']);
+                $params = ['media' => $css['media'], 'priority' => $css['priority']];
+                if ($version = $stamp($css)) {
+                    $params['version'] = $version;
+                }
+                $controller->registerStylesheet($css['id'], $css['path'], $params);
+            }
+        }
+
+        if (!Configuration::get('PS_JS_THEME_CACHE')) {
+            $list = $controller->getJavascript();
+            foreach ($list as $position => $types) {
+                foreach ($types['external'] ?? [] as $js) {
+                    $controller->unregisterJavascript($js['id']);
+                    $params = ['position' => $position, 'priority' => $js['priority'], 'attributes' => $js['attribute'] ?? null];
+                    if ($version = $stamp($js)) {
+                        $params['version'] = $version;
+                    }
+                    $controller->registerJavascript($js['id'], $js['path'], $params);
+                }
+            }
+        }
     }
 
     /**
