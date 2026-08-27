@@ -681,3 +681,6 @@
 .hbe-list__nested > label { font-weight: 600; font-size: 12px; }
 .hbe-list__add { margin: 0 0 6px; }
 .hbe-pdf-row { margin: 4px 0 10px; font-size: 12px; }
+
+/* pole techniczne edytora list (JSON) — BO ma textarea{display:block}, ktore bije atrybut hidden */
+textarea.hbe-list-json { display: none !important; }
